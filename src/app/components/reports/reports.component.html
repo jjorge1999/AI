@@ -1,0 +1,126 @@
+<div class="reports-section">
+  <!-- Summary Cards -->
+  <div class="summary-grid">
+    <div class="summary-card income">
+      <div class="card-icon">💰</div>
+      <div class="card-content">
+        <div class="card-label">Total Income</div>
+        <div class="card-value">${{ totalIncome | number:'1.2-2' }}</div>
+      </div>
+    </div>
+
+    <div class="summary-card expense">
+      <div class="card-icon">💸</div>
+      <div class="card-content">
+        <div class="card-label">Total Expenses</div>
+        <div class="card-value">${{ totalExpenses | number:'1.2-2' }}</div>
+      </div>
+    </div>
+
+    <div class="summary-card profit" [class.negative]="netProfit < 0">
+      <div class="card-icon">{{ netProfit >= 0 ? '📈' : '📉' }}</div>
+      <div class="card-content">
+        <div class="card-label">Net Profit</div>
+        <div class="card-value">${{ netProfit | number:'1.2-2' }}</div>
+      </div>
+    </div>
+
+    <div class="summary-card margin">
+      <div class="card-icon">📊</div>
+      <div class="card-content">
+        <div class="card-label">Profit Margin</div>
+        <div class="card-value">{{ profitMargin | number:'1.1-1' }}%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Income vs Expense Chart -->
+  <div class="card chart-card">
+    <h3>
+      <span class="icon">📊</span>
+      Income vs Expenses
+    </h3>
+
+    <div class="comparison-chart">
+      <div class="chart-row">
+        <div class="chart-label">Income</div>
+        <div class="chart-bar-wrapper">
+          <div 
+            class="chart-bar income-bar" 
+            [style.width.%]="incomePercentage"
+            [title]="'$' + (totalIncome | number:'1.2-2')"
+          ></div>
+        </div>
+        <div class="chart-value">${{ totalIncome | number:'1.2-2' }}</div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-label">Expenses</div>
+        <div class="chart-bar-wrapper">
+          <div 
+            class="chart-bar expense-bar" 
+            [style.width.%]="expensePercentage"
+            [title]="'$' + (totalExpenses | number:'1.2-2')"
+          ></div>
+        </div>
+        <div class="chart-value">${{ totalExpenses | number:'1.2-2' }}</div>
+      </div>
+    </div>
+
+    <div class="chart-legend">
+      <div class="legend-item">
+        <span class="legend-color income-color"></span>
+        <span>Income ({{ incomePercentage | number:'1.1-1' }}%)</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-color expense-color"></span>
+        <span>Expenses ({{ expensePercentage | number:'1.1-1' }}%)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Breakdown -->
+  <div class="breakdown-grid">
+    <div class="card">
+      <h3>
+        <span class="icon">💵</span>
+        Income Breakdown
+      </h3>
+      <div class="breakdown-stats">
+        <div class="stat-row">
+          <span class="stat-label">Total Sales:</span>
+          <span class="stat-value">{{ completedSalesCount }}</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Pending Deliveries:</span>
+          <span class="stat-value">{{ pendingSalesCount }}</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Average Sale:</span>
+          <span class="stat-value">${{ averageSale | number:'1.2-2' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>
+        <span class="icon">💳</span>
+        Expense Breakdown
+      </h3>
+      <div class="breakdown-stats">
+        <div class="stat-row">
+          <span class="stat-label">Total Expenses:</span>
+          <span class="stat-value">{{ expenses.length }}</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Average Expense:</span>
+          <span class="stat-value">${{ expenses.length > 0 ? (totalExpenses / expenses.length) : 0 | number:'1.2-2' }}</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Expense Ratio:</span>
+          <span class="stat-value">{{ expensePercentage | number:'1.1-1' }}%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

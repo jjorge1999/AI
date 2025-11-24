@@ -1,0 +1,52 @@
+<div class="landing-page">
+  <div class="hero-section">
+    <div class="hero-content">
+      <div class="hero-icon">📦</div>
+      <h1 class="hero-title">Welcome to JJM Inventory</h1>
+      <p class="hero-subtitle">Your complete business management solution</p>
+      <p class="hero-description">
+        Streamline your inventory, sales, and customer management all in one place.
+        Track expenses, monitor profits, and grow your business with confidence.
+      </p>
+      <div class="hero-stats">
+        <div class="stat-item">
+          <div class="stat-icon">⚡</div>
+          <div class="stat-text">Fast & Efficient</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-icon">🔒</div>
+          <div class="stat-text">Secure & Reliable</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-icon">📱</div>
+          <div class="stat-text">Fully Responsive</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="features-section">
+    <h2 class="section-title">Powerful Features</h2>
+    <p class="section-subtitle">Everything you need to manage your business effectively</p>
+    
+    <div class="features-grid">
+      <div class="feature-card" *ngFor="let feature of features">
+        <div class="feature-icon">{{ feature.icon }}</div>
+        <h3 class="feature-title">{{ feature.title }}</h3>
+        <p class="feature-description">{{ feature.description }}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta-section">
+    <div class="cta-content">
+      <h2 class="cta-title">Ready to Get Started?</h2>
+      <p class="cta-description">
+        Choose a tab above to begin managing your inventory, processing sales, or viewing reports.
+      </p>
+      <div class="cta-arrow">
+        <span class="arrow-icon">↑</span>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,311 @@
+<div class="inventory-section">
+  <div class="inventory-content">
+    <!-- Sales Analytics -->
+    <div class="card analytics-card">
+      <h3>
+        <span class="icon">📈</span>
+        Sales Analytics
+      </h3>
+
+      <div class="analytics-grid">
+        <div class="chart-container">
+          <h4>Sales by Category</h4>
+          <div class="bar-chart">
+            <div class="bar-item" *ngFor="let item of salesByCategory">
+              <div class="bar-label">{{ item.category }}</div>
+              <div class="bar-wrapper">
+                <div 
+                  class="bar-fill" 
+                  [style.width.%]="(item.total / totalSalesValue * 100)"
+                  [title]="'$' + item.total.toFixed(2)"
+                ></div>
+              </div>
+              <div class="bar-value">${{ item.total.toFixed(2) }} ({{ item.count }})</div>
+            </div>
+            <div class="empty-chart" *ngIf="salesByCategory.length === 0">
+              No sales data yet
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">💰</div>
+        <div class="stat-info">
+          <div class="stat-label">Total Inventory Value</div>
+          <div class="stat-value">${{ totalInventoryValue.toFixed(2) }}</div>
+        </div>
+      </div>
+
+      <div class="stat-card success">
+        <div class="stat-icon">📊</div>
+        <div class="stat-info">
+          <div class="stat-label">Total Sales</div>
+          <div class="stat-value">${{ totalSalesValue.toFixed(2) }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lists-container">
+      <!-- Available Products -->
+      <div class="card">
+        <h3>
+          <span class="icon">📦</span>
+          Available Inventory
+          <span class="badge">{{ availableProducts.length }}</span>
+        </h3>
+
+        <div class="product-list" *ngIf="availableProducts.length > 0; else noAvailable">
+          <div class="product-item" *ngFor="let product of paginatedAvailableProducts">
+            <div class="product-image-wrapper" *ngIf="product.imageUrl">
+              <img 
+                [src]="product.imageUrl" 
+                [alt]="product.name" 
+                class="product-image"
+                loading="lazy"
+              />
+            </div>
+            <div class="product-image-wrapper placeholder" *ngIf="!product.imageUrl">
+              <span class="placeholder-icon">📦</span>
+            </div>
+            <div class="product-info">
+              <div class="product-name">{{ product.name }}</div>
+              <div class="product-category">{{ product.category }}</div>
+            </div>
+            <div class="product-details">
+              <div class="product-price">${{ product.price.toFixed(2) }}</div>
+              <div class="product-stock">Stock: {{ product.quantity }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pagination for Available Products -->
+        <div class="pagination" *ngIf="availableProductsTotalPages > 1 || availableProducts.length > 10">
+          <div class="pagination-size">
+            <label for="availablePageSize">Show:</label>
+            <select 
+              id="availablePageSize"
+              [(ngModel)]="availableProductsPageSize"
+              (change)="onAvailablePageSizeChange()"
+              class="page-size-select"
+            >
+              <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+            </select>
+            <span>per page</span>
+          </div>
+
+          <div class="pagination-controls" *ngIf="availableProductsTotalPages > 1">
+            <button 
+              class="pagination-btn" 
+              [disabled]="availableProductsPage === 1"
+              (click)="prevAvailablePage()"
+            >
+              ← Prev
+            </button>
+            
+            <div class="pagination-pages">
+              <button 
+                *ngFor="let page of getPageNumbers(availableProductsTotalPages)"
+                class="pagination-page"
+                [class.active]="page === availableProductsPage"
+                (click)="goToAvailablePage(page)"
+              >
+                {{ page }}
+              </button>
+            </div>
+
+            <button 
+              class="pagination-btn" 
+              [disabled]="availableProductsPage === availableProductsTotalPages"
+              (click)="nextAvailablePage()"
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+
+        <ng-template #noAvailable>
+          <div class="empty-state">
+            <p>No available products</p>
+          </div>
+        </ng-template>
+      </div>
+
+      <!-- Sales History -->
+      <div class="card">
+        <div class="section-header">
+          <h3>
+            <span class="icon">💰</span>
+            Sales History
+            <span class="badge">{{ filteredSales.length }}</span>
+          </h3>
+          
+          <div class="filter-group">
+            <label for="categoryFilter">Filter by Category:</label>
+            <select 
+              id="categoryFilter" 
+              [(ngModel)]="selectedCategory"
+              (change)="salesPage = 1"
+              class="category-filter"
+            >
+              <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="sales-list" *ngIf="sales.length > 0; else noSales">
+          <div class="sale-item" *ngFor="let sale of paginatedSales">
+            <div class="sale-info">
+              <div class="sale-name">{{ sale.productName }}</div>
+              <div class="sale-details-text">
+                {{ sale.quantitySold }} × ${{ sale.price.toFixed(2) }}
+              </div>
+              <div class="delivery-badge" *ngIf="sale.deliveryDate">
+                🚚 {{ sale.deliveryDate | date:'MMM d, y' }}
+              </div>
+            </div>
+            <div class="sale-amount">
+              <div class="sale-total">${{ sale.total.toFixed(2) }}</div>
+              <div class="sale-date">{{ sale.timestamp | date:'short' }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pagination for Sales -->
+        <div class="pagination" *ngIf="salesTotalPages > 1 || filteredSales.length > 10">
+          <div class="pagination-size">
+            <label for="salesPageSize">Show:</label>
+            <select 
+              id="salesPageSize"
+              [(ngModel)]="salesPageSize"
+              (change)="onSalesPageSizeChange()"
+              class="page-size-select"
+            >
+              <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+            </select>
+            <span>per page</span>
+          </div>
+
+          <div class="pagination-controls" *ngIf="salesTotalPages > 1">
+            <button 
+              class="pagination-btn" 
+              [disabled]="salesPage === 1"
+              (click)="prevSalesPage()"
+            >
+              ← Prev
+            </button>
+            
+            <div class="pagination-pages">
+              <button 
+                *ngFor="let page of getPageNumbers(salesTotalPages)"
+                class="pagination-page"
+                [class.active]="page === salesPage"
+                (click)="goToSalesPage(page)"
+              >
+                {{ page }}
+              </button>
+            </div>
+
+            <button 
+              class="pagination-btn" 
+              [disabled]="salesPage === salesTotalPages"
+              (click)="nextSalesPage()"
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+
+        <ng-template #noSales>
+          <div class="empty-state">
+            <p>No sales yet</p>
+          </div>
+        </ng-template>
+      </div>
+
+    <!-- Out of Stock -->
+    <div class="card out-of-stock-section" *ngIf="outOfStockProducts.length > 0">
+      <h3>
+        <span class="icon">⚠️</span>
+        Out of Stock
+        <span class="badge warning">{{ outOfStockProducts.length }}</span>
+      </h3>
+
+      <div class="product-list">
+        <div class="product-item dimmed" *ngFor="let product of paginatedOutOfStockProducts">
+          <div class="product-image-wrapper" *ngIf="product.imageUrl">
+            <img 
+              [src]="product.imageUrl" 
+              [alt]="product.name" 
+              class="product-image"
+              loading="lazy"
+            />
+          </div>
+          <div class="product-image-wrapper placeholder" *ngIf="!product.imageUrl">
+            <span class="placeholder-icon">📦</span>
+          </div>
+          <div class="product-info">
+            <div class="product-name">{{ product.name }}</div>
+            <div class="product-category">{{ product.category }}</div>
+          </div>
+          <div class="product-details">
+            <div class="product-price">${{ product.price.toFixed(2) }}</div>
+            <div class="product-stock out">Out of Stock</div>
+            <button class="btn-restock" (click)="onRestock(product)">
+              ➕ Restock
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pagination for Out of Stock -->
+      <div class="pagination" *ngIf="outOfStockTotalPages > 1 || outOfStockProducts.length > 10">
+        <div class="pagination-size">
+          <label for="outOfStockPageSize">Show:</label>
+          <select 
+            id="outOfStockPageSize"
+            [(ngModel)]="outOfStockPageSize"
+            (change)="onOutOfStockPageSizeChange()"
+            class="page-size-select"
+          >
+            <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+          </select>
+          <span>per page</span>
+        </div>
+
+        <div class="pagination-controls" *ngIf="outOfStockTotalPages > 1">
+          <button 
+            class="pagination-btn" 
+            [disabled]="outOfStockPage === 1"
+            (click)="prevOutOfStockPage()"
+          >
+            ← Prev
+          </button>
+          
+          <div class="pagination-pages">
+            <button 
+              *ngFor="let page of getPageNumbers(outOfStockTotalPages)"
+              class="pagination-page"
+              [class.active]="page === outOfStockPage"
+              (click)="goToOutOfStockPage(page)"
+            >
+              {{ page }}
+            </button>
+          </div>
+
+          <button 
+            class="pagination-btn" 
+            [disabled]="outOfStockPage === outOfStockTotalPages"
+            (click)="nextOutOfStockPage()"
+          >
+            Next →
+          </button>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,86 @@
+<div class="customer-container">
+  <!-- Customer Registration Form -->
+  <div class="card">
+    <h3>Register New Customer</h3>
+    <form (ngSubmit)="onSubmit()" class="form">
+      <div class="form-group">
+        <label for="customerName">Customer Name *</label>
+        <input
+          type="text"
+          id="customerName"
+          [(ngModel)]="customer.name"
+          name="name"
+          placeholder="Enter customer name"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="phoneNumber">Phone Number *</label>
+        <input
+          type="tel"
+          id="phoneNumber"
+          [(ngModel)]="customer.phoneNumber"
+          name="phoneNumber"
+          placeholder="e.g., +1 234 567 8900"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="deliveryAddress">Delivery Address *</label>
+        <textarea
+          id="deliveryAddress"
+          [(ngModel)]="customer.deliveryAddress"
+          name="deliveryAddress"
+          placeholder="Enter full delivery address"
+          rows="3"
+          required
+        ></textarea>
+      </div>
+
+      <button type="submit" [disabled]="!isValid()" class="btn-primary">
+        <span>👤</span>
+        Add Customer
+      </button>
+    </form>
+  </div>
+
+  <!-- Customer List -->
+  <div class="card">
+    <h3>
+      <span class="icon">👥</span>
+      Registered Customers
+      <span class="badge">{{ customers.length }}</span>
+    </h3>
+
+    <div class="customer-list" *ngIf="customers.length > 0; else noCustomers">
+      <div class="customer-item" *ngFor="let cust of customers">
+        <div class="customer-info">
+          <div class="customer-name">{{ cust.name }}</div>
+          <div class="customer-details">
+            <div class="detail-row">
+              <span class="detail-icon">📞</span>
+              <span>{{ cust.phoneNumber }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-icon">📍</span>
+              <span>{{ cust.deliveryAddress }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="customer-actions">
+          <button class="btn-delete" (click)="deleteCustomer(cust.id)">
+            🗑️
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <ng-template #noCustomers>
+      <div class="empty-state">
+        <p>No customers registered yet</p>
+      </div>
+    </ng-template>
+  </div>
+</div>

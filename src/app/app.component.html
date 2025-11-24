@@ -1,0 +1,148 @@
+<!-- Login Page -->
+<app-login *ngIf="!isLoggedIn"></app-login>
+
+<!-- Main Application -->
+<div *ngIf="isLoggedIn">
+<header class="header">
+  <div class="container">
+    <div class="header-content">
+      <div class="logo-section">
+        <div class="logo-icon">📦</div>
+        <div class="brand-info">
+          <h1>JJM Inventory</h1>
+          <p class="tagline">Smart Business Management</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="theme-toggle" (click)="toggleTheme()" [title]="isDarkTheme ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
+          <span class="theme-icon">{{ isDarkTheme ? '☀️' : '🌙' }}</span>
+        </button>
+        <button class="logout-button" (click)="logout()" title="Logout">
+          <span class="logout-icon">🚪</span>
+          <span class="logout-text">Logout</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <!-- Tab Navigation -->
+  <nav class="tabs">
+    <button 
+      class="tab-button" 
+      [class.active]="activeTab === 'home'"
+      (click)="setActiveTab('home')"
+    >
+      <span class="tab-icon">🏠</span>
+      <span class="tab-label">Home</span>
+    </button>
+    <button 
+      class="tab-button" 
+      [class.active]="activeTab === 'add-product'"
+      (click)="setActiveTab('add-product')"
+    >
+      <span class="tab-icon">📦</span>
+      <span class="tab-label">Add Product</span>
+    </button>
+    <button 
+      class="tab-button" 
+      [class.active]="activeTab === 'sell'"
+      (click)="setActiveTab('sell')"
+    >
+      <span class="tab-icon">💰</span>
+      <span class="tab-label">Sell</span>
+    </button>
+    <button 
+      class="tab-button" 
+      [class.active]="activeTab === 'inventory'"
+      (click)="setActiveTab('inventory')"
+    >
+      <span class="tab-icon">📊</span>
+      <span class="tab-label">Inventory</span>
+    </button>
+    <button 
+      class="tab-button" 
+      [class.active]="activeTab === 'customers'"
+      (click)="setActiveTab('customers')"
+    >
+      <span class="tab-icon">👥</span>
+      <span class="tab-label">Customers</span>
+    </button>
+    <button 
+      class="tab-button" 
+      [class.active]="activeTab === 'expenses'"
+      (click)="setActiveTab('expenses')"
+    >
+      <span class="tab-icon">💸</span>
+      <span class="tab-label">Expenses</span>
+    </button>
+    <button 
+      class="tab-button" 
+      [class.active]="activeTab === 'reports'"
+      (click)="setActiveTab('reports')"
+    >
+      <span class="tab-icon">📊</span>
+      <span class="tab-label">Reports</span>
+    </button>
+  </nav>
+
+  <!-- Tab Content -->
+  <div class="tab-content">
+    <!-- Home Tab -->
+    <div class="tab-pane" *ngIf="activeTab === 'home'">
+      <div class="tab-pane-content">
+        <app-landing></app-landing>
+      </div>
+    </div>
+    <!-- Add Product Tab -->
+    <div class="tab-pane" *ngIf="activeTab === 'add-product'">
+      <div class="tab-pane-content">
+        <app-product-form></app-product-form>
+      </div>
+    </div>
+
+    <!-- Sell Tab -->
+    <div class="tab-pane" *ngIf="activeTab === 'sell'">
+      <div class="tab-pane-content">
+        <app-pos-calculator></app-pos-calculator>
+      </div>
+    </div>
+
+    <!-- Inventory Tab -->
+    <div class="tab-pane" *ngIf="activeTab === 'inventory'">
+      <div class="tab-pane-content">
+        <app-inventory-list></app-inventory-list>
+      </div>
+    </div>
+
+    <!-- Customers Tab -->
+    <div class="tab-pane" *ngIf="activeTab === 'customers'">
+      <div class="tab-pane-content">
+        <app-customer-form></app-customer-form>
+      </div>
+    </div>
+
+    <!-- Expenses Tab -->
+    <div class="tab-pane" *ngIf="activeTab === 'expenses'">
+      <div class="tab-pane-content">
+        <app-expenses></app-expenses>
+      </div>
+    </div>
+
+    <!-- Reports Tab -->
+    <div class="tab-pane" *ngIf="activeTab === 'reports'">
+      <div class="tab-pane-content">
+        <app-reports></app-reports>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <p>&copy; 2024 JJM Inventory. All rights reserved.</p>
+  </div>
+</footer>
+</div>
+

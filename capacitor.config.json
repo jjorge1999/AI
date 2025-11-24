@@ -1,0 +1,6 @@
+{
+  "appId": "com.jjm.inventory",
+  "appName": "jjm-inventory",
+  "webDir": "dist/jjm-inventory/browser",
+  "bundledWebRuntime": false
+}
