@@ -115,7 +115,11 @@
           }
         },
         "deploy": {
-          "builder": "angular-cli-ghpages:deploy"
+          "builder": "angular-cli-ghpages:deploy",
+          "options": {
+            "baseHref": "https://jjorge1999.github.io/AI/",
+            "name": "jjm-inventory"
+          }
         }
       }
     }
