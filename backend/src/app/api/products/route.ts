@@ -1,0 +1,41 @@
+import { NextResponse } from 'next/server';
+import { db } from '@/lib/firebase';
+import { Product } from '@/lib/models';
+
+const COLLECTION_NAME = 'products';
+
+export async function GET() {
+  try {
+    const snapshot = await db.collection(COLLECTION_NAME).get();
+    const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return NextResponse.json(products);
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    let id = body.id;
+    
+    if (id) {
+      await db.collection(COLLECTION_NAME).doc(id).set({
+        ...body,
+        createdAt: body.createdAt || new Date(),
+      });
+    } else {
+      const docRef = await db.collection(COLLECTION_NAME).add({
+        ...body,
+        createdAt: new Date(),
+      });
+      id = docRef.id;
+    }
+    
+    return NextResponse.json({ id, ...body }, { status: 201 });
+  } catch (error) {
+    console.error('Error adding product:', error);
+    return NextResponse.json({ error: 'Failed to add product' }, { status: 500 });
+  }
+}

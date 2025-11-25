@@ -1,14 +1,14 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { Product, Sale, Expense } from '../models/inventory.models';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class InventoryService {
-  private readonly STORAGE_KEY_PRODUCTS = 'jjm_products';
-  private readonly STORAGE_KEY_SALES = 'jjm_sales';
-  private readonly STORAGE_KEY_EXPENSES = 'jjm_expenses';
+  private apiUrl = environment.apiUrl;
 
   private productsSubject = new BehaviorSubject<Product[]>([]);
   private salesSubject = new BehaviorSubject<Sale[]>([]);
@@ -18,52 +18,35 @@ export class InventoryService {
   public sales$ = this.salesSubject.asObservable();
   public expenses$ = this.expensesSubject.asObservable();
 
-  constructor() {
-    this.loadFromStorage();
+  constructor(private http: HttpClient) {
+    this.loadInitialData();
   }
 
-  private loadFromStorage(): void {
-    try {
-      const productsData = localStorage.getItem(this.STORAGE_KEY_PRODUCTS);
-      const salesData = localStorage.getItem(this.STORAGE_KEY_SALES);
-
-      if (productsData) {
-        const products = JSON.parse(productsData);
-        this.productsSubject.next(products);
-      }
-
-      if (salesData) {
-        const sales = JSON.parse(salesData);
-        this.salesSubject.next(sales);
-      }
-
-      const expensesData = localStorage.getItem(this.STORAGE_KEY_EXPENSES);
-      if (expensesData) {
-        const expenses = JSON.parse(expensesData);
-        this.expensesSubject.next(expenses);
-      }
-    } catch (error) {
-      console.error('Error loading from localStorage:', error);
-    }
+  private loadInitialData(): void {
+    this.fetchProducts();
+    this.fetchSales();
+    this.fetchExpenses();
   }
 
-  private saveToStorage(): void {
-    try {
-      localStorage.setItem(
-        this.STORAGE_KEY_PRODUCTS,
-        JSON.stringify(this.productsSubject.value)
-      );
-      localStorage.setItem(
-        this.STORAGE_KEY_SALES,
-        JSON.stringify(this.salesSubject.value)
-      );
-      localStorage.setItem(
-        this.STORAGE_KEY_EXPENSES,
-        JSON.stringify(this.expensesSubject.value)
-      );
-    } catch (error) {
-      console.error('Error saving to localStorage:', error);
-    }
+  private fetchProducts(): void {
+    this.http.get<Product[]>(`${this.apiUrl}/products`).subscribe({
+      next: (products) => this.productsSubject.next(products),
+      error: (err) => console.error('Error fetching products:', err)
+    });
+  }
+
+  private fetchSales(): void {
+    this.http.get<Sale[]>(`${this.apiUrl}/sales`).subscribe({
+      next: (sales) => this.salesSubject.next(sales),
+      error: (err) => console.error('Error fetching sales:', err)
+    });
+  }
+
+  private fetchExpenses(): void {
+    this.http.get<Expense[]>(`${this.apiUrl}/expenses`).subscribe({
+      next: (expenses) => this.expensesSubject.next(expenses),
+      error: (err) => console.error('Error fetching expenses:', err)
+    });
   }
 
   getProducts(): Observable<Product[]> {
@@ -79,25 +62,23 @@ export class InventoryService {
   }
 
   addExpense(expense: Omit<Expense, 'id' | 'timestamp'>): void {
-    const newExpense: Expense = {
-      ...expense,
-      id: this.generateId(),
-      timestamp: new Date()
-    };
-    this.expensesSubject.next([...this.expensesSubject.value, newExpense]);
-    this.saveToStorage();
+    this.http.post<Expense>(`${this.apiUrl}/expenses`, expense).subscribe({
+      next: (newExpense) => {
+        const current = this.expensesSubject.value;
+        this.expensesSubject.next([...current, newExpense]);
+      },
+      error: (err) => console.error('Error adding expense:', err)
+    });
   }
 
   addProduct(product: Omit<Product, 'id' | 'createdAt'>): void {
-    const newProduct: Product = {
-      ...product,
-      id: this.generateId(),
-      createdAt: new Date()
-    };
-
-    const currentProducts = this.productsSubject.value;
-    this.productsSubject.next([...currentProducts, newProduct]);
-    this.saveToStorage();
+    this.http.post<Product>(`${this.apiUrl}/products`, product).subscribe({
+      next: (newProduct) => {
+        const current = this.productsSubject.value;
+        this.productsSubject.next([...current, newProduct]);
+      },
+      error: (err) => console.error('Error adding product:', err)
+    });
   }
 
   recordSale(productId: string, quantitySold: number, cashReceived: number, deliveryDate?: Date, deliveryNotes?: string): void {
@@ -119,9 +100,7 @@ export class InventoryService {
       throw new Error('Insufficient cash');
     }
 
-    // Create sale record with pending flag
-    const sale: Sale = {
-      id: this.generateId(),
+    const saleData = {
       productId: product.id,
       productName: product.name,
       category: product.category,
@@ -130,52 +109,97 @@ export class InventoryService {
       total,
       cashReceived,
       change,
-      timestamp: new Date(),
       deliveryDate,
       deliveryNotes,
-      pending: true // mark as pending delivery
+      pending: true
     };
 
-    // Update product quantity
-    const updatedProducts = products.map(p =>
-      p.id === productId
-        ? { ...p, quantity: p.quantity - quantitySold }
-        : p
-    );
+    this.http.post<Sale>(`${this.apiUrl}/sales`, saleData).subscribe({
+      next: (newSale) => {
+        // Update local sales state
+        const currentSales = this.salesSubject.value;
+        this.salesSubject.next([...currentSales, newSale]);
 
-    this.productsSubject.next(updatedProducts);
-    this.salesSubject.next([...this.salesSubject.value, sale]);
-    this.saveToStorage();
+        // Update product quantity via API
+        const updatedProduct = { ...product, quantity: product.quantity - quantitySold };
+        this.updateProduct(updatedProduct);
+      },
+      error: (err) => console.error('Error recording sale:', err)
+    });
   }
 
   completePendingSale(saleId: string): void {
-    const currentSales = this.salesSubject.value;
-    const updatedSales = currentSales.map(sale => 
-      sale.id === saleId ? { ...sale, pending: false } : sale
-    );
-    this.salesSubject.next(updatedSales);
-    this.saveToStorage();
+    this.http.put<Sale>(`${this.apiUrl}/sales/${saleId}`, { pending: false }).subscribe({
+      next: () => {
+        const currentSales = this.salesSubject.value;
+        const updatedSales = currentSales.map(sale => 
+          sale.id === saleId ? { ...sale, pending: false } : sale
+        );
+        this.salesSubject.next(updatedSales);
+      },
+      error: (err) => console.error('Error completing sale:', err)
+    });
   }
 
   restockProduct(productId: string, quantityToAdd: number): void {
     const products = this.productsSubject.value;
-    const updatedProducts = products.map(p =>
-      p.id === productId
-        ? { ...p, quantity: p.quantity + quantityToAdd }
-        : p
-    );
-    this.productsSubject.next(updatedProducts);
-    this.saveToStorage();
+    const product = products.find(p => p.id === productId);
+    
+    if (product) {
+      const updatedProduct = { ...product, quantity: product.quantity + quantityToAdd };
+      this.updateProduct(updatedProduct);
+    }
   }
 
-  private generateId(): string {
-    return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  private updateProduct(product: Product): void {
+    this.http.put<Product>(`${this.apiUrl}/products/${product.id}`, product).subscribe({
+      next: () => {
+        const currentProducts = this.productsSubject.value;
+        const updatedProducts = currentProducts.map(p =>
+          p.id === product.id ? product : p
+        );
+        this.productsSubject.next(updatedProducts);
+      },
+      error: (err) => console.error('Error updating product:', err)
+    });
   }
 
   clearAllData(): void {
+    // Optional: Implement API endpoint to clear all data if needed
+    // For now, just clear local state
     this.productsSubject.next([]);
     this.salesSubject.next([]);
-    localStorage.removeItem(this.STORAGE_KEY_PRODUCTS);
-    localStorage.removeItem(this.STORAGE_KEY_SALES);
+    this.expensesSubject.next([]);
+  }
+
+  migrateFromLocalStorage(): void {
+    const productsData = localStorage.getItem('jjm_products');
+    const salesData = localStorage.getItem('jjm_sales');
+    const expensesData = localStorage.getItem('jjm_expenses');
+
+    if (productsData) {
+      const products: Product[] = JSON.parse(productsData);
+      products.forEach(p => this.addProduct(p));
+    }
+
+    if (salesData) {
+      const sales: Sale[] = JSON.parse(salesData);
+      // We need a way to add sales without triggering stock updates if they are already recorded
+      // For simplicity, we'll just add them as records. 
+      // Ideally, the backend should handle bulk import or we check existence.
+      // Here we just POST them.
+      sales.forEach(s => {
+        this.http.post(`${this.apiUrl}/sales`, s).subscribe({
+          error: (err) => console.error('Error migrating sale:', err)
+        });
+      });
+    }
+
+    if (expensesData) {
+      const expenses: Expense[] = JSON.parse(expensesData);
+      expenses.forEach(e => this.addExpense(e));
+    }
+
+    console.log('Migration started...');
   }
 }

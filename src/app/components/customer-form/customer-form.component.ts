@@ -13,6 +13,7 @@ import { Customer } from '../../models/inventory.models';
 })
 export class CustomerFormComponent implements OnInit {
   customers: Customer[] = [];
+  editingId: string | null = null;
   
   customer = {
     name: '',
@@ -30,24 +31,54 @@ export class CustomerFormComponent implements OnInit {
 
   onSubmit(): void {
     if (this.isValid()) {
-      this.customerService.addCustomer({
-        name: this.customer.name,
-        phoneNumber: this.customer.phoneNumber,
-        deliveryAddress: this.customer.deliveryAddress
-      });
+      if (this.editingId) {
+        this.customerService.updateCustomer(this.editingId, {
+          name: this.customer.name,
+          phoneNumber: this.customer.phoneNumber,
+          deliveryAddress: this.customer.deliveryAddress
+        });
+        this.editingId = null;
+      } else {
+        this.customerService.addCustomer({
+          name: this.customer.name,
+          phoneNumber: this.customer.phoneNumber,
+          deliveryAddress: this.customer.deliveryAddress
+        });
+      }
 
       // Reset form
-      this.customer = {
-        name: '',
-        phoneNumber: '',
-        deliveryAddress: ''
-      };
+      this.resetForm();
     }
+  }
+
+  editCustomer(cust: Customer): void {
+    this.editingId = cust.id;
+    this.customer = {
+      name: cust.name,
+      phoneNumber: cust.phoneNumber || '',
+      deliveryAddress: cust.deliveryAddress || ''
+    };
+  }
+
+  cancelEdit(): void {
+    this.editingId = null;
+    this.resetForm();
+  }
+
+  resetForm(): void {
+    this.customer = {
+      name: '',
+      phoneNumber: '',
+      deliveryAddress: ''
+    };
   }
 
   deleteCustomer(id: string): void {
     if (confirm('Are you sure you want to delete this customer?')) {
       this.customerService.deleteCustomer(id);
+      if (this.editingId === id) {
+        this.cancelEdit();
+      }
     }
   }
 

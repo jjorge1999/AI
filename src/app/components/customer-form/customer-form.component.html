@@ -1,7 +1,7 @@
 <div class="customer-container">
   <!-- Customer Registration Form -->
   <div class="card">
-    <h3>Register New Customer</h3>
+    <h3>{{ editingId ? "Edit Customer" : "Register New Customer" }}</h3>
     <form (ngSubmit)="onSubmit()" class="form">
       <div class="form-group">
         <label for="customerName">Customer Name *</label>
@@ -39,10 +39,20 @@
         ></textarea>
       </div>
 
-      <button type="submit" [disabled]="!isValid()" class="btn-primary">
-        <span>👤</span>
-        Add Customer
-      </button>
+      <div class="form-actions">
+        <button
+          type="button"
+          *ngIf="editingId"
+          (click)="cancelEdit()"
+          class="btn-secondary"
+        >
+          Cancel
+        </button>
+        <button type="submit" [disabled]="!isValid()" class="btn-primary">
+          <span>{{ editingId ? "💾" : "👤" }}</span>
+          {{ editingId ? "Update Customer" : "Add Customer" }}
+        </button>
+      </div>
     </form>
   </div>
 
@@ -55,7 +65,11 @@
     </h3>
 
     <div class="customer-list" *ngIf="customers.length > 0; else noCustomers">
-      <div class="customer-item" *ngFor="let cust of customers">
+      <div
+        class="customer-item"
+        *ngFor="let cust of customers"
+        [class.editing]="cust.id === editingId"
+      >
         <div class="customer-info">
           <div class="customer-name">{{ cust.name }}</div>
           <div class="customer-details">
@@ -70,7 +84,18 @@
           </div>
         </div>
         <div class="customer-actions">
-          <button class="btn-delete" (click)="deleteCustomer(cust.id)">
+          <button
+            class="btn-edit"
+            (click)="editCustomer(cust)"
+            [disabled]="!!editingId && editingId !== cust.id"
+          >
+            ✏️
+          </button>
+          <button
+            class="btn-delete"
+            (click)="deleteCustomer(cust.id)"
+            [disabled]="!!editingId"
+          >
             🗑️
           </button>
         </div>

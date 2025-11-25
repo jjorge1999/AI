@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { InventoryService } from './services/inventory.service';
 import { ProductFormComponent } from './components/product-form/product-form.component';
 import { PosCalculatorComponent } from './components/pos-calculator/pos-calculator.component';
 import { InventoryListComponent } from './components/inventory-list/inventory-list.component';
@@ -32,7 +33,7 @@ export class AppComponent {
   isDarkTheme = false;
   isLoggedIn = false;
 
-  constructor() {
+  constructor(private inventoryService: InventoryService) {
     // Check login status
     this.isLoggedIn = localStorage.getItem('jjm_logged_in') === 'true';
     
@@ -40,6 +41,9 @@ export class AppComponent {
     const savedTheme = localStorage.getItem('jjm_theme');
     this.isDarkTheme = savedTheme === 'dark';
     this.applyTheme();
+
+    // Expose service for migration
+    (window as any).inventoryService = this.inventoryService;
   }
 
   setActiveTab(tab: 'home' | 'add-product' | 'sell' | 'inventory' | 'customers' | 'expenses' | 'reports'): void {
