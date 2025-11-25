@@ -50,7 +50,59 @@ export class PosCalculatorComponent implements OnInit {
 
     this.inventoryService.getSales().subscribe(sales => {
       this.pendingSales = sales.filter(s => s.pending === true);
+      this.startAlarmChecks();
     });
+  }
+
+  private startAlarmChecks(): void {
+    // Check every hour
+    setInterval(() => this.checkPendingDeliveryAlarms(), 60 * 60 * 1000);
+    // Also run immediately
+    this.checkPendingDeliveryAlarms();
+  }
+
+  private checkPendingDeliveryAlarms(): void {
+    const now = new Date();
+    this.pendingSales.forEach(sale => {
+      if (!sale.deliveryDate) return;
+      const delivery = new Date(sale.deliveryDate);
+      const diffMs = delivery.getTime() - now.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      if (diffDays === 1 || diffDays === 2) {
+        this.triggerAlarm(sale, diffDays);
+      }
+    });
+  }
+
+  private triggerAlarm(sale: Sale, daysAhead: number): void {
+  const deliveryDate = new Date(sale.deliveryDate as any);
+  const dateStr = deliveryDate.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+  const message = `⚠️ Delivery for "${sale.productName}" is due in ${daysAhead} day(s) (${dateStr}).`;
+  // Visual alert
+  alert(message);
+  // Loud beep
+  this.playBeep();
+}
+
+  private playBeep(): void {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(1000, ctx.currentTime);
+      gain.gain.setValueAtTime(0.5, ctx.currentTime);
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.5);
+    } catch (e) {
+      console.error('Audio alarm failed', e);
+    }
   }
 
   get selectedProduct(): Product | undefined {
