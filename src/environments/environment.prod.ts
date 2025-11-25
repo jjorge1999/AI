@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: '/api' // Assuming served from same origin or configured otherwise
+  apiUrl: 'https://inventory-nmlqeq4zj-jomzs-projects-d0964e3c.vercel.app/api'
 };
