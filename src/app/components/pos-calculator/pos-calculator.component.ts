@@ -97,14 +97,23 @@ export class PosCalculatorComponent implements OnInit {
     }
 
     try {
-      const deliveryDateObj = this.deliveryDate ? new Date(this.deliveryDate) : undefined;
+      let deliveryDateObj: Date | undefined;
+      
+      if (this.deliveryDate) {
+        if (this.deliveryTime) {
+          deliveryDateObj = new Date(`${this.deliveryDate}T${this.deliveryTime}`);
+        } else {
+          deliveryDateObj = new Date(this.deliveryDate);
+        }
+      }
       
       this.inventoryService.recordSale(
         this.selectedProductId,
         this.quantity,
         this.cashReceived,
         deliveryDateObj,
-        this.deliveryNotes || undefined
+        this.deliveryNotes || undefined,
+        this.selectedCustomerId || undefined
       );
 
       // Reset form

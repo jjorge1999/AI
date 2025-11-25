@@ -134,6 +134,33 @@
         </ng-template>
       </div>
 
+      <!-- Pending Deliveries -->
+      <div class="card pending-section" *ngIf="pendingSales.length > 0">
+        <h3>
+          <span class="icon">🚚</span>
+          Pending Deliveries
+          <span class="badge warning">{{ pendingSales.length }}</span>
+        </h3>
+
+        <div class="sales-list">
+          <div class="sale-item" *ngFor="let sale of pendingSales">
+            <div class="sale-info">
+              <div class="sale-name">{{ sale.productName }}</div>
+              <div class="sale-details-text">
+                {{ sale.quantitySold }} × ${{ sale.price.toFixed(2) }}
+              </div>
+              <div class="delivery-badge warning">
+                Pending Delivery
+              </div>
+            </div>
+            <div class="sale-amount">
+              <div class="sale-total">${{ sale.total.toFixed(2) }}</div>
+              <div class="sale-date">{{ sale.timestamp | date:'medium' }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Sales History -->
       <div class="card">
         <div class="section-header">

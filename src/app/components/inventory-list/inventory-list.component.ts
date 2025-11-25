@@ -46,6 +46,10 @@ export class InventoryListComponent implements OnInit {
     });
   }
 
+  get pendingSales(): Sale[] {
+    return this.sales.filter(s => s.pending === true);
+  }
+
   get filteredSales(): Sale[] {
     // Exclude pending sales; only show completed ones
     const completed = this.sales.filter(s => s.pending !== true);

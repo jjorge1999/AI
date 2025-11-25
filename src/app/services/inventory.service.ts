@@ -81,7 +81,7 @@ export class InventoryService {
     });
   }
 
-  recordSale(productId: string, quantitySold: number, cashReceived: number, deliveryDate?: Date, deliveryNotes?: string): void {
+  recordSale(productId: string, quantitySold: number, cashReceived: number, deliveryDate?: Date, deliveryNotes?: string, customerId?: string): void {
     const products = this.productsSubject.value;
     const product = products.find(p => p.id === productId);
 
@@ -111,6 +111,7 @@ export class InventoryService {
       change,
       deliveryDate,
       deliveryNotes,
+      customerId,
       pending: true
     };
 
