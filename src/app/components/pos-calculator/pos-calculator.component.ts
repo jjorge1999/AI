@@ -68,7 +68,7 @@ export class PosCalculatorComponent implements OnInit {
       const delivery = new Date(sale.deliveryDate);
       const diffMs = delivery.getTime() - now.getTime();
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      if (diffDays === 1 || diffDays === 2) {
+      if (diffDays) {
         this.triggerAlarm(sale, diffDays);
       }
     });
@@ -82,10 +82,10 @@ export class PosCalculatorComponent implements OnInit {
     day: 'numeric'
   });
   const message = `⚠️ Delivery for "${sale.productName}" is due in ${daysAhead} day(s) (${dateStr}).`;
-  // Visual alert
-  confirm(message);
   // Loud beep
   this.playBeep();
+  // Visual alert
+  alert(message);
 }
 
   private playBeep(): void {
