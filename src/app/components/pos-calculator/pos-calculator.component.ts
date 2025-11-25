@@ -83,7 +83,7 @@ export class PosCalculatorComponent implements OnInit {
   });
   const message = `⚠️ Delivery for "${sale.productName}" is due in ${daysAhead} day(s) (${dateStr}).`;
   // Visual alert
-  alert(message);
+  confirm(message);
   // Loud beep
   this.playBeep();
 }
@@ -99,7 +99,7 @@ export class PosCalculatorComponent implements OnInit {
       oscillator.connect(gain);
       gain.connect(ctx.destination);
       oscillator.start();
-      oscillator.stop(ctx.currentTime + 0.5);
+      oscillator.stop(ctx.currentTime + 2);
     } catch (e) {
       console.error('Audio alarm failed', e);
     }
