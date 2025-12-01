@@ -32,7 +32,9 @@ export class ActivityLogsComponent implements OnInit {
     this.loggingService.getLogs().subscribe((logs) => {
       this.logs = logs.map((log) => ({
         ...log,
-        timestamp: new Date((log.timestamp as any)?._seconds * 1000),
+        timestamp: new Date(
+          (log.timestamp as any)?._seconds * 1000 || new Date()
+        ),
       }));
       this.applyFilters();
     });
