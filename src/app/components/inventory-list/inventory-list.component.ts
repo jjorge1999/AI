@@ -34,6 +34,13 @@ export class InventoryListComponent implements OnInit {
   outOfStockPage = 1;
   outOfStockPageSize = 10;
 
+  // Edit Modal State
+  isEditModalOpen = false;
+  editingProduct: Product | null = null;
+  editProductName: string = '';
+  editProductQuantity: number = 0;
+  editProductPrice: number = 0;
+
   constructor(private inventoryService: InventoryService) {}
 
   ngOnInit(): void {
@@ -206,5 +213,50 @@ export class InventoryListComponent implements OnInit {
         alert('Please enter a valid number greater than 0');
       }
     }
+  }
+
+  openEditModal(product: Product): void {
+    this.editingProduct = product;
+    this.editProductName = product.name;
+    this.editProductQuantity = product.quantity;
+    this.editProductPrice = product.price;
+    this.isEditModalOpen = true;
+  }
+
+  closeEditModal(): void {
+    this.isEditModalOpen = false;
+    this.editingProduct = null;
+    this.editProductName = '';
+    this.editProductQuantity = 0;
+    this.editProductPrice = 0;
+  }
+
+  saveProductEdit(): void {
+    if (!this.editingProduct) return;
+
+    if (!this.editProductName.trim()) {
+      alert('Product name cannot be empty');
+      return;
+    }
+
+    if (this.editProductQuantity < 0) {
+      alert('Quantity cannot be negative');
+      return;
+    }
+
+    if (this.editProductPrice < 0) {
+      alert('Price cannot be negative');
+      return;
+    }
+
+    const updatedProduct: Product = {
+      ...this.editingProduct,
+      name: this.editProductName,
+      quantity: this.editProductQuantity,
+      price: this.editProductPrice
+    };
+
+    this.inventoryService.updateProduct(updatedProduct);
+    this.closeEditModal();
   }
 }

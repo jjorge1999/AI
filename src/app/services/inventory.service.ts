@@ -187,14 +187,35 @@ export class InventoryService {
     }
   }
 
-  private updateProduct(product: Product): void {
+  updateProduct(product: Product): void {
     this.http.put<Product>(`${this.apiUrl}/products/${product.id}`, product).subscribe({
       next: () => {
+        // Update products
         const currentProducts = this.productsSubject.value;
         const updatedProducts = currentProducts.map(p =>
           p.id === product.id ? product : p
         );
         this.productsSubject.next(updatedProducts);
+
+        // Update related sales (Pending and History)
+        const currentSales = this.salesSubject.value;
+        const salesToUpdate = currentSales.filter(s => s.productId === product.id && s.productName !== product.name);
+
+        if (salesToUpdate.length > 0) {
+          // Update local state immediately for responsiveness
+          const updatedSales = currentSales.map(s => 
+            s.productId === product.id ? { ...s, productName: product.name } : s
+          );
+          this.salesSubject.next(updatedSales);
+
+          // Update backend for each sale
+          salesToUpdate.forEach(sale => {
+            const updatedSale = { ...sale, productName: product.name };
+            this.http.put<Sale>(`${this.apiUrl}/sales/${sale.id}`, updatedSale).subscribe({
+              error: (err) => console.error(`Error updating sale ${sale.id} name:`, err)
+            });
+          });
+        }
       },
       error: (err) => console.error('Error updating product:', err)
     });
