@@ -20,6 +20,8 @@ export class PosCalculatorComponent implements OnInit {
   selectedCustomerId = '';
   quantity = 1;
   cashReceived = 0;
+  discount = 0;
+  discountType: 'amount' | 'percent' = 'amount';
   errorMessage = '';
 
   // Delivery scheduling
@@ -59,6 +61,9 @@ export class PosCalculatorComponent implements OnInit {
       this.pendingSales = sales.filter((s) => s.pending === true);
       this.startAlarmChecks();
     });
+
+    // Ensure default discount is 0
+    this.discount = 0;
   }
 
   private startAlarmChecks(): void {
@@ -126,10 +131,22 @@ export class PosCalculatorComponent implements OnInit {
     return this.customers.find((c) => c.id === customerId);
   }
 
-  get total(): number {
+  get subtotal(): number {
     return this.selectedProduct
       ? this.selectedProduct.price * this.quantity
       : 0;
+  }
+
+  get total(): number {
+    let t = this.subtotal;
+    if (this.discount > 0) {
+      if (this.discountType === 'percent') {
+        t = t - t * (this.discount / 100);
+      } else {
+        t = t - this.discount;
+      }
+    }
+    return Math.max(0, Math.round(t * 100) / 100);
   }
 
   get change(): number {
@@ -143,6 +160,7 @@ export class PosCalculatorComponent implements OnInit {
   onProductChange(): void {
     this.quantity = 1;
     this.errorMessage = '';
+    this.discount = 0;
   }
 
   processSale(): void {
@@ -182,13 +200,17 @@ export class PosCalculatorComponent implements OnInit {
         this.cashReceived,
         deliveryDateObj,
         this.deliveryNotes || undefined,
-        this.selectedCustomerId || undefined
+        this.selectedCustomerId || undefined,
+        this.discount,
+        this.discountType
       );
 
       // Reset form
       this.selectedProductId = '';
       this.quantity = 1;
       this.cashReceived = 0;
+      this.discount = 0;
+      this.discountType = 'amount';
       this.deliveryDate = this.minDate;
       this.deliveryTime = '';
       this.deliveryNotes = '';

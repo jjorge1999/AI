@@ -23,6 +23,8 @@ export interface Sale {
   deliveryNotes?: string;
   customerId?: string;
   pending?: boolean; // true if sale is pending delivery
+  discount?: number;
+  discountType?: 'amount' | 'percent';
 }
 
 export interface Customer {

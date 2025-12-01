@@ -23,6 +23,8 @@ export interface Sale {
   deliveryDate?: Date | string;
   deliveryNotes?: string;
   pending?: boolean;
+  discount?: number;
+  discountType?: 'amount' | 'percent';
 }
 
 export interface Expense {

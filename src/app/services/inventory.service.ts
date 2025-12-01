@@ -6,7 +6,7 @@ import { environment } from '../../environments/environment';
 import { LoggingService } from './logging.service';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class InventoryService {
   private apiUrl = environment.apiUrl;
@@ -19,7 +19,10 @@ export class InventoryService {
   public sales$ = this.salesSubject.asObservable();
   public expenses$ = this.expensesSubject.asObservable();
 
-  constructor(private http: HttpClient, private loggingService: LoggingService) {
+  constructor(
+    private http: HttpClient,
+    private loggingService: LoggingService
+  ) {
     this.loadInitialData();
   }
 
@@ -32,24 +35,24 @@ export class InventoryService {
   private fetchProducts(): void {
     this.http.get<Product[]>(`${this.apiUrl}/products`).subscribe({
       next: (products) => this.productsSubject.next(products),
-      error: (err) => console.error('Error fetching products:', err)
+      error: (err) => console.error('Error fetching products:', err),
     });
   }
 
   private fetchSales(): void {
     this.http.get<Sale[]>(`${this.apiUrl}/sales`).subscribe({
       next: (sales) => {
-        const parsedSales = sales.map(sale => this.transformSale(sale));
+        const parsedSales = sales.map((sale) => this.transformSale(sale));
         this.salesSubject.next(parsedSales);
       },
-      error: (err) => console.error('Error fetching sales:', err)
+      error: (err) => console.error('Error fetching sales:', err),
     });
   }
 
   private fetchExpenses(): void {
     this.http.get<Expense[]>(`${this.apiUrl}/expenses`).subscribe({
       next: (expenses) => this.expensesSubject.next(expenses),
-      error: (err) => console.error('Error fetching expenses:', err)
+      error: (err) => console.error('Error fetching expenses:', err),
     });
   }
 
@@ -70,10 +73,16 @@ export class InventoryService {
       next: (newExpense) => {
         const current = this.expensesSubject.value;
         this.expensesSubject.next([...current, newExpense]);
-        
-        this.loggingService.logActivity('create', 'expense', newExpense.id, newExpense.productName, `$${newExpense.price.toFixed(2)}`);
+
+        this.loggingService.logActivity(
+          'create',
+          'expense',
+          newExpense.id,
+          newExpense.productName,
+          `$${newExpense.price.toFixed(2)}`
+        );
       },
-      error: (err) => console.error('Error adding expense:', err)
+      error: (err) => console.error('Error adding expense:', err),
     });
   }
 
@@ -82,15 +91,29 @@ export class InventoryService {
       next: (newProduct) => {
         const current = this.productsSubject.value;
         this.productsSubject.next([...current, newProduct]);
-        this.loggingService.logActivity('create', 'product', newProduct.id, newProduct.name);
+        this.loggingService.logActivity(
+          'create',
+          'product',
+          newProduct.id,
+          newProduct.name
+        );
       },
-      error: (err) => console.error('Error adding product:', err)
+      error: (err) => console.error('Error adding product:', err),
     });
   }
 
-  recordSale(productId: string, quantitySold: number, cashReceived: number, deliveryDate?: Date, deliveryNotes?: string, customerId?: string): void {
+  recordSale(
+    productId: string,
+    quantitySold: number,
+    cashReceived: number,
+    deliveryDate?: Date,
+    deliveryNotes?: string,
+    customerId?: string,
+    discount: number = 0,
+    discountType: 'amount' | 'percent' = 'amount'
+  ): void {
     const products = this.productsSubject.value;
-    const product = products.find(p => p.id === productId);
+    const product = products.find((p) => p.id === productId);
 
     if (!product) {
       throw new Error('Product not found');
@@ -100,7 +123,20 @@ export class InventoryService {
       throw new Error('Insufficient quantity');
     }
 
-    const total = product.price * quantitySold;
+    let total = product.price * quantitySold;
+
+    // Apply discount
+    if (discount > 0) {
+      if (discountType === 'percent') {
+        total = total - total * (discount / 100);
+      } else {
+        total = total - discount;
+      }
+    }
+
+    // Ensure total is not negative and round to 2 decimal places
+    total = Math.max(0, Math.round(total * 100) / 100);
+
     const change = cashReceived - total;
 
     if (change < 0) {
@@ -119,7 +155,9 @@ export class InventoryService {
       deliveryDate,
       deliveryNotes,
       customerId,
-      pending: true
+      pending: true,
+      discount,
+      discountType,
     };
 
     this.http.post<Sale>(`${this.apiUrl}/sales`, saleData).subscribe({
@@ -129,45 +167,68 @@ export class InventoryService {
         this.salesSubject.next([...currentSales, this.transformSale(newSale)]);
 
         // Update product quantity via API
-        const updatedProduct = { ...product, quantity: product.quantity - quantitySold };
+        const updatedProduct = {
+          ...product,
+          quantity: product.quantity - quantitySold,
+        };
         this.updateProduct(updatedProduct);
-        
-        this.loggingService.logActivity('create', 'sale', newSale.id, product.name, `Sold ${quantitySold} units`);
+
+        this.loggingService.logActivity(
+          'create',
+          'sale',
+          newSale.id,
+          product.name,
+          `Sold ${quantitySold} units`
+        );
       },
-      error: (err) => console.error('Error recording sale:', err)
+      error: (err) => console.error('Error recording sale:', err),
     });
   }
 
   completePendingSale(saleId: string): void {
-    this.http.put<Sale>(`${this.apiUrl}/sales/${saleId}`, { pending: false }).subscribe({
-      next: () => {
-        const currentSales = this.salesSubject.value;
-        const sale = currentSales.find(s => s.id === saleId);
-        const updatedSales = currentSales.map(sale => 
-          sale.id === saleId ? { ...sale, pending: false } : sale
-        );
-        this.salesSubject.next(updatedSales);
-        
-        if (sale) {
-          this.loggingService.logActivity('complete', 'sale', saleId, sale.productName, 'Marked as delivered');
-        }
-      },
-      error: (err) => console.error('Error completing sale:', err)
-    });
+    this.http
+      .put<Sale>(`${this.apiUrl}/sales/${saleId}`, { pending: false })
+      .subscribe({
+        next: () => {
+          const currentSales = this.salesSubject.value;
+          const sale = currentSales.find((s) => s.id === saleId);
+          const updatedSales = currentSales.map((sale) =>
+            sale.id === saleId ? { ...sale, pending: false } : sale
+          );
+          this.salesSubject.next(updatedSales);
+
+          if (sale) {
+            this.loggingService.logActivity(
+              'complete',
+              'sale',
+              saleId,
+              sale.productName,
+              'Marked as delivered'
+            );
+          }
+        },
+        error: (err) => console.error('Error completing sale:', err),
+      });
   }
 
   updateSale(sale: Sale): void {
     this.http.put<Sale>(`${this.apiUrl}/sales/${sale.id}`, sale).subscribe({
       next: (updatedSale) => {
         const currentSales = this.salesSubject.value;
-        const updatedSales = currentSales.map(s => 
+        const updatedSales = currentSales.map((s) =>
           s.id === sale.id ? this.transformSale(updatedSale) : s
         );
         this.salesSubject.next(updatedSales);
-        
-        this.loggingService.logActivity('update', 'sale', sale.id, sale.productName, 'Updated delivery details');
+
+        this.loggingService.logActivity(
+          'update',
+          'sale',
+          sale.id,
+          sale.productName,
+          'Updated delivery details'
+        );
       },
-      error: (err) => console.error('Error updating sale:', err)
+      error: (err) => console.error('Error updating sale:', err),
     });
   }
 
@@ -175,7 +236,9 @@ export class InventoryService {
     return {
       ...sale,
       timestamp: this.parseDate(sale.timestamp),
-      deliveryDate: sale.deliveryDate ? this.parseDate(sale.deliveryDate) : undefined
+      deliveryDate: sale.deliveryDate
+        ? this.parseDate(sale.deliveryDate)
+        : undefined,
     };
   }
 
@@ -192,49 +255,72 @@ export class InventoryService {
 
   restockProduct(productId: string, quantityToAdd: number): void {
     const products = this.productsSubject.value;
-    const product = products.find(p => p.id === productId);
-    
+    const product = products.find((p) => p.id === productId);
+
     if (product) {
-      const updatedProduct = { ...product, quantity: product.quantity + quantityToAdd };
+      const updatedProduct = {
+        ...product,
+        quantity: product.quantity + quantityToAdd,
+      };
       this.updateProduct(updatedProduct);
-      this.loggingService.logActivity('restock', 'product', productId, product.name, `Added ${quantityToAdd} units`);
+      this.loggingService.logActivity(
+        'restock',
+        'product',
+        productId,
+        product.name,
+        `Added ${quantityToAdd} units`
+      );
     }
   }
 
   updateProduct(product: Product): void {
-    this.http.put<Product>(`${this.apiUrl}/products/${product.id}`, product).subscribe({
-      next: () => {
-        // Update products
-        const currentProducts = this.productsSubject.value;
-        const updatedProducts = currentProducts.map(p =>
-          p.id === product.id ? product : p
-        );
-        this.productsSubject.next(updatedProducts);
-
-        // Update related sales (Pending and History)
-        const currentSales = this.salesSubject.value;
-        const salesToUpdate = currentSales.filter(s => s.productId === product.id && s.productName !== product.name);
-
-        if (salesToUpdate.length > 0) {
-          // Update local state immediately for responsiveness
-          const updatedSales = currentSales.map(s => 
-            s.productId === product.id ? { ...s, productName: product.name } : s
+    this.http
+      .put<Product>(`${this.apiUrl}/products/${product.id}`, product)
+      .subscribe({
+        next: () => {
+          // Update products
+          const currentProducts = this.productsSubject.value;
+          const updatedProducts = currentProducts.map((p) =>
+            p.id === product.id ? product : p
           );
-          this.salesSubject.next(updatedSales);
+          this.productsSubject.next(updatedProducts);
 
-          // Update backend for each sale
-          salesToUpdate.forEach(sale => {
-            const updatedSale = { ...sale, productName: product.name };
-            this.http.put<Sale>(`${this.apiUrl}/sales/${sale.id}`, updatedSale).subscribe({
-              error: (err) => console.error(`Error updating sale ${sale.id} name:`, err)
+          // Update related sales (Pending and History)
+          const currentSales = this.salesSubject.value;
+          const salesToUpdate = currentSales.filter(
+            (s) => s.productId === product.id && s.productName !== product.name
+          );
+
+          if (salesToUpdate.length > 0) {
+            // Update local state immediately for responsiveness
+            const updatedSales = currentSales.map((s) =>
+              s.productId === product.id
+                ? { ...s, productName: product.name }
+                : s
+            );
+            this.salesSubject.next(updatedSales);
+
+            // Update backend for each sale
+            salesToUpdate.forEach((sale) => {
+              const updatedSale = { ...sale, productName: product.name };
+              this.http
+                .put<Sale>(`${this.apiUrl}/sales/${sale.id}`, updatedSale)
+                .subscribe({
+                  error: (err) =>
+                    console.error(`Error updating sale ${sale.id} name:`, err),
+                });
             });
-          });
-        }
-        
-        this.loggingService.logActivity('update', 'product', product.id, product.name);
-      },
-      error: (err) => console.error('Error updating product:', err)
-    });
+          }
+
+          this.loggingService.logActivity(
+            'update',
+            'product',
+            product.id,
+            product.name
+          );
+        },
+        error: (err) => console.error('Error updating product:', err),
+      });
   }
 
   clearAllData(): void {
@@ -252,25 +338,25 @@ export class InventoryService {
 
     if (productsData) {
       const products: Product[] = JSON.parse(productsData);
-      products.forEach(p => this.addProduct(p));
+      products.forEach((p) => this.addProduct(p));
     }
 
     if (salesData) {
       const sales: Sale[] = JSON.parse(salesData);
       // We need a way to add sales without triggering stock updates if they are already recorded
-      // For simplicity, we'll just add them as records. 
+      // For simplicity, we'll just add them as records.
       // Ideally, the backend should handle bulk import or we check existence.
       // Here we just POST them.
-      sales.forEach(s => {
+      sales.forEach((s) => {
         this.http.post(`${this.apiUrl}/sales`, s).subscribe({
-          error: (err) => console.error('Error migrating sale:', err)
+          error: (err) => console.error('Error migrating sale:', err),
         });
       });
     }
 
     if (expensesData) {
       const expenses: Expense[] = JSON.parse(expensesData);
-      expenses.forEach(e => this.addExpense(e));
+      expenses.forEach((e) => this.addExpense(e));
     }
 
     console.log('Migration started...');

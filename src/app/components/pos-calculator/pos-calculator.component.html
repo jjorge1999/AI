@@ -80,6 +80,31 @@
       </div>
     </div>
 
+    <!-- Discount Section -->
+    <div class="form-row">
+      <div class="form-group">
+        <label>Discount Type</label>
+        <div class="radio-group">
+          <label class="radio-label">
+            <input type="radio" [(ngModel)]="discountType" name="discountType" value="amount"> Amount ($)
+          </label>
+          <label class="radio-label">
+            <input type="radio" [(ngModel)]="discountType" name="discountType" value="percent"> Percent (%)
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="discount">Discount Value</label>
+        <input
+          type="number"
+          id="discount"
+          [(ngModel)]="discount"
+          name="discount"
+          min="0"
+        />
+      </div>
+    </div>
+
     <!-- Delivery Scheduling Section -->
     <div class="delivery-section">
       <h4 class="section-title">
@@ -127,6 +152,14 @@
 
     <div class="transaction-summary" *ngIf="selectedProduct">
       <div class="summary-row">
+        <span class="label">Subtotal:</span>
+        <span class="value">${{ subtotal.toFixed(2) }}</span>
+      </div>
+      <div class="summary-row" *ngIf="discount > 0">
+        <span class="label">Discount:</span>
+        <span class="value discount-value">- ${{ (subtotal - total).toFixed(2) }}</span>
+      </div>
+      <div class="summary-row total-row">
         <span class="label">Total:</span>
         <span class="value">${{ total.toFixed(2) }}</span>
       </div>
