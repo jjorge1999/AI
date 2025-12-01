@@ -285,12 +285,12 @@
             <div class="product-price">${{ product.price.toFixed(2) }}</div>
             <div class="product-stock out">Out of Stock</div>
             <div class="product-actions">
-              <button class="btn-edit-sm" (click)="openEditModal(product)">
+              <!-- <button class="btn-edit-sm" (click)="openEditModal(product)">
                 ✏️ Edit
-              </button>
-              <!-- <button class="btn-restock" (click)="onRestock(product)">
-                ➕ Restock
               </button> -->
+              <button class="btn-restock" (click)="onRestock(product)">
+                ➕ Restock
+              </button>
             </div>
           </div>
         </div>
