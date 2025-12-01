@@ -28,6 +28,13 @@ export class PosCalculatorComponent implements OnInit {
   deliveryNotes: string = '';
   minDate: string = '';
 
+  // Edit Modal State
+  isEditModalOpen = false;
+  editingSale: Sale | null = null;
+  editDeliveryDate: string = '';
+  editDeliveryTime: string = '';
+  editDeliveryNotes: string = '';
+
   constructor(
     private inventoryService: InventoryService,
     private customerService: CustomerService
@@ -193,5 +200,51 @@ export class PosCalculatorComponent implements OnInit {
     if (confirm('Are you sure you want to mark this item as delivered?')) {
       this.inventoryService.completePendingSale(saleId);
     }
+  }
+
+  openEditModal(sale: Sale): void {
+    this.editingSale = sale;
+    this.isEditModalOpen = true;
+    
+    if (sale.deliveryDate) {
+      const dateObj = new Date(sale.deliveryDate);
+      this.editDeliveryDate = dateObj.toISOString().split('T')[0];
+      this.editDeliveryTime = dateObj.toTimeString().substring(0, 5);
+    } else {
+      this.editDeliveryDate = '';
+      this.editDeliveryTime = '';
+    }
+    
+    this.editDeliveryNotes = sale.deliveryNotes || '';
+  }
+
+  closeEditModal(): void {
+    this.isEditModalOpen = false;
+    this.editingSale = null;
+    this.editDeliveryDate = '';
+    this.editDeliveryTime = '';
+    this.editDeliveryNotes = '';
+  }
+
+  saveEdit(): void {
+    if (!this.editingSale) return;
+
+    let newDeliveryDate: Date | undefined;
+    if (this.editDeliveryDate) {
+      if (this.editDeliveryTime) {
+        newDeliveryDate = new Date(`${this.editDeliveryDate}T${this.editDeliveryTime}`);
+      } else {
+        newDeliveryDate = new Date(this.editDeliveryDate);
+      }
+    }
+
+    const updatedSale: Sale = {
+      ...this.editingSale,
+      deliveryDate: newDeliveryDate,
+      deliveryNotes: this.editDeliveryNotes
+    };
+
+    this.inventoryService.updateSale(updatedSale);
+    this.closeEditModal();
   }
 }

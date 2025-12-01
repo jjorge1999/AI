@@ -37,7 +37,10 @@ export class InventoryService {
 
   private fetchSales(): void {
     this.http.get<Sale[]>(`${this.apiUrl}/sales`).subscribe({
-      next: (sales) => this.salesSubject.next(sales),
+      next: (sales) => {
+        const parsedSales = sales.map(sale => this.transformSale(sale));
+        this.salesSubject.next(parsedSales);
+      },
       error: (err) => console.error('Error fetching sales:', err)
     });
   }
@@ -119,7 +122,7 @@ export class InventoryService {
       next: (newSale) => {
         // Update local sales state
         const currentSales = this.salesSubject.value;
-        this.salesSubject.next([...currentSales, newSale]);
+        this.salesSubject.next([...currentSales, this.transformSale(newSale)]);
 
         // Update product quantity via API
         const updatedProduct = { ...product, quantity: product.quantity - quantitySold };
@@ -140,6 +143,38 @@ export class InventoryService {
       },
       error: (err) => console.error('Error completing sale:', err)
     });
+  }
+
+  updateSale(sale: Sale): void {
+    this.http.put<Sale>(`${this.apiUrl}/sales/${sale.id}`, sale).subscribe({
+      next: (updatedSale) => {
+        const currentSales = this.salesSubject.value;
+        const updatedSales = currentSales.map(s => 
+          s.id === sale.id ? this.transformSale(updatedSale) : s
+        );
+        this.salesSubject.next(updatedSales);
+      },
+      error: (err) => console.error('Error updating sale:', err)
+    });
+  }
+
+  private transformSale(sale: any): Sale {
+    return {
+      ...sale,
+      timestamp: this.parseDate(sale.timestamp),
+      deliveryDate: sale.deliveryDate ? this.parseDate(sale.deliveryDate) : undefined
+    };
+  }
+
+  private parseDate(date: any): Date {
+    if (!date) return new Date();
+    if (date instanceof Date) return date;
+    if (typeof date === 'string') return new Date(date);
+    // Handle Firestore Timestamp or similar objects
+    if (typeof date === 'object' && date._seconds !== undefined) {
+      return new Date(date._seconds * 1000);
+    }
+    return new Date(date);
   }
 
   restockProduct(productId: string, quantityToAdd: number): void {
