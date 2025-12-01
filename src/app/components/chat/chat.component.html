@@ -1,44 +1,108 @@
 <div class="chat-container">
-  <div class="chat-header">
-    <h2>💬 Team Chat</h2>
-    <button class="btn-name" (click)="changeName()" title="Change your name">
-      {{ senderName }}
-    </button>
+  <!-- Registration Form -->
+  <div *ngIf="!isRegistered" class="registration-container">
+    <div class="registration-card">
+      <h2>📋 Customer Information</h2>
+      <p class="registration-subtitle">Please provide your information to use the chat</p>
+      
+      <form class="registration-form" (ngSubmit)="registerCustomer()">
+        <div class="form-group">
+          <label for="customerName">Full Name *</label>
+          <input
+            type="text"
+            id="customerName"
+            [(ngModel)]="customerInfo.name"
+            name="customerName"
+            placeholder="Enter your full name"
+            class="form-input"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="phoneNumber">Phone Number *</label>
+          <input
+            type="tel"
+            id="phoneNumber"
+            [(ngModel)]="customerInfo.phoneNumber"
+            name="phoneNumber"
+            placeholder="e.g., +1 234 567 8900"
+            class="form-input"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="address">Delivery Address *</label>
+          <textarea
+            id="address"
+            [(ngModel)]="customerInfo.address"
+            name="address"
+            placeholder="Enter your complete delivery address"
+            class="form-textarea"
+            rows="3"
+            required
+          ></textarea>
+        </div>
+
+        <button type="submit" class="btn-register">
+          Start Chat
+        </button>
+      </form>
+    </div>
   </div>
 
-  <div class="messages-container" #messagesContainer>
-    <div *ngIf="messages.length === 0" class="no-messages">
-      No messages yet. Start the conversation!
-    </div>
-
-    <div
-      *ngFor="let message of messages"
-      class="message"
-      [class.my-message]="isMyMessage(message)"
-      [class.other-message]="!isMyMessage(message)"
-    >
-      <div class="message-header">
-        <span class="sender-name">{{ message.senderName }}</span>
-        <span class="message-time">{{ formatTime(message.timestamp) }}</span>
+  <!-- Chat Interface (shown after registration) -->
+  <div *ngIf="isRegistered" class="chat-wrapper">
+    <div class="chat-header">
+      <div class="header-content">
+        <h2>💬 Customer Support Chat</h2>
+        <div class="user-info">
+          <span class="user-name">{{ senderName }}</span>
+          <button class="btn-edit" (click)="changeInfo()" title="Edit information">
+            ✏️
+          </button>
+          <button class="btn-logout" (click)="logout()" title="Logout">
+            🚪
+          </button>
+        </div>
       </div>
-      <div class="message-text">{{ message.text }}</div>
     </div>
-  </div>
 
-  <div class="input-container">
-    <input
-      type="text"
-      [(ngModel)]="newMessage"
-      (keyup.enter)="sendMessage()"
-      placeholder="Type a message..."
-      class="message-input"
-    />
-    <button
-      (click)="sendMessage()"
-      [disabled]="!newMessage.trim()"
-      class="btn-send"
-    >
-      Send
-    </button>
+    <div class="messages-container" #messagesContainer>
+      <div *ngIf="messages.length === 0" class="no-messages">
+        No messages yet. Start the conversation!
+      </div>
+
+      <div
+        *ngFor="let message of messages"
+        class="message"
+        [class.my-message]="isMyMessage(message)"
+        [class.other-message]="!isMyMessage(message)"
+      >
+        <div class="message-header">
+          <span class="sender-name">{{ message.senderName }}</span>
+          <span class="message-time">{{ formatTime(message.timestamp) }}</span>
+        </div>
+        <div class="message-text">{{ message.text }}</div>
+      </div>
+    </div>
+
+    <div class="input-container">
+      <input
+        type="text"
+        [(ngModel)]="newMessage"
+        (keyup.enter)="sendMessage()"
+        placeholder="Type a message..."
+        class="message-input"
+      />
+      <button
+        (click)="sendMessage()"
+        [disabled]="!newMessage.trim()"
+        class="btn-send"
+      >
+        Send
+      </button>
+    </div>
   </div>
 </div>

@@ -8,7 +8,13 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ChatService } from '../../services/chat.service';
-import { Message } from '../../models/inventory.models';
+import { Message, Customer } from '../../models/inventory.models';
+
+interface CustomerInfo {
+  name: string;
+  phoneNumber: string;
+  address: string;
+}
 
 @Component({
   selector: 'app-chat',
@@ -25,17 +31,67 @@ export class ChatComponent implements OnInit, AfterViewChecked {
   senderName = '';
   private shouldScroll = false;
 
+  // Customer registration
+  isRegistered = false;
+  customerInfo: CustomerInfo = {
+    name: '',
+    phoneNumber: '',
+    address: '',
+  };
+
   constructor(private chatService: ChatService) {}
 
   ngOnInit(): void {
-    // Get sender name from localStorage or prompt
-    this.senderName = localStorage.getItem('chatUserName') || '';
-    this.senderName = localStorage.getItem('chatUserName') || '';
-    if (!this.senderName) {
-      this.senderName = 'User ' + Math.floor(Math.random() * 1000);
-      localStorage.setItem('chatUserName', this.senderName);
+    // Check if customer info exists in localStorage
+    const savedCustomerInfo = localStorage.getItem('chatCustomerInfo');
+    if (savedCustomerInfo) {
+      this.customerInfo = JSON.parse(savedCustomerInfo);
+      this.senderName = this.customerInfo.name;
+      this.isRegistered = true;
+      this.loadMessages();
+    }
+  }
+
+  ngAfterViewChecked(): void {
+    if (this.shouldScroll) {
+      this.scrollToBottom();
+      this.shouldScroll = false;
+    }
+  }
+
+  registerCustomer(): void {
+    // Validate all fields
+    if (!this.customerInfo.name.trim()) {
+      alert('Please enter your name');
+      return;
+    }
+    if (!this.customerInfo.phoneNumber.trim()) {
+      alert('Please enter your phone number');
+      return;
+    }
+    if (!this.customerInfo.address.trim()) {
+      alert('Please enter your address');
+      return;
     }
 
+    // Validate phone number format (simple validation)
+    const phoneRegex = /^[\d\s\-\+\(\)]+$/;
+    if (!phoneRegex.test(this.customerInfo.phoneNumber)) {
+      alert('Please enter a valid phone number');
+      return;
+    }
+
+    // Save customer info
+    localStorage.setItem('chatCustomerInfo', JSON.stringify(this.customerInfo));
+    localStorage.setItem('chatUserName', this.customerInfo.name);
+    this.senderName = this.customerInfo.name;
+    this.isRegistered = true;
+
+    // Load messages after registration
+    this.loadMessages();
+  }
+
+  private loadMessages(): void {
     // Subscribe to messages
     this.chatService.getMessages().subscribe({
       next: (messages) => {
@@ -51,13 +107,6 @@ export class ChatComponent implements OnInit, AfterViewChecked {
         console.error('Error loading messages:', error);
       },
     });
-  }
-
-  ngAfterViewChecked(): void {
-    if (this.shouldScroll) {
-      this.scrollToBottom();
-      this.shouldScroll = false;
-    }
   }
 
   sendMessage(): void {
@@ -96,11 +145,30 @@ export class ChatComponent implements OnInit, AfterViewChecked {
     return message.senderName === this.senderName;
   }
 
-  changeName(): void {
-    const newName = prompt('Enter your new name:', this.senderName);
-    if (newName && newName.trim()) {
-      this.senderName = newName.trim();
-      localStorage.setItem('chatUserName', this.senderName);
+  changeInfo(): void {
+    const confirmChange = confirm(
+      'Do you want to update your customer information?'
+    );
+    if (confirmChange) {
+      this.isRegistered = false;
+      // Keep existing info for editing
+    }
+  }
+
+  logout(): void {
+    const confirmLogout = confirm(
+      'Are you sure you want to logout? Your information will be cleared.'
+    );
+    if (confirmLogout) {
+      localStorage.removeItem('chatCustomerInfo');
+      localStorage.removeItem('chatUserName');
+      this.isRegistered = false;
+      this.customerInfo = {
+        name: '',
+        phoneNumber: '',
+        address: '',
+      };
+      this.messages = [];
     }
   }
 }
