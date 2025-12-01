@@ -40,3 +40,14 @@ export interface Expense {
   notes?: string;
   timestamp: Date;
 }
+
+export interface ActivityLog {
+  id: string;
+  action: string; // 'create', 'update', 'delete', 'restock', 'complete'
+  entityType: string; // 'product', 'sale', 'expense', 'customer'
+  entityId: string;
+  entityName: string;
+  details?: string;
+  timestamp: Date;
+  userId?: string;
+}

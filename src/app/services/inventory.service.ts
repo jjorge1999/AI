@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { Product, Sale, Expense } from '../models/inventory.models';
 import { environment } from '../../environments/environment';
+import { LoggingService } from './logging.service';
 
 @Injectable({
   providedIn: 'root'
@@ -18,7 +19,7 @@ export class InventoryService {
   public sales$ = this.salesSubject.asObservable();
   public expenses$ = this.expensesSubject.asObservable();
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private loggingService: LoggingService) {
     this.loadInitialData();
   }
 
@@ -69,6 +70,8 @@ export class InventoryService {
       next: (newExpense) => {
         const current = this.expensesSubject.value;
         this.expensesSubject.next([...current, newExpense]);
+        
+        this.loggingService.logActivity('create', 'expense', newExpense.id, newExpense.productName, `$${newExpense.price.toFixed(2)}`);
       },
       error: (err) => console.error('Error adding expense:', err)
     });
@@ -79,6 +82,7 @@ export class InventoryService {
       next: (newProduct) => {
         const current = this.productsSubject.value;
         this.productsSubject.next([...current, newProduct]);
+        this.loggingService.logActivity('create', 'product', newProduct.id, newProduct.name);
       },
       error: (err) => console.error('Error adding product:', err)
     });
@@ -127,6 +131,8 @@ export class InventoryService {
         // Update product quantity via API
         const updatedProduct = { ...product, quantity: product.quantity - quantitySold };
         this.updateProduct(updatedProduct);
+        
+        this.loggingService.logActivity('create', 'sale', newSale.id, product.name, `Sold ${quantitySold} units`);
       },
       error: (err) => console.error('Error recording sale:', err)
     });
@@ -136,10 +142,15 @@ export class InventoryService {
     this.http.put<Sale>(`${this.apiUrl}/sales/${saleId}`, { pending: false }).subscribe({
       next: () => {
         const currentSales = this.salesSubject.value;
+        const sale = currentSales.find(s => s.id === saleId);
         const updatedSales = currentSales.map(sale => 
           sale.id === saleId ? { ...sale, pending: false } : sale
         );
         this.salesSubject.next(updatedSales);
+        
+        if (sale) {
+          this.loggingService.logActivity('complete', 'sale', saleId, sale.productName, 'Marked as delivered');
+        }
       },
       error: (err) => console.error('Error completing sale:', err)
     });
@@ -153,6 +164,8 @@ export class InventoryService {
           s.id === sale.id ? this.transformSale(updatedSale) : s
         );
         this.salesSubject.next(updatedSales);
+        
+        this.loggingService.logActivity('update', 'sale', sale.id, sale.productName, 'Updated delivery details');
       },
       error: (err) => console.error('Error updating sale:', err)
     });
@@ -184,6 +197,7 @@ export class InventoryService {
     if (product) {
       const updatedProduct = { ...product, quantity: product.quantity + quantityToAdd };
       this.updateProduct(updatedProduct);
+      this.loggingService.logActivity('restock', 'product', productId, product.name, `Added ${quantityToAdd} units`);
     }
   }
 
@@ -216,6 +230,8 @@ export class InventoryService {
             });
           });
         }
+        
+        this.loggingService.logActivity('update', 'product', product.id, product.name);
       },
       error: (err) => console.error('Error updating product:', err)
     });

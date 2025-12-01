@@ -82,8 +82,16 @@
       [class.active]="activeTab === 'reports'"
       (click)="setActiveTab('reports')"
     >
-      <span class="tab-icon">📊</span>
+      <span class="tab-icon">📈</span>
       <span class="tab-label">Reports</span>
+    </button>
+    <button 
+      class="tab-button" 
+      [class.active]="activeTab === 'logs'"
+      (click)="setActiveTab('logs')"
+    >
+      <span class="tab-icon">📋</span>
+      <span class="tab-label">Activity Logs</span>
     </button>
   </nav>
 
@@ -134,6 +142,13 @@
     <div class="tab-pane" *ngIf="activeTab === 'reports'">
       <div class="tab-pane-content">
         <app-reports></app-reports>
+      </div>
+    </div>
+
+    <!-- Activity Logs Tab -->
+    <div class="tab-pane" *ngIf="activeTab === 'logs'">
+      <div class="tab-pane-content">
+        <app-activity-logs></app-activity-logs>
       </div>
     </div>
   </div>

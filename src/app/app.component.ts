@@ -9,6 +9,7 @@ import { ExpensesComponent } from './components/expenses/expenses.component';
 import { ReportsComponent } from './components/reports/reports.component';
 import { LandingComponent } from './components/landing/landing.component';
 import { LoginComponent } from './components/login/login.component';
+import { ActivityLogsComponent } from './components/activity-logs/activity-logs.component';
 
 @Component({
   selector: 'app-root',
@@ -22,14 +23,15 @@ import { LoginComponent } from './components/login/login.component';
     ExpensesComponent,
     ReportsComponent,
     LandingComponent,
-    LoginComponent
+    LoginComponent,
+    ActivityLogsComponent
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
 export class AppComponent {
   title = 'JJM Inventory';
-  activeTab: 'home' | 'add-product' | 'sell' | 'inventory' | 'customers' | 'expenses' | 'reports' = 'home';
+  activeTab: 'home' | 'add-product' | 'sell' | 'inventory' | 'customers' | 'expenses' | 'reports' | 'logs' = 'home';
   isDarkTheme = false;
   isLoggedIn = false;
 
@@ -46,7 +48,7 @@ export class AppComponent {
     (window as any).inventoryService = this.inventoryService;
   }
 
-  setActiveTab(tab: 'home' | 'add-product' | 'sell' | 'inventory' | 'customers' | 'expenses' | 'reports'): void {
+  setActiveTab(tab: 'home' | 'add-product' | 'sell' | 'inventory' | 'customers' | 'expenses' | 'reports' | 'logs'): void {
     this.activeTab = tab;
   }
 
