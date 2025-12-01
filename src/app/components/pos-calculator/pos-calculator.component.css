@@ -401,7 +401,36 @@
   background-color: #1976d2;
 }
 
-/* Adjust existing btn-deliver if needed */
-.btn-deliver {
-  white-space: nowrap;
+/* Customer Details in Pending Deliveries */
+.customer-details {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(99, 102, 241, 0.1));
+  border-left: 3px solid #8b5cf6;
+  border-radius: 6px;
+}
+
+.customer-header {
+  font-weight: 600;
+  color: #8b5cf6;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.customer-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.customer-label {
+  font-weight: 500;
+  color: #6b7280;
+  min-width: 60px;
+}
+
+.customer-value {
+  color: #1f2937;
+  font-weight: 400;
 }

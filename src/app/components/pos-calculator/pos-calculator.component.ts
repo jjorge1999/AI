@@ -10,7 +10,7 @@ import { Product, Customer, Sale } from '../../models/inventory.models';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './pos-calculator.component.html',
-  styleUrl: './pos-calculator.component.css'
+  styleUrl: './pos-calculator.component.css',
 })
 export class PosCalculatorComponent implements OnInit {
   products: Product[] = [];
@@ -21,7 +21,7 @@ export class PosCalculatorComponent implements OnInit {
   quantity = 1;
   cashReceived = 0;
   errorMessage = '';
-  
+
   // Delivery scheduling
   deliveryDate: string = '';
   deliveryTime: string = '';
@@ -47,16 +47,16 @@ export class PosCalculatorComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.inventoryService.getProducts().subscribe(products => {
-      this.products = products.filter(p => p.quantity > 0);
+    this.inventoryService.getProducts().subscribe((products) => {
+      this.products = products.filter((p) => p.quantity > 0);
     });
 
-    this.customerService.getCustomers().subscribe(customers => {
+    this.customerService.getCustomers().subscribe((customers) => {
       this.customers = customers;
     });
 
-    this.inventoryService.getSales().subscribe(sales => {
-      this.pendingSales = sales.filter(s => s.pending === true);
+    this.inventoryService.getSales().subscribe((sales) => {
+      this.pendingSales = sales.filter((s) => s.pending === true);
       this.startAlarmChecks();
     });
   }
@@ -70,7 +70,7 @@ export class PosCalculatorComponent implements OnInit {
 
   private checkPendingDeliveryAlarms(): void {
     const now = new Date();
-    this.pendingSales.forEach(sale => {
+    this.pendingSales.forEach((sale) => {
       if (!sale.deliveryDate) return;
       const delivery = new Date(sale.deliveryDate);
       const diffMs = delivery.getTime() - now.getTime();
@@ -82,22 +82,23 @@ export class PosCalculatorComponent implements OnInit {
   }
 
   private triggerAlarm(sale: Sale, daysAhead: number): void {
-  const deliveryDate = new Date(sale.deliveryDate as any);
-  const dateStr = deliveryDate.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
-  const message = `⚠️ Delivery for "${sale.productName}" is due in ${daysAhead} day(s) (${dateStr}).`;
-  // Loud beep
-  this.playBeep();
-  // Visual alert
-  alert(message);
-}
+    const deliveryDate = new Date(sale.deliveryDate as any);
+    const dateStr = deliveryDate.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+    const message = `⚠️ Delivery for "${sale.productName}" is due in ${daysAhead} day(s) (${dateStr}).`;
+    // Loud beep
+    this.playBeep();
+    // Visual alert
+    alert(message);
+  }
 
   private playBeep(): void {
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const ctx = new (window.AudioContext ||
+        (window as any).webkitAudioContext)();
       const oscillator = ctx.createOscillator();
       const gain = ctx.createGain();
       oscillator.type = 'square';
@@ -113,15 +114,22 @@ export class PosCalculatorComponent implements OnInit {
   }
 
   get selectedProduct(): Product | undefined {
-    return this.products.find(p => p.id === this.selectedProductId);
+    return this.products.find((p) => p.id === this.selectedProductId);
   }
 
   get selectedCustomer(): Customer | undefined {
-    return this.customers.find(c => c.id === this.selectedCustomerId);
+    return this.customers.find((c) => c.id === this.selectedCustomerId);
+  }
+
+  getCustomerById(customerId: string | undefined): Customer | undefined {
+    if (!customerId) return undefined;
+    return this.customers.find((c) => c.id === customerId);
   }
 
   get total(): number {
-    return this.selectedProduct ? this.selectedProduct.price * this.quantity : 0;
+    return this.selectedProduct
+      ? this.selectedProduct.price * this.quantity
+      : 0;
   }
 
   get change(): number {
@@ -157,15 +165,17 @@ export class PosCalculatorComponent implements OnInit {
 
     try {
       let deliveryDateObj: Date | undefined;
-      
+
       if (this.deliveryDate) {
         if (this.deliveryTime) {
-          deliveryDateObj = new Date(`${this.deliveryDate}T${this.deliveryTime}`);
+          deliveryDateObj = new Date(
+            `${this.deliveryDate}T${this.deliveryTime}`
+          );
         } else {
           deliveryDateObj = new Date(this.deliveryDate);
         }
       }
-      
+
       this.inventoryService.recordSale(
         this.selectedProductId,
         this.quantity,
@@ -205,7 +215,7 @@ export class PosCalculatorComponent implements OnInit {
   openEditModal(sale: Sale): void {
     this.editingSale = sale;
     this.isEditModalOpen = true;
-    
+
     if (sale.deliveryDate) {
       const dateObj = new Date(sale.deliveryDate);
       this.editDeliveryDate = dateObj.toISOString().split('T')[0];
@@ -214,7 +224,7 @@ export class PosCalculatorComponent implements OnInit {
       this.editDeliveryDate = '';
       this.editDeliveryTime = '';
     }
-    
+
     this.editDeliveryNotes = sale.deliveryNotes || '';
   }
 
@@ -232,7 +242,9 @@ export class PosCalculatorComponent implements OnInit {
     let newDeliveryDate: Date | undefined;
     if (this.editDeliveryDate) {
       if (this.editDeliveryTime) {
-        newDeliveryDate = new Date(`${this.editDeliveryDate}T${this.editDeliveryTime}`);
+        newDeliveryDate = new Date(
+          `${this.editDeliveryDate}T${this.editDeliveryTime}`
+        );
       } else {
         newDeliveryDate = new Date(this.editDeliveryDate);
       }
@@ -241,7 +253,7 @@ export class PosCalculatorComponent implements OnInit {
     const updatedSale: Sale = {
       ...this.editingSale,
       deliveryDate: newDeliveryDate,
-      deliveryNotes: this.editDeliveryNotes
+      deliveryNotes: this.editDeliveryNotes,
     };
 
     this.inventoryService.updateSale(updatedSale);

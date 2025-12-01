@@ -169,6 +169,21 @@
           <span>Qty: {{ sale.quantitySold }}</span>
           <span>Total: ${{ sale.total.toFixed(2) }}</span>
         </div>
+        <div class="customer-details" *ngIf="getCustomerById(sale.customerId) as customer">
+          <div class="customer-header">👤 Customer Details</div>
+          <div class="customer-row">
+            <span class="customer-label">Name:</span>
+            <span class="customer-value">{{ customer.name }}</span>
+          </div>
+          <div class="customer-row">
+            <span class="customer-label">Phone:</span>
+            <span class="customer-value">{{ customer.phoneNumber }}</span>
+          </div>
+          <div class="customer-row">
+            <span class="customer-label">Address:</span>
+            <span class="customer-value">{{ customer.deliveryAddress }}</span>
+          </div>
+        </div>
         <div class="delivery-info" *ngIf="sale.deliveryDate">
           <span>📅 Due: {{ sale.deliveryDate | date : "mediumDate" }}</span>
           <span>📅 Time: {{ sale.deliveryDate | date : "shortTime" }}</span>
