@@ -10,6 +10,7 @@ import { ReportsComponent } from './components/reports/reports.component';
 import { LandingComponent } from './components/landing/landing.component';
 import { LoginComponent } from './components/login/login.component';
 import { ActivityLogsComponent } from './components/activity-logs/activity-logs.component';
+import { ChatComponent } from './components/chat/chat.component';
 
 @Component({
   selector: 'app-root',
@@ -24,21 +25,31 @@ import { ActivityLogsComponent } from './components/activity-logs/activity-logs.
     ReportsComponent,
     LandingComponent,
     LoginComponent,
-    ActivityLogsComponent
+    ActivityLogsComponent,
+    ChatComponent,
   ],
   templateUrl: './app.component.html',
-  styleUrl: './app.component.css'
+  styleUrl: './app.component.css',
 })
 export class AppComponent {
   title = 'JJM Inventory';
-  activeTab: 'home' | 'add-product' | 'sell' | 'inventory' | 'customers' | 'expenses' | 'reports' | 'logs' = 'home';
+  activeTab:
+    | 'home'
+    | 'add-product'
+    | 'sell'
+    | 'inventory'
+    | 'customers'
+    | 'expenses'
+    | 'reports'
+    | 'logs'
+    | 'chat' = 'home';
   isDarkTheme = false;
   isLoggedIn = false;
 
   constructor(private inventoryService: InventoryService) {
     // Check login status
     this.isLoggedIn = localStorage.getItem('jjm_logged_in') === 'true';
-    
+
     // Load theme preference from localStorage
     const savedTheme = localStorage.getItem('jjm_theme');
     this.isDarkTheme = savedTheme === 'dark';
@@ -48,7 +59,18 @@ export class AppComponent {
     (window as any).inventoryService = this.inventoryService;
   }
 
-  setActiveTab(tab: 'home' | 'add-product' | 'sell' | 'inventory' | 'customers' | 'expenses' | 'reports' | 'logs'): void {
+  setActiveTab(
+    tab:
+      | 'home'
+      | 'add-product'
+      | 'sell'
+      | 'inventory'
+      | 'customers'
+      | 'expenses'
+      | 'reports'
+      | 'logs'
+      | 'chat'
+  ): void {
     this.activeTab = tab;
   }
 

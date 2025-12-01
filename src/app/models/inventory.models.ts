@@ -53,3 +53,11 @@ export interface ActivityLog {
   timestamp: Date;
   userId?: string;
 }
+
+export interface Message {
+  id: string;
+  text: string;
+  senderName: string;
+  timestamp: Date;
+  userId?: string;
+}

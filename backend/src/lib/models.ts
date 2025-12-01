@@ -43,3 +43,11 @@ export interface Customer {
   address?: string;
   createdAt: Date | string;
 }
+
+export interface Message {
+  id: string;
+  text: string;
+  senderName: string;
+  timestamp: Date | string;
+  userId?: string;
+}
