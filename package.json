@@ -9,7 +9,8 @@
     "test": "ng test",
     "build:web": "ng build --configuration production",
     "apk:release": "npm run build:web && npx cap copy android && cd android && gradlew.bat assembleRelease",
-    "dev": "concurrently \"npm start\" \"cd backend && npm run dev\""
+    "dev": "concurrently \"npm start\" \"npm run dev --prefix backend\"",
+    "backend": "npm run dev --prefix backend"
   },
   "private": true,
   "dependencies": {

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"next dev\" \"npm run websocket\"",
-    "websocket": "ts-node src/websocket-server.ts",
+    "websocket": "tsx src/websocket-server.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -28,6 +28,7 @@
     "concurrently": "^9.2.1",
     "eslint": "^9",
     "eslint-config-next": "16.0.4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }
