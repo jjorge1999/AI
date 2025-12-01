@@ -163,7 +163,7 @@
 
 .lists-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
   gap: var(--space-xl);
 }
 
@@ -256,6 +256,8 @@ h3 {
   flex-direction: column;
   gap: var(--space-xs);
   flex: 1;
+  align-self: flex-start;
+  padding-top: 4px;
 }
 
 .product-name,
@@ -445,6 +447,39 @@ h3 {
     order: 3;
     width: 100%;
     margin-top: var(--space-sm);
+  }
+
+  /* Responsive font sizes for mobile */
+  h3 {
+    font-size: 1.25rem;
+  }
+
+  .product-name,
+  .sale-name {
+    font-size: 0.95rem;
+  }
+
+  .product-category,
+  .sale-details-text {
+    font-size: 0.8rem;
+  }
+
+  .product-price,
+  .sale-total {
+    font-size: 1rem;
+  }
+
+  .product-stock,
+  .sale-date {
+    font-size: 0.75rem;
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
   }
 }
 

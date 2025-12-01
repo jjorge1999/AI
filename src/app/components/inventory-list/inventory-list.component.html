@@ -278,7 +278,7 @@
             <span class="placeholder-icon">📦</span>
           </div>
           <div class="product-info">
-            <div class="product-name">{{ product.name }}</div>
+            <div class="product-name"> {{ product.name }}<div>
             <div class="product-category">{{ product.category }}</div>
           </div>
           <div class="product-details">
@@ -288,9 +288,9 @@
               <button class="btn-edit-sm" (click)="openEditModal(product)">
                 ✏️ Edit
               </button>
-              <button class="btn-restock" (click)="onRestock(product)">
+              <!-- <button class="btn-restock" (click)="onRestock(product)">
                 ➕ Restock
-              </button>
+              </button> -->
             </div>
           </div>
         </div>
