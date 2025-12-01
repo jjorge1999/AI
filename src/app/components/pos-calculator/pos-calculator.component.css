@@ -426,11 +426,11 @@
 
 .customer-label {
   font-weight: 500;
-  color: #6b7280;
+  color: var(--color-text-muted);
   min-width: 60px;
 }
 
 .customer-value {
-  color: #1f2937;
+  color: var(--color-text);
   font-weight: 400;
 }
