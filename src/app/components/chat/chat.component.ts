@@ -146,29 +146,22 @@ export class ChatComponent implements OnInit, AfterViewChecked {
   }
 
   changeInfo(): void {
-    const confirmChange = confirm(
-      'Do you want to update your customer information?'
-    );
-    if (confirmChange) {
-      this.isRegistered = false;
-      // Keep existing info for editing
-    }
+    confirm('Do you want to update your customer information?');
+    this.isRegistered = false;
   }
 
   logout(): void {
-    const confirmLogout = confirm(
+    confirm(
       'Are you sure you want to logout? Your information will be cleared.'
     );
-    if (confirmLogout) {
-      localStorage.removeItem('chatCustomerInfo');
-      localStorage.removeItem('chatUserName');
-      this.isRegistered = false;
-      this.customerInfo = {
-        name: '',
-        phoneNumber: '',
-        address: '',
-      };
-      this.messages = [];
-    }
+    localStorage.removeItem('chatCustomerInfo');
+    localStorage.removeItem('chatUserName');
+    this.isRegistered = false;
+    this.customerInfo = {
+      name: '',
+      phoneNumber: '',
+      address: '',
+    };
+    this.messages = [];
   }
 }

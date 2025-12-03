@@ -45,6 +45,7 @@ export class AppComponent {
     | 'chat' = 'home';
   isDarkTheme = false;
   isLoggedIn = false;
+  isChatOpen = false;
 
   constructor(private inventoryService: InventoryService) {
     // Check login status
@@ -92,5 +93,9 @@ export class AppComponent {
     } else {
       document.body.classList.remove('dark-theme');
     }
+  }
+
+  toggleChat(): void {
+    this.isChatOpen = !this.isChatOpen;
   }
 }
