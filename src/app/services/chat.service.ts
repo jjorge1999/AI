@@ -1,69 +1,64 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { io, Socket } from 'socket.io-client';
+import { initializeApp } from 'firebase/app';
+import {
+  getFirestore,
+  collection,
+  query,
+  orderBy,
+  limit,
+  onSnapshot,
+  addDoc,
+  Timestamp,
+} from 'firebase/firestore';
+import { environment } from '../../environments/environment';
 import { Message } from '../models/inventory.models';
 
 @Injectable({
   providedIn: 'root',
 })
 export class ChatService {
-  private apiUrl = 'http://localhost:3000/api/messages';
-  private socketUrl = 'http://localhost:3001';
-  private socket: Socket;
+  private app = initializeApp(environment.firebaseConfig);
+  private db = getFirestore(this.app);
   private messagesSubject = new BehaviorSubject<Message[]>([]);
   public messages$ = this.messagesSubject.asObservable();
-  private currentMessages: Message[] = [];
 
-  constructor(private http: HttpClient) {
-    // Initialize Socket connection
-    this.socket = io(this.socketUrl);
-
-    // Load initial history
-    this.loadMessages();
-
-    // Listen for real-time messages
-    this.socket.on('new-message', (message: Message) => {
-      this.handleNewMessage(message);
-    });
+  constructor() {
+    this.listenForMessages();
   }
 
-  private loadMessages(): void {
-    this.http.get<Message[]>(this.apiUrl).subscribe({
-      next: (messages) => {
-        this.currentMessages = messages.map((m) => ({
-          ...m,
-          timestamp: new Date(m.timestamp),
-        }));
-        this.messagesSubject.next(this.currentMessages);
+  private listenForMessages(): void {
+    const messagesRef = collection(this.db, 'messages');
+    const q = query(messagesRef, orderBy('timestamp', 'asc'), limit(100));
+
+    onSnapshot(
+      q,
+      (snapshot) => {
+        const messages = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            text: data['text'],
+            senderName: data['senderName'],
+            timestamp: (data['timestamp'] as Timestamp).toDate(),
+            userId: data['userId'],
+          } as Message;
+        });
+        this.messagesSubject.next(messages);
       },
-      error: (error) => {
-        console.error('Error loading messages:', error);
-      },
-    });
+      (error) => {
+        console.error('Error listening to messages:', error);
+      }
+    );
   }
 
-  private handleNewMessage(message: Message): void {
-    const newMessage = {
-      ...message,
-      timestamp: new Date(message.timestamp),
-    };
-
-    // Prevent duplicates
-    if (!this.currentMessages.find((m) => m.id === newMessage.id)) {
-      this.currentMessages = [...this.currentMessages, newMessage];
-      this.messagesSubject.next(this.currentMessages);
-    }
-  }
-
-  sendMessage(text: string, senderName: string): Observable<Message> {
-    const message = {
+  async sendMessage(text: string, senderName: string): Promise<void> {
+    const messagesRef = collection(this.db, 'messages');
+    await addDoc(messagesRef, {
       text,
       senderName,
       timestamp: new Date(),
-    };
-
-    return this.http.post<Message>(this.apiUrl, message);
+    });
   }
 
   getMessages(): Observable<Message[]> {

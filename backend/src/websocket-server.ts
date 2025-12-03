@@ -10,7 +10,7 @@ app.use(express.json());
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: 'http://localhost:4200', // Angular app
+    origin: process.env.FRONTEND_URL || 'http://localhost:4200', // Angular app
     methods: ['GET', 'POST'],
   },
 });
@@ -31,7 +31,7 @@ app.post('/broadcast', (req, res) => {
   res.status(200).send({ success: true });
 });
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
   console.log(`WebSocket server running on port ${PORT}`);
 });

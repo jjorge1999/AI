@@ -49,8 +49,9 @@ export async function POST(request: Request) {
     };
 
     // Broadcast to WebSocket server
+    const socketUrl = process.env.SOCKET_URL || 'http://localhost:3001';
     try {
-      await fetch('http://localhost:3001/broadcast', {
+      await fetch(`${socketUrl}/broadcast`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newMessage),

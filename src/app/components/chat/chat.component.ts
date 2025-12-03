@@ -112,16 +112,16 @@ export class ChatComponent implements OnInit, AfterViewChecked {
   sendMessage(): void {
     if (!this.newMessage.trim()) return;
 
-    this.chatService.sendMessage(this.newMessage, this.senderName).subscribe({
-      next: () => {
+    this.chatService
+      .sendMessage(this.newMessage, this.senderName)
+      .then(() => {
         this.newMessage = '';
         this.shouldScroll = true;
-      },
-      error: (error) => {
+      })
+      .catch((error) => {
         console.error('Error sending message:', error);
         alert('Failed to send message. Please try again.');
-      },
-    });
+      });
   }
 
   private scrollToBottom(): void {
