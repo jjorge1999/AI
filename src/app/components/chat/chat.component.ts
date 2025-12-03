@@ -146,14 +146,12 @@ export class ChatComponent implements OnInit, AfterViewChecked {
   }
 
   changeInfo(): void {
-    confirm('Do you want to update your customer information?');
+    alert('Do you want to update your customer information?');
     this.isRegistered = false;
   }
 
   logout(): void {
-    confirm(
-      'Are you sure you want to logout? Your information will be cleared.'
-    );
+    alert('Are you sure you want to logout? Your information will be cleared.');
     localStorage.removeItem('chatCustomerInfo');
     localStorage.removeItem('chatUserName');
     this.isRegistered = false;
