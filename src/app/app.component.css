@@ -361,6 +361,7 @@
   opacity: 1;
   transform: translateY(0) scale(1);
   pointer-events: all;
+  overflow: auto;
 }
 
 .chat-modal-close {
