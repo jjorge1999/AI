@@ -13,9 +13,12 @@ import { Product, Customer, Sale } from '../../models/inventory.models';
   styleUrl: './pos-calculator.component.css',
 })
 export class PosCalculatorComponent implements OnInit {
+  // Data collections
   products: Product[] = [];
   customers: Customer[] = [];
   pendingSales: Sale[] = [];
+
+  // Form state
   selectedProductId = '';
   selectedCustomerId = '';
   quantity = 1;
@@ -24,13 +27,16 @@ export class PosCalculatorComponent implements OnInit {
   discountType: 'amount' | 'percent' = 'amount';
   errorMessage = '';
 
-  // Delivery scheduling
+  // Delivery scheduling fields
   deliveryDate: string = '';
   deliveryTime: string = '';
   deliveryNotes: string = '';
   minDate: string = '';
 
-  // Edit Modal State
+  // Filter for pending deliveries
+  deliveryFilterDate: string = '';
+
+  // Edit modal state
   isEditModalOpen = false;
   editingSale: Sale | null = null;
   editDeliveryDate: string = '';
@@ -41,10 +47,8 @@ export class PosCalculatorComponent implements OnInit {
     private inventoryService: InventoryService,
     private customerService: CustomerService
   ) {
-    // Set minimum date to today
     const today = new Date();
     this.minDate = today.toISOString().split('T')[0];
-    // Set default delivery date to today
     this.deliveryDate = this.minDate;
   }
 
@@ -52,17 +56,13 @@ export class PosCalculatorComponent implements OnInit {
     this.inventoryService.getProducts().subscribe((products) => {
       this.products = products.filter((p) => p.quantity > 0);
     });
-
     this.customerService.getCustomers().subscribe((customers) => {
       this.customers = customers;
     });
-
     this.inventoryService.getSales().subscribe((sales) => {
       this.pendingSales = sales.filter((s) => s.pending === true);
       this.startAlarmChecks();
     });
-
-    // Ensure default discount is 0
     this.discount = 0;
   }
 
@@ -71,6 +71,27 @@ export class PosCalculatorComponent implements OnInit {
     setInterval(() => this.checkPendingDeliveryAlarms(), 60 * 60 * 1000);
     // Also run immediately
     this.checkPendingDeliveryAlarms();
+  }
+
+  /** Returns pending sales filtered by selected delivery date (if any) and sorted by delivery date */
+  get filteredPendingSales(): Sale[] {
+    let filtered = this.pendingSales;
+    if (this.deliveryFilterDate) {
+      filtered = filtered.filter((s) => {
+        if (!s.deliveryDate) return false;
+        const dateStr = new Date(s.deliveryDate).toISOString().split('T')[0];
+        return dateStr === this.deliveryFilterDate;
+      });
+    }
+    return filtered.slice().sort((a, b) => {
+      const aTime = a.deliveryDate
+        ? new Date(a.deliveryDate).getTime()
+        : Infinity;
+      const bTime = b.deliveryDate
+        ? new Date(b.deliveryDate).getTime()
+        : Infinity;
+      return aTime - bTime;
+    });
   }
 
   private checkPendingDeliveryAlarms(): void {
@@ -94,9 +115,7 @@ export class PosCalculatorComponent implements OnInit {
       day: 'numeric',
     });
     const message = `⚠️ Delivery for "${sale.productName}" is due in ${daysAhead} day(s) (${dateStr}).`;
-    // Loud beep
     this.playBeep();
-    // Visual alert
     alert(message);
   }
 
@@ -165,25 +184,20 @@ export class PosCalculatorComponent implements OnInit {
 
   processSale(): void {
     this.errorMessage = '';
-
     if (!this.selectedProductId) {
       this.errorMessage = 'Please select a product';
       return;
     }
-
     if (this.quantity < 1 || this.quantity > this.maxQuantity) {
       this.errorMessage = `Quantity must be between 1 and ${this.maxQuantity}`;
       return;
     }
-
     if (this.cashReceived < this.total) {
       this.errorMessage = 'Insufficient cash received';
       return;
     }
-
     try {
       let deliveryDateObj: Date | undefined;
-
       if (this.deliveryDate) {
         if (this.deliveryTime) {
           deliveryDateObj = new Date(
@@ -193,7 +207,6 @@ export class PosCalculatorComponent implements OnInit {
           deliveryDateObj = new Date(this.deliveryDate);
         }
       }
-
       this.inventoryService.recordSale(
         this.selectedProductId,
         this.quantity,
@@ -204,7 +217,6 @@ export class PosCalculatorComponent implements OnInit {
         this.discount,
         this.discountType
       );
-
       // Reset form
       this.selectedProductId = '';
       this.quantity = 1;
@@ -237,7 +249,6 @@ export class PosCalculatorComponent implements OnInit {
   openEditModal(sale: Sale): void {
     this.editingSale = sale;
     this.isEditModalOpen = true;
-
     if (sale.deliveryDate) {
       const dateObj = new Date(sale.deliveryDate);
       this.editDeliveryDate = dateObj.toISOString().split('T')[0];
@@ -246,7 +257,6 @@ export class PosCalculatorComponent implements OnInit {
       this.editDeliveryDate = '';
       this.editDeliveryTime = '';
     }
-
     this.editDeliveryNotes = sale.deliveryNotes || '';
   }
 
@@ -260,7 +270,6 @@ export class PosCalculatorComponent implements OnInit {
 
   saveEdit(): void {
     if (!this.editingSale) return;
-
     let newDeliveryDate: Date | undefined;
     if (this.editDeliveryDate) {
       if (this.editDeliveryTime) {
@@ -271,13 +280,11 @@ export class PosCalculatorComponent implements OnInit {
         newDeliveryDate = new Date(this.editDeliveryDate);
       }
     }
-
     const updatedSale: Sale = {
       ...this.editingSale,
       deliveryDate: newDeliveryDate,
       deliveryNotes: this.editDeliveryNotes,
     };
-
     this.inventoryService.updateSale(updatedSale);
     this.closeEditModal();
   }

@@ -14,38 +14,20 @@
     </div>
 
     <!-- Customer Info Display -->
-    <div
-      class="customer-info-display"
-      *ngIf="selectedCustomerId && selectedCustomer"
-    >
+    <div class="customer-info-display" *ngIf="selectedCustomerId && selectedCustomer">
       <div class="info-header">📋 Customer Information</div>
-      <div class="info-row">
-        <span class="info-label">Name:</span>
-        <span class="info-value">{{ selectedCustomer.name }}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Phone:</span>
-        <span class="info-value">{{ selectedCustomer.phoneNumber }}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Address:</span>
-        <span class="info-value">{{ selectedCustomer.deliveryAddress }}</span>
-      </div>
+      <div class="info-row"><span class="info-label">Name:</span> <span class="info-value">{{ selectedCustomer.name }}</span></div>
+      <div class="info-row"><span class="info-label">Phone:</span> <span class="info-value">{{ selectedCustomer.phoneNumber }}</span></div>
+      <div class="info-row"><span class="info-label">Address:</span> <span class="info-value">{{ selectedCustomer.deliveryAddress }}</span></div>
     </div>
 
+    <!-- Product Selection -->
     <div class="form-group">
       <label for="product">Select Product</label>
-      <select
-        id="product"
-        [(ngModel)]="selectedProductId"
-        name="product"
-        (change)="onProductChange()"
-        required
-      >
+      <select id="product" [(ngModel)]="selectedProductId" name="product" (change)="onProductChange()" required>
         <option value="">-- Choose a product --</option>
         <option *ngFor="let product of products" [value]="product.id">
-          {{ product.name }} - ${{ product.price.toFixed(2) }} (Stock:
-          {{ product.quantity }})
+          {{ product.name }} - ${{ product.price.toFixed(2) }} (Stock: {{ product.quantity }})
         </option>
       </select>
     </div>
@@ -53,30 +35,11 @@
     <div class="form-row">
       <div class="form-group">
         <label for="quantity">Quantity</label>
-        <input
-          type="number"
-          id="quantity"
-          [(ngModel)]="quantity"
-          name="quantity"
-          [min]="1"
-          [max]="maxQuantity"
-          placeholder="1"
-          required
-        />
+        <input type="number" id="quantity" [(ngModel)]="quantity" name="quantity" [min]="1" [max]="maxQuantity" placeholder="1" required />
       </div>
-
       <div class="form-group">
         <label for="cash">Cash Received</label>
-        <input
-          type="number"
-          id="cash"
-          [(ngModel)]="cashReceived"
-          name="cash"
-          min="0"
-          step="0.01"
-          placeholder="0.00"
-          required
-        />
+        <input type="number" id="cash" [(ngModel)]="cashReceived" name="cash" min="0" step="0.01" placeholder="0.00" required />
       </div>
     </div>
 
@@ -85,119 +48,66 @@
       <div class="form-group">
         <label>Discount Type</label>
         <div class="radio-group">
-          <label class="radio-label">
-            <input type="radio" [(ngModel)]="discountType" name="discountType" value="amount"> Amount ($)
-          </label>
-          <label class="radio-label">
-            <input type="radio" [(ngModel)]="discountType" name="discountType" value="percent"> Percent (%)
-          </label>
+          <label class="radio-label"><input type="radio" [(ngModel)]="discountType" name="discountType" value="amount" /> Amount ($)</label>
+          <label class="radio-label"><input type="radio" [(ngModel)]="discountType" name="discountType" value="percent" /> Percent (%)</label>
         </div>
       </div>
       <div class="form-group">
         <label for="discount">Discount Value</label>
-        <input
-          type="number"
-          id="discount"
-          [(ngModel)]="discount"
-          name="discount"
-          min="0"
-          placeholder="0"
-        />
+        <input type="number" id="discount" [(ngModel)]="discount" name="discount" min="0" placeholder="0" />
       </div>
     </div>
 
     <!-- Delivery Scheduling Section -->
     <div class="delivery-section">
-      <h4 class="section-title">
-        <span class="section-icon">🚚</span>
-        Delivery Schedule (Optional)
-      </h4>
-
+      <h4 class="section-title"><span class="section-icon">🚚</span> Delivery Schedule (Optional)</h4>
       <div class="form-row">
         <div class="form-group">
           <label for="deliveryDate">Delivery Date</label>
-          <input
-            type="date"
-            id="deliveryDate"
-            [(ngModel)]="deliveryDate"
-            name="deliveryDate"
-            [min]="minDate"
-            class="date-input"
-          />
+          <input type="date" id="deliveryDate" [(ngModel)]="deliveryDate" name="deliveryDate" [min]="minDate" class="date-input" />
         </div>
-
         <div class="form-group">
           <label for="deliveryTime">Delivery Time</label>
-          <input
-            type="time"
-            id="deliveryTime"
-            [(ngModel)]="deliveryTime"
-            name="deliveryTime"
-            class="time-input"
-          />
+          <input type="time" id="deliveryTime" [(ngModel)]="deliveryTime" name="deliveryTime" class="time-input" />
         </div>
       </div>
-
       <div class="form-group">
         <label for="deliveryNotes">Delivery Notes</label>
-        <textarea
-          id="deliveryNotes"
-          [(ngModel)]="deliveryNotes"
-          name="deliveryNotes"
-          placeholder="Special instructions, address, contact info..."
-          rows="3"
-          class="textarea-input"
-        ></textarea>
+        <textarea id="deliveryNotes" [(ngModel)]="deliveryNotes" name="deliveryNotes" placeholder="Special instructions, address, contact info..." rows="3" class="textarea-input"></textarea>
       </div>
     </div>
 
+    <!-- Transaction Summary -->
     <div class="transaction-summary" *ngIf="selectedProduct">
-      <div class="summary-row">
-        <span class="label">Subtotal:</span>
-        <span class="value">${{ subtotal.toFixed(2) }}</span>
-      </div>
-      <div class="summary-row" *ngIf="discount > 0">
-        <span class="label">Discount:</span>
-        <span class="value discount-value">- ${{ (subtotal - total).toFixed(2) }}</span>
-      </div>
-      <div class="summary-row total-row">
-        <span class="label">Total:</span>
-        <span class="value">${{ total.toFixed(2) }}</span>
-      </div>
-      <div class="summary-row change-row" [class.negative]="change < 0">
-        <span class="label">Change:</span>
-        <span class="value">${{ change.toFixed(2) }}</span>
-      </div>
+      <div class="summary-row"><span class="label">Subtotal:</span> <span class="value">${{ subtotal.toFixed(2) }}</span></div>
+      <div class="summary-row" *ngIf="discount > 0"><span class="label">Discount:</span> <span class="value discount-value">- ${{ (subtotal - total).toFixed(2) }}</span></div>
+      <div class="summary-row total-row"><span class="label">Total:</span> <span class="value">${{ total.toFixed(2) }}</span></div>
+      <div class="summary-row change-row" [class.negative]="change < 0"><span class="label">Change:</span> <span class="value">${{ change.toFixed(2) }}</span></div>
       <div class="summary-row delivery-info" *ngIf="deliveryDate">
         <span class="label">📅 Delivery:</span>
-        <span class="value">
-          {{ deliveryDate | date : "mediumDate" }}
-          <span *ngIf="deliveryTime"> at {{ deliveryTime }}</span>
-        </span>
+        <span class="value">{{ deliveryDate | date : 'mediumDate' }}<span *ngIf="deliveryTime"> at {{ deliveryTime }}</span></span>
       </div>
     </div>
 
     <div class="error-message" *ngIf="errorMessage">⚠️ {{ errorMessage }}</div>
-
-    <button
-      type="submit"
-      [disabled]="!isValid()"
-      class="btn-primary btn-success"
-    >
-      <span>💰</span>
-      Complete Sale
-    </button>
+    <button type="submit" [disabled]="!isValid()" class="btn-primary btn-success"><span>💰</span> Complete Sale</button>
   </form>
 </div>
 
-<div class="card pending-deliveries" *ngIf="pendingSales.length > 0">
+<!-- Pending Deliveries -->
+<div class="card pending-deliveries">
   <h3>🚚 Pending Deliveries</h3>
+  <div class="filter-row">
+    <label for="deliveryFilter">Filter by Delivery Date:</label>
+    <button class="btn-primary" (click)="deliveryFilterDate = ''"><span>❌</span> Clear</button>
+    <input type="date" id="deliveryFilter" [(ngModel)]="deliveryFilterDate" name="deliveryFilter" />
+  </div>
   <div class="pending-list">
-    <div class="pending-item" *ngFor="let sale of pendingSales">
+    <div class="pending-item" *ngFor="let sale of filteredPendingSales">
       <div class="pending-details">
         <div class="pending-header">
           <span class="product-name">{{ sale.productName }}</span>
-          <span class="sale-date">{{ sale.timestamp | date : "short" }}</span>
+          <span class="sale-date">{{ sale.timestamp | date : 'short' }}</span>
         </div>
         <div class="pending-info">
           <span>Qty: {{ sale.quantitySold }}</span>
@@ -205,30 +115,19 @@
         </div>
         <div class="customer-details" *ngIf="getCustomerById(sale.customerId) as customer">
           <div class="customer-header">👤 Customer Details</div>
-          <div class="customer-row">
-            <span class="customer-label">Name:</span>
-            <span class="customer-value">{{ customer.name }}</span>
-          </div>
-          <div class="customer-row">
-            <span class="customer-label">Phone:</span>
-            <span class="customer-value">{{ customer.phoneNumber }}</span>
-          </div>
-          <div class="customer-row">
-            <span class="customer-label">Address:</span>
-            <span class="customer-value">{{ customer.deliveryAddress }}</span>
-          </div>
+          <div class="customer-row"><span class="customer-label">Name:</span> <span class="customer-value">{{ customer.name }}</span></div>
+          <div class="customer-row"><span class="customer-label">Phone:</span> <span class="customer-value">{{ customer.phoneNumber }}</span></div>
+          <div class="customer-row"><span class="customer-label">Address:</span> <span class="customer-value">{{ customer.deliveryAddress }}</span></div>
         </div>
         <div class="delivery-info" *ngIf="sale.deliveryDate">
-          <span>📅 Due: {{ sale.deliveryDate | date : "mediumDate" }}</span>
-          <span>📅 Time: {{ sale.deliveryDate | date : "shortTime" }}</span>
+          <span>📅 Due: {{ sale.deliveryDate | date : 'mediumDate' }}</span>
+          <span>📅 Time: {{ sale.deliveryDate | date : 'shortTime' }}</span>
           <span *ngIf="sale.deliveryNotes">📝 {{ sale.deliveryNotes }}</span>
         </div>
       </div>
       <div class="pending-actions">
         <button class="btn-edit" (click)="openEditModal(sale)">✏️ Edit</button>
-        <button class="btn-deliver" (click)="markAsDelivered(sale.id)">
-          ✅ Mark Delivered
-        </button>
+        <button class="btn-deliver" (click)="markAsDelivered(sale.id)">✅ Mark Delivered</button>
       </div>
     </div>
   </div>
@@ -241,40 +140,20 @@
       <h3>Edit Delivery Details</h3>
       <button class="close-btn" (click)="closeEditModal()">×</button>
     </div>
-
     <div class="modal-body">
       <div class="form-group">
         <label for="editDate">Delivery Date</label>
-        <input
-          type="date"
-          id="editDate"
-          [(ngModel)]="editDeliveryDate"
-          [min]="minDate"
-          class="date-input"
-        />
+        <input type="date" id="editDate" [(ngModel)]="editDeliveryDate" [min]="minDate" class="date-input" />
       </div>
-
       <div class="form-group">
         <label for="editTime">Delivery Time</label>
-        <input
-          type="time"
-          id="editTime"
-          [(ngModel)]="editDeliveryTime"
-          class="time-input"
-        />
+        <input type="time" id="editTime" [(ngModel)]="editDeliveryTime" class="time-input" />
       </div>
-
       <div class="form-group">
         <label for="editNotes">Notes</label>
-        <textarea
-          id="editNotes"
-          [(ngModel)]="editDeliveryNotes"
-          rows="3"
-          class="textarea-input"
-        ></textarea>
+        <textarea id="editNotes" [(ngModel)]="editDeliveryNotes" rows="3" class="textarea-input"></textarea>
       </div>
     </div>
-
     <div class="modal-footer">
       <button class="btn-cancel" (click)="closeEditModal()">Cancel</button>
       <button class="btn-save" (click)="saveEdit()">Save Changes</button>
