@@ -39,12 +39,7 @@ export class UserManagementComponent implements OnInit {
     this.userService.getUsers().subscribe((users) => {
       // Filter to show only the logged-in user OR users created by them
       if (currentUserId) {
-        this.users = users.filter(
-          (u) =>
-            u.id === currentUserId ||
-            u.createdBy === currentUserId ||
-            u.userId === currentUserId
-        );
+        this.users = users.filter((u) => u.userId === currentUserId);
       } else {
         this.users = users;
       }
