@@ -1,0 +1,92 @@
+<div class="user-management-container">
+  <header class="page-header">
+    <div class="header-text">
+       <h2>👥 User Management</h2>
+       <p class="subtitle">Manage system access and roles</p>
+    </div>
+    <button class="btn-add" (click)="openAddModal()">
+      <span>+</span> Add User
+    </button>
+  </header>
+
+  <div class="users-list-container">
+    <div *ngIf="isLoading" class="loading-state">
+      Loading users...
+    </div>
+
+    <table *ngIf="!isLoading && users.length > 0" class="users-table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Full Name</th>
+          <th>Role</th>
+          <th>Created At</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let user of users">
+          <td>
+            <div class="user-name-cell">
+               <span class="avatar">{{ user.username.charAt(0).toUpperCase() }}</span>
+               {{ user.username }}
+            </div>
+          </td>
+          <td>{{ user.fullName }}</td>
+          <td>
+            <span class="role-badge" [class.admin]="user.role === 'admin'">
+              {{ user.role | titlecase }}
+            </span>
+          </td>
+          <td>{{ user.createdAt | date:'mediumDate' }}</td>
+          <td>
+            <div class="actions">
+              <button class="btn-icon edit" (click)="openEditModal(user)" title="Edit">✏️</button>
+              <button class="btn-icon delete" (click)="deleteUser(user.id)" title="Delete">🗑️</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div *ngIf="!isLoading && users.length === 0" class="empty-state">
+      <p>No users found. (This shouldn't happen as default admin exists)</p>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" *ngIf="isModalOpen">
+    <div class="modal-card">
+      <h3>{{ isEditing ? 'Edit User' : 'Add New User' }}</h3>
+      
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" [(ngModel)]="currentUser.username" placeholder="Enter username" />
+      </div>
+
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" [(ngModel)]="currentUser.fullName" placeholder="Enter full name" />
+      </div>
+
+      <div class="form-group">
+        <label>Password</label>
+        <input type="text" [(ngModel)]="formPassword" [placeholder]="isEditing ? 'Leave blank to keep current' : 'Enter password'" />
+        <small class="hint" *ngIf="isEditing">Only enter if you wish to change it.</small>
+      </div>
+
+      <div class="form-group">
+        <label>Role</label>
+        <select [(ngModel)]="currentUser.role">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-cancel" (click)="closeModal()">Cancel</button>
+        <button class="btn-save" (click)="saveUser()">{{ isEditing ? 'Update' : 'Create' }}</button>
+      </div>
+    </div>
+  </div>
+</div>

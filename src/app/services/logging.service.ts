@@ -5,7 +5,7 @@ import { ActivityLog } from '../models/inventory.models';
 import { environment } from '../../environments/environment';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class LoggingService {
   private apiUrl = environment.apiUrl;
@@ -16,11 +16,18 @@ export class LoggingService {
     this.fetchLogs();
   }
 
+  private getCurrentUserId(): string {
+    return localStorage.getItem('jjm_user_id') || 'guest';
+  }
+
   private fetchLogs(): void {
-    this.http.get<ActivityLog[]>(`${this.apiUrl}/logs?limit=200`).subscribe({
-      next: (logs) => this.logsSubject.next(logs),
-      error: (err) => console.error('Error fetching logs:', err)
-    });
+    const userId = this.getCurrentUserId();
+    this.http
+      .get<ActivityLog[]>(`${this.apiUrl}/logs?limit=200&userId=${userId}`)
+      .subscribe({
+        next: (logs) => this.logsSubject.next(logs),
+        error: (err) => console.error('Error fetching logs:', err),
+      });
   }
 
   logActivity(
@@ -35,7 +42,8 @@ export class LoggingService {
       entityType,
       entityId,
       entityName,
-      details
+      details,
+      userId: this.getCurrentUserId(),
     };
 
     console.log('Logging activity:', logData);
@@ -49,7 +57,7 @@ export class LoggingService {
       error: (err) => {
         console.error('Error logging activity:', err);
         console.error('Failed log data:', logData);
-      }
+      },
     });
   }
 

@@ -12,6 +12,7 @@ import { LandingComponent } from './components/landing/landing.component';
 import { LoginComponent } from './components/login/login.component';
 import { ActivityLogsComponent } from './components/activity-logs/activity-logs.component';
 import { ChatComponent } from './components/chat/chat.component';
+import { UserManagementComponent } from './components/user-management/user-management.component';
 
 @Component({
   selector: 'app-root',
@@ -28,6 +29,7 @@ import { ChatComponent } from './components/chat/chat.component';
     LoginComponent,
     ActivityLogsComponent,
     ChatComponent,
+    UserManagementComponent,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
@@ -42,10 +44,13 @@ export class AppComponent {
     | 'customers'
     | 'expenses'
     | 'reports'
+    | 'reports'
     | 'logs'
-    | 'chat' = 'home';
+    | 'chat'
+    | 'users' = 'home';
   isDarkTheme = false;
   isLoggedIn = false;
+  userRole = '';
   isChatOpen = false;
 
   constructor(
@@ -54,6 +59,7 @@ export class AppComponent {
   ) {
     // Check login status
     this.isLoggedIn = localStorage.getItem('jjm_logged_in') === 'true';
+    this.userRole = localStorage.getItem('jjm_role') || 'user';
 
     // Load theme preference from localStorage
     const savedTheme = localStorage.getItem('jjm_theme');
@@ -74,8 +80,13 @@ export class AppComponent {
       | 'expenses'
       | 'reports'
       | 'logs'
+      | 'logs'
       | 'chat'
+      | 'users'
   ): void {
+    if (tab === 'users' && this.userRole !== 'admin') {
+      return;
+    }
     this.activeTab = tab;
   }
 
@@ -89,7 +100,10 @@ export class AppComponent {
     this.chatService.triggerLogout();
     localStorage.removeItem('jjm_logged_in');
     localStorage.removeItem('jjm_username');
+    localStorage.removeItem('jjm_user_id');
+    localStorage.removeItem('jjm_role');
     this.isLoggedIn = false;
+    window.location.reload();
   }
 
   private applyTheme(): void {

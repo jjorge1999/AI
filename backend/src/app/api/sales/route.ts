@@ -1,17 +1,27 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { Sale } from '@/lib/models';
-
 const COLLECTION_NAME = 'sales';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const snapshot = await db.collection(COLLECTION_NAME).get();
-    const sales = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+
+    let query: FirebaseFirestore.Query = db.collection(COLLECTION_NAME);
+
+    if (userId) {
+      query = query.where('userId', '==', userId);
+    }
+
+    const snapshot = await query.get();
+    const sales = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     return NextResponse.json(sales);
   } catch (error) {
     console.error('Error fetching sales:', error);
-    return NextResponse.json({ error: 'Failed to fetch sales' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch sales' },
+      { status: 500 }
+    );
   }
 }
 
@@ -21,10 +31,13 @@ export async function POST(request: Request) {
     let id = body.id;
 
     if (id) {
-      await db.collection(COLLECTION_NAME).doc(id).set({
-        ...body,
-        timestamp: body.timestamp || new Date(),
-      });
+      await db
+        .collection(COLLECTION_NAME)
+        .doc(id)
+        .set({
+          ...body,
+          timestamp: body.timestamp || new Date(),
+        });
     } else {
       const docRef = await db.collection(COLLECTION_NAME).add({
         ...body,

@@ -6,6 +6,7 @@ export interface Product {
   quantity: number;
   imageUrl?: string;
   createdAt: Date;
+  userId?: string;
 }
 
 export interface Sale {
@@ -25,6 +26,7 @@ export interface Sale {
   pending?: boolean; // true if sale is pending delivery
   discount?: number;
   discountType?: 'amount' | 'percent';
+  userId?: string;
 }
 
 export interface Customer {
@@ -33,6 +35,7 @@ export interface Customer {
   phoneNumber: string;
   deliveryAddress: string;
   createdAt: Date;
+  userId?: string;
 }
 
 export interface Expense {
@@ -41,6 +44,7 @@ export interface Expense {
   price: number;
   notes?: string;
   timestamp: Date;
+  userId?: string;
 }
 
 export interface ActivityLog {
@@ -61,4 +65,13 @@ export interface Message {
   timestamp: Date;
   userId?: string;
   conversationId?: string;
+}
+
+export interface User {
+  id: string;
+  username: string;
+  fullName: string;
+  password?: string; // Optional for display, required for auth
+  role: 'admin' | 'user';
+  createdAt: Date;
 }

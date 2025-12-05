@@ -26,6 +26,14 @@ export class InventoryService {
     this.loadInitialData();
   }
 
+  private getCurrentUser(): string {
+    return localStorage.getItem('jjm_user_id') || 'guest';
+  }
+
+  public reloadData(): void {
+    this.loadInitialData();
+  }
+
   private loadInitialData(): void {
     this.fetchProducts();
     this.fetchSales();
@@ -33,14 +41,18 @@ export class InventoryService {
   }
 
   private fetchProducts(): void {
-    this.http.get<Product[]>(`${this.apiUrl}/products`).subscribe({
-      next: (products) => this.productsSubject.next(products),
-      error: (err) => console.error('Error fetching products:', err),
-    });
+    const userId = this.getCurrentUser();
+    this.http
+      .get<Product[]>(`${this.apiUrl}/products?userId=${userId}`)
+      .subscribe({
+        next: (products) => this.productsSubject.next(products),
+        error: (err) => console.error('Error fetching products:', err),
+      });
   }
 
   private fetchSales(): void {
-    this.http.get<Sale[]>(`${this.apiUrl}/sales`).subscribe({
+    const userId = this.getCurrentUser();
+    this.http.get<Sale[]>(`${this.apiUrl}/sales?userId=${userId}`).subscribe({
       next: (sales) => {
         const parsedSales = sales.map((sale) => this.transformSale(sale));
         this.salesSubject.next(parsedSales);
@@ -50,10 +62,13 @@ export class InventoryService {
   }
 
   private fetchExpenses(): void {
-    this.http.get<Expense[]>(`${this.apiUrl}/expenses`).subscribe({
-      next: (expenses) => this.expensesSubject.next(expenses),
-      error: (err) => console.error('Error fetching expenses:', err),
-    });
+    const userId = this.getCurrentUser();
+    this.http
+      .get<Expense[]>(`${this.apiUrl}/expenses?userId=${userId}`)
+      .subscribe({
+        next: (expenses) => this.expensesSubject.next(expenses),
+        error: (err) => console.error('Error fetching expenses:', err),
+      });
   }
 
   getProducts(): Observable<Product[]> {
@@ -69,37 +84,49 @@ export class InventoryService {
   }
 
   addExpense(expense: Omit<Expense, 'id' | 'timestamp'>): void {
-    this.http.post<Expense>(`${this.apiUrl}/expenses`, expense).subscribe({
-      next: (newExpense) => {
-        const current = this.expensesSubject.value;
-        this.expensesSubject.next([...current, newExpense]);
+    const expenseWithUser = {
+      ...expense,
+      userId: this.getCurrentUser(),
+    };
+    this.http
+      .post<Expense>(`${this.apiUrl}/expenses`, expenseWithUser)
+      .subscribe({
+        next: (newExpense) => {
+          const current = this.expensesSubject.value;
+          this.expensesSubject.next([...current, newExpense]);
 
-        this.loggingService.logActivity(
-          'create',
-          'expense',
-          newExpense.id,
-          newExpense.productName,
-          `$${newExpense.price.toFixed(2)}`
-        );
-      },
-      error: (err) => console.error('Error adding expense:', err),
-    });
+          this.loggingService.logActivity(
+            'create',
+            'expense',
+            newExpense.id,
+            newExpense.productName,
+            `$${newExpense.price.toFixed(2)}`
+          );
+        },
+        error: (err) => console.error('Error adding expense:', err),
+      });
   }
 
   addProduct(product: Omit<Product, 'id' | 'createdAt'>): void {
-    this.http.post<Product>(`${this.apiUrl}/products`, product).subscribe({
-      next: (newProduct) => {
-        const current = this.productsSubject.value;
-        this.productsSubject.next([...current, newProduct]);
-        this.loggingService.logActivity(
-          'create',
-          'product',
-          newProduct.id,
-          newProduct.name
-        );
-      },
-      error: (err) => console.error('Error adding product:', err),
-    });
+    const productWithUser = {
+      ...product,
+      userId: this.getCurrentUser(),
+    };
+    this.http
+      .post<Product>(`${this.apiUrl}/products`, productWithUser)
+      .subscribe({
+        next: (newProduct) => {
+          const current = this.productsSubject.value;
+          this.productsSubject.next([...current, newProduct]);
+          this.loggingService.logActivity(
+            'create',
+            'product',
+            newProduct.id,
+            newProduct.name
+          );
+        },
+        error: (err) => console.error('Error adding product:', err),
+      });
   }
 
   recordSale(
@@ -158,6 +185,7 @@ export class InventoryService {
       pending: true,
       discount,
       discountType,
+      userId: this.getCurrentUser(),
     };
 
     this.http.post<Sale>(`${this.apiUrl}/sales`, saleData).subscribe({

@@ -101,6 +101,15 @@
       <span class="tab-icon">💬</span>
       <span class="tab-label">Chat</span>
     </button>
+    <button 
+      *ngIf="userRole === 'admin'"
+      class="tab-button" 
+      [class.active]="activeTab === 'users'"
+      (click)="setActiveTab('users')"
+    >
+      <span class="tab-icon">👤</span>
+      <span class="tab-label">Users</span>
+    </button>
   </nav>
 
   <!-- Tab Content -->
@@ -164,6 +173,13 @@
     <div class="tab-pane" *ngIf="activeTab === 'chat'">
       <div class="tab-pane-content">
         <app-chat></app-chat>
+      </div>
+    </div>
+
+    <!-- User Management Tab -->
+    <div class="tab-pane" *ngIf="activeTab === 'users' && userRole === 'admin'">
+      <div class="tab-pane-content">
+        <app-user-management></app-user-management>
       </div>
     </div>
   </div>

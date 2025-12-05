@@ -1,20 +1,23 @@
 import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { UserService } from '../../services/user.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './login.component.html',
-  styleUrl: './login.component.css'
+  styleUrl: './login.component.css',
 })
 export class LoginComponent implements OnInit, OnDestroy {
   username = '';
   password = '';
   errorMessage = '';
   isLoading = false;
-  bubbles: Array<{x: number, y: number, size: number, delay: number}> = [];
+  bubbles: Array<{ x: number; y: number; size: number; delay: number }> = [];
+
+  constructor(private userService: UserService) {}
 
   ngOnInit(): void {
     this.generateBubbles();
@@ -32,16 +35,18 @@ export class LoginComponent implements OnInit, OnDestroy {
       const rect = htmlBubble.getBoundingClientRect();
       const bubbleCenterX = rect.left + rect.width / 2;
       const bubbleCenterY = rect.top + rect.height / 2;
-      
+
       const deltaX = event.clientX - bubbleCenterX;
       const deltaY = event.clientY - bubbleCenterY;
       const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-      
+
       if (distance < 250) {
         const force = (250 - distance) / 250;
         const moveX = (deltaX / distance) * force * 50;
         const moveY = (deltaY / distance) * force * 50;
-        htmlBubble.style.transform = `translate(${moveX}px, ${moveY}px) scale(${1 + force * 0.3})`;
+        htmlBubble.style.transform = `translate(${moveX}px, ${moveY}px) scale(${
+          1 + force * 0.3
+        })`;
       } else {
         htmlBubble.style.transform = 'translate(0, 0) scale(1)';
       }
@@ -54,14 +59,14 @@ export class LoginComponent implements OnInit, OnDestroy {
         x: Math.random() * 100,
         y: Math.random() * 100,
         size: Math.random() * 100 + 50,
-        delay: Math.random() * 5
+        delay: Math.random() * 5,
       });
     }
   }
 
   onLogin(): void {
     this.errorMessage = '';
-    
+
     if (!this.username || !this.password) {
       this.errorMessage = 'Please enter both username and password';
       return;
@@ -69,16 +74,22 @@ export class LoginComponent implements OnInit, OnDestroy {
 
     this.isLoading = true;
 
-    // Simple authentication (for demo - in production use proper auth service)
+    // Use UserService for authentication
     setTimeout(() => {
-      if (this.username === 'jjm143256789' && this.password === 'Gr*l0v3R') {
-        localStorage.setItem('jjm_logged_in', 'true');
-        localStorage.setItem('jjm_username', this.username);
-        window.location.reload();
-      } else {
-        this.errorMessage = 'Invalid username or password';
-        this.isLoading = false;
-      }
+      this.userService
+        .validateCredentials(this.username, this.password)
+        .subscribe((user) => {
+          if (user) {
+            localStorage.setItem('jjm_logged_in', 'true');
+            localStorage.setItem('jjm_username', this.username);
+            localStorage.setItem('jjm_user_id', user.id); // Save User ID
+            localStorage.setItem('jjm_role', user.role); // Save role
+            window.location.reload();
+          } else {
+            this.errorMessage = 'Invalid username or password';
+            this.isLoading = false;
+          }
+        });
     }, 800);
   }
 }
