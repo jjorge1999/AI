@@ -10,8 +10,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ChatService } from '../../services/chat.service';
 import { CustomerService } from '../../services/customer.service';
+import { UserService } from '../../services/user.service';
 import { Message, Customer } from '../../models/inventory.models';
-import { Subscription } from 'rxjs';
+import { Subscription, take } from 'rxjs';
 
 interface CustomerInfo {
   name: string;
@@ -51,11 +52,11 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
 
   constructor(
     private chatService: ChatService,
-    private customerService: CustomerService
+    private customerService: CustomerService,
+    private userService: UserService
   ) {}
 
   ngOnInit(): void {
-    // Load customers list first for validation
     // Load customers list first for validation
     this.customerSubscription = this.customerService.getCustomers().subscribe({
       next: (customers) => {
@@ -95,46 +96,47 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
   private checkLoginAndStatus(): void {
     const isAppLoggedIn = localStorage.getItem('jjm_logged_in') === 'true';
     const appUsername = localStorage.getItem('jjm_username');
+    const appUserId = localStorage.getItem('jjm_user_id');
 
+    // 1. App User Logic
     if (isAppLoggedIn) {
       this.isAppUser = true;
-    }
-
-    // 1. Try Auto-login with App Credentials
-    if (isAppLoggedIn && appUsername) {
-      this.senderName = appUsername;
-      this.isRegistered = true;
+      this.isRegistered = true; // Auto-register immediately for UI
       this.errorMessage = '';
 
-      const foundCustomer = this.allCustomers.find(
-        (c) => c.name.toLowerCase() === appUsername.toLowerCase()
-      );
+      // Default name to username found in storage
+      this.senderName = appUsername || 'User';
 
-      if (foundCustomer) {
-        this.customerInfo = {
-          name: foundCustomer.name,
-          phoneNumber: foundCustomer.phoneNumber,
-          address: foundCustomer.deliveryAddress,
-        };
+      // Refine name with full profile if ID exists
+      if (appUserId) {
+        // Try sync fetch
+        const user = this.userService.getUserById(appUserId);
+        if (user) {
+          this.senderName = user.fullName || user.username;
+          this.loadMessages();
+        } else {
+          // Async fetch
+          this.userService.users$.pipe(take(1)).subscribe((users) => {
+            const u = users.find((x) => x.id === appUserId);
+            if (u) {
+              this.senderName = u.fullName || u.username;
+            }
+            // Reload messages with potentially updated name (though generic admin view doesn't depend on name for ID)
+            this.loadMessages();
+          });
+        }
       } else {
-        // Logged in but not in customer DB - allow chat anyway with basic info
-        this.customerInfo = {
-          name: appUsername,
-          phoneNumber: 'N/A',
-          address: 'N/A',
-        };
+        this.loadMessages();
       }
-
-      this.loadMessages();
       return;
     }
 
-    // 2. Fallback: Check localStorage for previous chat session
+    // 2. Guest/Customer Logic
     const savedCustomerInfo = localStorage.getItem('chatCustomerInfo');
     if (savedCustomerInfo) {
       const parsedInfo = JSON.parse(savedCustomerInfo);
 
-      // Verify this saved user still exists in DB
+      // Verify against customer list if needed, or just trust storage for speed + verification later
       const foundCustomer = this.allCustomers.find(
         (c) => c.name.toLowerCase() === parsedInfo.name.toLowerCase()
       );
@@ -145,7 +147,6 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
         this.isRegistered = true;
         this.loadMessages();
       } else {
-        // Saved user no longer exists/valid
         localStorage.removeItem('chatCustomerInfo');
         localStorage.removeItem('chatUserName');
         this.isRegistered = false;
@@ -205,9 +206,6 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
       return;
     }
 
-    // Optional: Verify phone match too?
-    // For now just name as per "if user is found" request foundation
-
     // Save info and proceed
     localStorage.setItem('chatCustomerInfo', JSON.stringify(this.customerInfo));
     localStorage.setItem('chatUserName', this.customerInfo.name);
@@ -228,12 +226,9 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
             if (msg.conversationId) convSet.add(msg.conversationId);
           });
           this.conversations = Array.from(convSet);
-          // If no conversation selected, maybe select first? Or allow none.
         }
 
         // Filter messages for current conversation
-        // If Customer: conversationId is their name
-        // If Admin: conversationId is the selected one
         const targetId = this.isAppUser
           ? this.currentConversationId
           : this.senderName;
@@ -260,8 +255,6 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
     if (!this.newMessage.trim()) return;
 
     // Determine Conversation ID
-    // If Customer: their name
-    // If Admin: current selected conversation
     let convId = this.isAppUser ? this.currentConversationId : this.senderName;
 
     // If Admin tries to send without selecting a conversation

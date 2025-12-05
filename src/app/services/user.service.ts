@@ -136,6 +136,10 @@ export class UserService {
     );
   }
 
+  getUserById(id: string): User | undefined {
+    return this.usersSubject.value.find((u) => u.id === id);
+  }
+
   validateCredentials(
     username: string,
     password: string

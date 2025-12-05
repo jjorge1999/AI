@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
     const userId = searchParams.get('userId');
 
-    let query = db.collection(COLLECTION_NAME).orderBy('timestamp', 'desc');
+    let query = db.collection(COLLECTION_NAME);
 
     if (userId) {
       query = query.where('userId', '==', userId) as any;
@@ -30,6 +30,18 @@ export async function GET(request: Request) {
 
     const snapshot = await query.get();
     const logs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+    // Sort in memory to avoid composite index requirement
+    // @ts-ignore
+    logs.sort((a, b) => {
+      const dateA = a.timestamp?._seconds
+        ? new Date(a.timestamp._seconds * 1000)
+        : new Date(a.timestamp);
+      const dateB = b.timestamp?._seconds
+        ? new Date(b.timestamp._seconds * 1000)
+        : new Date(b.timestamp);
+      return dateB.getTime() - dateA.getTime();
+    });
 
     return NextResponse.json(logs);
   } catch (error) {
