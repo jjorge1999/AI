@@ -74,4 +74,6 @@ export interface User {
   password?: string; // Optional for display, required for auth
   role: 'admin' | 'user';
   createdAt: Date;
+  createdBy?: string;
+  userId?: string;
 }

@@ -37,9 +37,14 @@ export class UserManagementComponent implements OnInit {
     const currentUserId = localStorage.getItem('jjm_user_id');
 
     this.userService.getUsers().subscribe((users) => {
-      // Filter to show only the logged-in user
+      // Filter to show only the logged-in user OR users created by them
       if (currentUserId) {
-        this.users = users.filter((u) => u.id === currentUserId);
+        this.users = users.filter(
+          (u) =>
+            u.id === currentUserId ||
+            u.createdBy === currentUserId ||
+            u.userId === currentUserId
+        );
       } else {
         this.users = users;
       }
@@ -100,9 +105,11 @@ export class UserManagementComponent implements OnInit {
       });
     } else {
       // Create logic
+      const currentUserId = localStorage.getItem('jjm_user_id') || 'system';
       const newUser = {
         ...this.currentUser,
         password: this.formPassword,
+        createdBy: currentUserId,
       } as User;
 
       this.userService.addUser(newUser).subscribe(() => {
