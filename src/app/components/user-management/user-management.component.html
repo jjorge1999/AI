@@ -4,9 +4,9 @@
        <h2>👥 User Management</h2>
        <p class="subtitle">Manage system access and roles</p>
     </div>
-    <button class="btn-add" (click)="openAddModal()">
+    <!-- <button class="btn-add" (click)="openAddModal()">
       <span>+</span> Add User
-    </button>
+    </button> -->
   </header>
 
   <div class="users-list-container">
@@ -42,7 +42,6 @@
           <td>
             <div class="actions">
               <button class="btn-icon edit" (click)="openEditModal(user)" title="Edit">✏️</button>
-              <button class="btn-icon delete" (click)="deleteUser(user.id)" title="Delete">🗑️</button>
             </div>
           </td>
         </tr>

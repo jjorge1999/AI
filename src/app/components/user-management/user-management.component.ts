@@ -34,8 +34,15 @@ export class UserManagementComponent implements OnInit {
 
   loadUsers(): void {
     this.isLoading = true;
+    const currentUserId = localStorage.getItem('jjm_user_id');
+
     this.userService.getUsers().subscribe((users) => {
-      this.users = users;
+      // Filter to show only the logged-in user
+      if (currentUserId) {
+        this.users = users.filter((u) => u.id === currentUserId);
+      } else {
+        this.users = users;
+      }
       this.isLoading = false;
     });
   }
