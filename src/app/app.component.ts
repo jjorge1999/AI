@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { InventoryService } from './services/inventory.service';
+import { ChatService } from './services/chat.service';
 import { ProductFormComponent } from './components/product-form/product-form.component';
 import { PosCalculatorComponent } from './components/pos-calculator/pos-calculator.component';
 import { InventoryListComponent } from './components/inventory-list/inventory-list.component';
@@ -47,7 +48,10 @@ export class AppComponent {
   isLoggedIn = false;
   isChatOpen = false;
 
-  constructor(private inventoryService: InventoryService) {
+  constructor(
+    private inventoryService: InventoryService,
+    private chatService: ChatService
+  ) {
     // Check login status
     this.isLoggedIn = localStorage.getItem('jjm_logged_in') === 'true';
 
@@ -82,6 +86,7 @@ export class AppComponent {
   }
 
   logout(): void {
+    this.chatService.triggerLogout();
     localStorage.removeItem('jjm_logged_in');
     localStorage.removeItem('jjm_username');
     this.isLoggedIn = false;

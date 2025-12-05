@@ -60,4 +60,5 @@ export interface Message {
   senderName: string;
   timestamp: Date;
   userId?: string;
+  conversationId?: string;
 }

@@ -44,7 +44,10 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
   allCustomers: Customer[] = [];
   errorMessage = '';
   isAppUser = false;
+  currentConversationId = '';
+  conversations: string[] = [];
   private customerSubscription?: Subscription;
+  private logoutSubscription?: Subscription;
 
   constructor(
     private chatService: ChatService,
@@ -53,12 +56,40 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
 
   ngOnInit(): void {
     // Load customers list first for validation
-    this.customerSubscription = this.customerService
-      .getCustomers()
-      .subscribe((customers) => {
+    // Load customers list first for validation
+    this.customerSubscription = this.customerService.getCustomers().subscribe({
+      next: (customers) => {
         this.allCustomers = customers;
         this.checkLoginAndStatus();
-      });
+      },
+      error: (err) => {
+        console.error('Failed to load customers', err);
+        // Fallback: try to login anyway without customer lookup
+        this.checkLoginAndStatus();
+      },
+    });
+
+    // Listen for logout events from the app
+    this.logoutSubscription = this.chatService.logout$.subscribe(() => {
+      this.performForceLogout();
+    });
+  }
+
+  private performForceLogout(): void {
+    // Force logout without confirmation
+    localStorage.removeItem('chatCustomerInfo');
+    localStorage.removeItem('chatUserName');
+    this.isRegistered = false;
+    this.isAppUser = false;
+    this.senderName = '';
+    this.conversations = [];
+    this.currentConversationId = '';
+    this.customerInfo = {
+      name: '',
+      phoneNumber: '',
+      address: '',
+    };
+    this.messages = [];
   }
 
   private checkLoginAndStatus(): void {
@@ -133,6 +164,9 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
     if (this.customerSubscription) {
       this.customerSubscription.unsubscribe();
     }
+    if (this.logoutSubscription) {
+      this.logoutSubscription.unsubscribe();
+    }
   }
 
   registerCustomer(): void {
@@ -186,12 +220,33 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
   private loadMessages(): void {
     // Subscribe to messages
     this.chatService.getMessages().subscribe({
-      next: (messages) => {
+      next: (allMessages) => {
+        // Admin Logic: Find all unique conversation IDs
+        if (this.isAppUser) {
+          const convSet = new Set<string>();
+          allMessages.forEach((msg) => {
+            if (msg.conversationId) convSet.add(msg.conversationId);
+          });
+          this.conversations = Array.from(convSet);
+          // If no conversation selected, maybe select first? Or allow none.
+        }
+
+        // Filter messages for current conversation
+        // If Customer: conversationId is their name
+        // If Admin: conversationId is the selected one
+        const targetId = this.isAppUser
+          ? this.currentConversationId
+          : this.senderName;
+
+        const filteredMessages = allMessages.filter((msg) => {
+          return msg.conversationId === targetId;
+        });
+
         const hadMessages = this.messages.length > 0;
-        this.messages = messages;
+        this.messages = filteredMessages;
 
         // Auto-scroll on new messages
-        if (!hadMessages || this.messages.length > messages.length) {
+        if (!hadMessages || this.messages.length > filteredMessages.length) {
           this.shouldScroll = true;
         }
       },
@@ -204,8 +259,19 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
   sendMessage(): void {
     if (!this.newMessage.trim()) return;
 
+    // Determine Conversation ID
+    // If Customer: their name
+    // If Admin: current selected conversation
+    let convId = this.isAppUser ? this.currentConversationId : this.senderName;
+
+    // If Admin tries to send without selecting a conversation
+    if (this.isAppUser && !convId) {
+      alert('Please select a conversation first.');
+      return;
+    }
+
     this.chatService
-      .sendMessage(this.newMessage, this.senderName)
+      .sendMessage(this.newMessage, this.senderName, convId)
       .then(() => {
         this.newMessage = '';
         this.shouldScroll = true;
@@ -214,6 +280,11 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
         console.error('Error sending message:', error);
         alert('Failed to send message. Please try again.');
       });
+  }
+
+  selectConversation(convId: string): void {
+    this.currentConversationId = convId;
+    this.loadMessages(); // Refreshes view with new filter
   }
 
   private scrollToBottom(): void {

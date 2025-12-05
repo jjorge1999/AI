@@ -23,6 +23,9 @@ export class ChatService {
   private messagesSubject = new BehaviorSubject<Message[]>([]);
   public messages$ = this.messagesSubject.asObservable();
 
+  private logoutSubject = new BehaviorSubject<void>(undefined);
+  public logout$ = this.logoutSubject.asObservable();
+
   constructor() {
     this.listenForMessages();
   }
@@ -42,6 +45,7 @@ export class ChatService {
             senderName: data['senderName'],
             timestamp: (data['timestamp'] as Timestamp).toDate(),
             userId: data['userId'],
+            conversationId: data['conversationId'],
           } as Message;
         });
         this.messagesSubject.next(messages);
@@ -52,16 +56,25 @@ export class ChatService {
     );
   }
 
-  async sendMessage(text: string, senderName: string): Promise<void> {
+  async sendMessage(
+    text: string,
+    senderName: string,
+    conversationId?: string
+  ): Promise<void> {
     const messagesRef = collection(this.db, 'messages');
     await addDoc(messagesRef, {
       text,
       senderName,
+      conversationId,
       timestamp: new Date(),
     });
   }
 
   getMessages(): Observable<Message[]> {
     return this.messages$;
+  }
+
+  triggerLogout(): void {
+    this.logoutSubject.next();
   }
 }
