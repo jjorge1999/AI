@@ -46,7 +46,6 @@ export class AppComponent {
     | 'reports'
     | 'reports'
     | 'logs'
-    | 'chat'
     | 'users' = 'home';
   isDarkTheme = false;
   isLoggedIn = false;
@@ -80,8 +79,6 @@ export class AppComponent {
       | 'expenses'
       | 'reports'
       | 'logs'
-      | 'logs'
-      | 'chat'
       | 'users'
   ): void {
     if (tab === 'users' && this.userRole !== 'admin') {

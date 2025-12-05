@@ -222,10 +222,21 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
     this.loadMessages();
   }
 
+  private allMessagesCached: Message[] = [];
+  private messagesSubscription?: Subscription;
+
   private loadMessages(): void {
+    if (this.messagesSubscription) {
+      // Already subscribed, just refresh view
+      this.updateFilteredMessages(false);
+      return;
+    }
+
     // Subscribe to messages
-    this.chatService.getMessages().subscribe({
+    this.messagesSubscription = this.chatService.getMessages().subscribe({
       next: (allMessages) => {
+        this.allMessagesCached = allMessages;
+
         // Admin Logic: Find all unique conversation IDs
         if (this.isAppUser) {
           const convSet = new Set<string>();
@@ -235,27 +246,72 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
           this.conversations = Array.from(convSet);
         }
 
-        // Filter messages for current conversation
-        const targetId = this.isAppUser
-          ? this.currentConversationId
-          : this.senderName;
-
-        const filteredMessages = allMessages.filter((msg) => {
-          return msg.conversationId === targetId;
-        });
-
-        const hadMessages = this.messages.length > 0;
-        this.messages = filteredMessages;
-
-        // Auto-scroll on new messages
-        if (!hadMessages || this.messages.length > filteredMessages.length) {
-          this.shouldScroll = true;
-        }
+        this.updateFilteredMessages(true);
       },
       error: (error) => {
         console.error('Error loading messages:', error);
       },
     });
+  }
+
+  private updateFilteredMessages(notify: boolean): void {
+    // Filter messages for current conversation
+    const targetId = this.isAppUser
+      ? this.currentConversationId
+      : this.senderName;
+
+    const filteredMessages = this.allMessagesCached.filter((msg) => {
+      // If no targetId (e.g. admin has no conv selected), show nothing
+      if (!targetId) return false;
+      return msg.conversationId === targetId;
+    });
+
+    const previousCount = this.messages.length;
+    const newCount = filteredMessages.length;
+    const hadMessages = previousCount > 0;
+
+    this.messages = filteredMessages;
+
+    // Check for new incoming messages for Notification
+    if (notify && hadMessages && newCount > previousCount) {
+      const lastMsg = filteredMessages[newCount - 1];
+      if (!this.isMyMessage(lastMsg)) {
+        this.playNotificationSound();
+      }
+    }
+
+    // Auto-scroll on new messages
+    if (!hadMessages || newCount > previousCount) {
+      this.shouldScroll = true;
+    }
+  }
+
+  private playNotificationSound(): void {
+    try {
+      const AudioContext =
+        (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) return;
+
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.type = 'sine';
+      // Pleasant "Ding"
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+      osc.frequency.exponentialRampToValueAtTime(1046.5, ctx.currentTime + 0.1); // C6
+
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.5);
+    } catch (e) {
+      console.warn('Audio playback failed', e);
+    }
   }
 
   sendMessage(): void {
@@ -284,7 +340,7 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
 
   selectConversation(convId: string): void {
     this.currentConversationId = convId;
-    this.loadMessages(); // Refreshes view with new filter
+    this.updateFilteredMessages(false); // Refreshes view with new filter, no sound
   }
 
   private scrollToBottom(): void {

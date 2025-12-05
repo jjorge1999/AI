@@ -93,14 +93,7 @@
       <span class="tab-icon">📋</span>
       <span class="tab-label">Activity Logs</span>
     </button>
-    <button 
-      class="tab-button" 
-      [class.active]="activeTab === 'chat'"
-      (click)="setActiveTab('chat')"
-    >
-      <span class="tab-icon">💬</span>
-      <span class="tab-label">Chat</span>
-    </button>
+    <!-- Chat Tab Button Removed -->
     <button 
       *ngIf="userRole === 'admin'"
       class="tab-button" 
@@ -169,12 +162,7 @@
       </div>
     </div>
 
-    <!-- Chat Tab -->
-    <div class="tab-pane" *ngIf="activeTab === 'chat'">
-      <div class="tab-pane-content">
-        <app-chat></app-chat>
-      </div>
-    </div>
+    <!-- Chat Tab Removed per request (Widget is used instead) -->
 
     <!-- User Management Tab -->
     <div class="tab-pane" *ngIf="activeTab === 'users' && userRole === 'admin'">
