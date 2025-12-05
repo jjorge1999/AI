@@ -62,7 +62,7 @@
           <button class="btn-edit" (click)="changeInfo()" title="Edit information">
             ✏️
           </button>
-          <button class="btn-logout" (click)="logout()" title="Logout">
+          <button *ngIf="!isAppUser" class="btn-logout" (click)="logout()" title="Logout">
             🚪
           </button>
         </div>

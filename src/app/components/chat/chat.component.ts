@@ -4,11 +4,14 @@ import {
   ViewChild,
   ElementRef,
   AfterViewChecked,
+  OnDestroy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ChatService } from '../../services/chat.service';
+import { CustomerService } from '../../services/customer.service';
 import { Message, Customer } from '../../models/inventory.models';
+import { Subscription } from 'rxjs';
 
 interface CustomerInfo {
   name: string;
@@ -23,7 +26,7 @@ interface CustomerInfo {
   templateUrl: './chat.component.html',
   styleUrl: './chat.component.css',
 })
-export class ChatComponent implements OnInit, AfterViewChecked {
+export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
   @ViewChild('messagesContainer') private messagesContainer!: ElementRef;
 
   messages: Message[] = [];
@@ -38,17 +41,84 @@ export class ChatComponent implements OnInit, AfterViewChecked {
     phoneNumber: '',
     address: '',
   };
+  allCustomers: Customer[] = [];
+  errorMessage = '';
+  isAppUser = false;
+  private customerSubscription?: Subscription;
 
-  constructor(private chatService: ChatService) {}
+  constructor(
+    private chatService: ChatService,
+    private customerService: CustomerService
+  ) {}
 
   ngOnInit(): void {
-    // Check if customer info exists in localStorage
+    // Load customers list first for validation
+    this.customerSubscription = this.customerService
+      .getCustomers()
+      .subscribe((customers) => {
+        this.allCustomers = customers;
+        this.checkLoginAndStatus();
+      });
+  }
+
+  private checkLoginAndStatus(): void {
+    const isAppLoggedIn = localStorage.getItem('jjm_logged_in') === 'true';
+    const appUsername = localStorage.getItem('jjm_username');
+
+    if (isAppLoggedIn) {
+      this.isAppUser = true;
+    }
+
+    // 1. Try Auto-login with App Credentials
+    if (isAppLoggedIn && appUsername) {
+      this.senderName = appUsername;
+      this.isRegistered = true;
+      this.errorMessage = '';
+
+      const foundCustomer = this.allCustomers.find(
+        (c) => c.name.toLowerCase() === appUsername.toLowerCase()
+      );
+
+      if (foundCustomer) {
+        this.customerInfo = {
+          name: foundCustomer.name,
+          phoneNumber: foundCustomer.phoneNumber,
+          address: foundCustomer.deliveryAddress,
+        };
+      } else {
+        // Logged in but not in customer DB - allow chat anyway with basic info
+        this.customerInfo = {
+          name: appUsername,
+          phoneNumber: 'N/A',
+          address: 'N/A',
+        };
+      }
+
+      this.loadMessages();
+      return;
+    }
+
+    // 2. Fallback: Check localStorage for previous chat session
     const savedCustomerInfo = localStorage.getItem('chatCustomerInfo');
     if (savedCustomerInfo) {
-      this.customerInfo = JSON.parse(savedCustomerInfo);
-      this.senderName = this.customerInfo.name;
-      this.isRegistered = true;
-      this.loadMessages();
+      const parsedInfo = JSON.parse(savedCustomerInfo);
+
+      // Verify this saved user still exists in DB
+      const foundCustomer = this.allCustomers.find(
+        (c) => c.name.toLowerCase() === parsedInfo.name.toLowerCase()
+      );
+
+      if (foundCustomer) {
+        this.customerInfo = parsedInfo;
+        this.senderName = this.customerInfo.name;
+        this.isRegistered = true;
+        this.loadMessages();
+      } else {
+        // Saved user no longer exists/valid
+        localStorage.removeItem('chatCustomerInfo');
+        localStorage.removeItem('chatUserName');
+        this.isRegistered = false;
+      }
     }
   }
 
@@ -59,8 +129,16 @@ export class ChatComponent implements OnInit, AfterViewChecked {
     }
   }
 
+  ngOnDestroy(): void {
+    if (this.customerSubscription) {
+      this.customerSubscription.unsubscribe();
+    }
+  }
+
   registerCustomer(): void {
-    // Validate all fields
+    this.errorMessage = '';
+
+    // Validate inputs
     if (!this.customerInfo.name.trim()) {
       alert('Please enter your name');
       return;
@@ -74,20 +152,34 @@ export class ChatComponent implements OnInit, AfterViewChecked {
       return;
     }
 
-    // Validate phone number format (simple validation)
     const phoneRegex = /^[\d\s\-\+\(\)]+$/;
     if (!phoneRegex.test(this.customerInfo.phoneNumber)) {
       alert('Please enter a valid phone number');
       return;
     }
 
-    // Save customer info
+    // CRITICAL: Verify against customer database
+    const foundCustomer = this.allCustomers.find(
+      (c) =>
+        c.name.toLowerCase() === this.customerInfo.name.trim().toLowerCase()
+    );
+
+    if (!foundCustomer) {
+      alert(
+        'Access Denied: You must be a registered customer to use the chat.'
+      );
+      return;
+    }
+
+    // Optional: Verify phone match too?
+    // For now just name as per "if user is found" request foundation
+
+    // Save info and proceed
     localStorage.setItem('chatCustomerInfo', JSON.stringify(this.customerInfo));
     localStorage.setItem('chatUserName', this.customerInfo.name);
     this.senderName = this.customerInfo.name;
     this.isRegistered = true;
 
-    // Load messages after registration
     this.loadMessages();
   }
 
@@ -151,15 +243,25 @@ export class ChatComponent implements OnInit, AfterViewChecked {
   }
 
   logout(): void {
-    alert('Are you sure you want to logout? Your information will be cleared.');
-    localStorage.removeItem('chatCustomerInfo');
-    localStorage.removeItem('chatUserName');
-    this.isRegistered = false;
-    this.customerInfo = {
-      name: '',
-      phoneNumber: '',
-      address: '',
-    };
-    this.messages = [];
+    if (this.isAppUser) {
+      alert('You cannot logout of chat while logged into the application.');
+      return;
+    }
+
+    if (
+      confirm(
+        'Are you sure you want to logout? Your information will be cleared.'
+      )
+    ) {
+      localStorage.removeItem('chatCustomerInfo');
+      localStorage.removeItem('chatUserName');
+      this.isRegistered = false;
+      this.customerInfo = {
+        name: '',
+        phoneNumber: '',
+        address: '',
+      };
+      this.messages = [];
+    }
   }
 }
