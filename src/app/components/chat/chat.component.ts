@@ -11,7 +11,8 @@ import { FormsModule } from '@angular/forms';
 import { ChatService } from '../../services/chat.service';
 import { CustomerService } from '../../services/customer.service';
 import { UserService } from '../../services/user.service';
-import { Message, Customer } from '../../models/inventory.models';
+import { CallService } from '../../services/call.service';
+import { Message, Customer, WebRTCCall } from '../../models/inventory.models';
 import { Subscription, take } from 'rxjs';
 
 interface CustomerInfo {
@@ -29,6 +30,7 @@ interface CustomerInfo {
 })
 export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
   @ViewChild('messagesContainer') private messagesContainer!: ElementRef;
+  @ViewChild('remoteAudio') private remoteAudio!: ElementRef<HTMLAudioElement>;
 
   messages: Message[] = [];
   newMessage = '';
@@ -49,11 +51,20 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
   conversations: string[] = [];
   private customerSubscription?: Subscription;
   private logoutSubscription?: Subscription;
+  private incomingCallSubscription?: Subscription;
+  private callStatusSubscription?: Subscription;
+
+  callStatus = 'idle'; // idle, calling, connected, incoming
+  incomingCall: WebRTCCall | null = null;
+  remoteStream: MediaStream | null = null;
+
+  private incomingCallListener?: () => void;
 
   constructor(
     private chatService: ChatService,
     private customerService: CustomerService,
-    private userService: UserService
+    private userService: UserService,
+    private callService: CallService
   ) {}
 
   ngOnInit(): void {
@@ -73,6 +84,65 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
     // Listen for logout events from the app
     this.logoutSubscription = this.chatService.logout$.subscribe(() => {
       this.performForceLogout();
+    });
+
+    // Call Status Listener
+    this.callStatusSubscription = this.callService.callStatus$.subscribe(
+      (status) => (this.callStatus = status)
+    );
+
+    this.incomingCallSubscription = this.callService.incomingCall$.subscribe(
+      (call) => {
+        // Don't accept if already busy
+        if (this.callStatus !== 'idle') return;
+        // Don't accept my own calls (simple check: senderName matches callerName)
+        if (call.callerName === this.senderName) return;
+
+        this.incomingCall = call;
+        this.callStatus = 'incoming';
+      }
+    );
+
+    this.callService.remoteStream$.subscribe((stream) => {
+      this.remoteStream = stream;
+      if (stream && this.remoteAudio) {
+        // Force update the element. Using timeout to ensure view is updated if hidden previously
+        setTimeout(() => {
+          const audioEl = this.remoteAudio.nativeElement;
+          audioEl.srcObject = stream;
+          audioEl.muted = false;
+          audioEl.volume = 1.0;
+
+          const tracks = stream.getAudioTracks();
+          if (tracks.length > 0) {
+            console.log(
+              'ChatComponent: Audio track found',
+              tracks[0].label,
+              'Enabled:',
+              tracks[0].enabled,
+              'Muted:',
+              tracks[0].muted
+            );
+            tracks[0].enabled = true; // Ensure enabled
+          } else {
+            console.warn('ChatComponent: No audio tracks in stream!');
+          }
+
+          audioEl.onloadedmetadata = () => {
+            console.log(
+              'ChatComponent: Audio metadata loaded, attempting play...'
+            );
+            audioEl
+              .play()
+              .then(() =>
+                console.log('ChatComponent: Audio playing successfully')
+              )
+              .catch((e) =>
+                console.error('ChatComponent: Error playing audio:', e)
+              );
+          };
+        }, 100);
+      }
     });
   }
 
@@ -123,6 +193,16 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
             }
             // Reload messages with potentially updated name (though generic admin view doesn't depend on name for ID)
             this.loadMessages();
+            this.loadMessages();
+
+            // Listen for calls on this conversationId (User ID)
+            // Note: Admin listens per conversation select? No, Admin should listen to all?
+            // Wait, for scalability Admin should get notification.
+            // For now, let's keep it simple: Admin only sees incoming call if he selects the user?
+            // Or we assume "Conversation ID" is the channel.
+            // If Admin is Global, he needs to listen to EVERYTHING?
+            // Let's stick to: Customer listens to their ID. Admin listens to "Selected ID".
+            // So Admin logic handles listener on selectConversation.
           });
         }
       } else {
@@ -146,6 +226,13 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
         this.senderName = this.customerInfo.name;
         this.isRegistered = true;
         this.loadMessages();
+        // Start listening for calls on my channel
+        if (this.incomingCallListener) {
+          this.incomingCallListener();
+        }
+        this.incomingCallListener = this.callService.listenForIncomingCalls(
+          this.senderName
+        );
       } else {
         localStorage.removeItem('chatCustomerInfo');
         localStorage.removeItem('chatUserName');
@@ -167,6 +254,15 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
     }
     if (this.logoutSubscription) {
       this.logoutSubscription.unsubscribe();
+    }
+    if (this.incomingCallSubscription) {
+      this.incomingCallSubscription.unsubscribe();
+    }
+    if (this.callStatusSubscription) {
+      this.callStatusSubscription.unsubscribe();
+    }
+    if (this.incomingCallListener) {
+      this.incomingCallListener();
     }
   }
 
@@ -219,7 +315,10 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
     this.senderName = this.customerInfo.name;
     this.isRegistered = true;
 
+    this.isRegistered = true;
+
     this.loadMessages();
+    this.callService.listenForIncomingCalls(this.senderName);
   }
 
   private allMessagesCached: Message[] = [];
@@ -341,6 +440,12 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
   selectConversation(convId: string): void {
     this.currentConversationId = convId;
     this.updateFilteredMessages(false); // Refreshes view with new filter, no sound
+
+    // Admin listens to calls on this channel
+    if (this.incomingCallListener) {
+      this.incomingCallListener();
+    }
+    this.incomingCallListener = this.callService.listenForIncomingCalls(convId);
   }
 
   private scrollToBottom(): void {
@@ -496,5 +601,85 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
       };
       this.messages = [];
     }
+  }
+
+  // --- Call Logic ---
+  startCall(): void {
+    const targetId = this.isAppUser
+      ? this.currentConversationId
+      : this.senderName;
+
+    if (!targetId) {
+      alert('Cannot start call: Unknown conversation.');
+      return;
+    }
+
+    this.callService.initializeCall(targetId, this.senderName);
+  }
+
+  acceptCall(): void {
+    if (this.incomingCall) {
+      this.callService.answerCall(this.incomingCall);
+      this.incomingCall = null;
+    }
+  }
+
+  rejectCall(): void {
+    if (this.incomingCall) {
+      this.callService.rejectCall(this.incomingCall.id);
+      this.incomingCall = null;
+      this.callStatus = 'idle';
+    }
+  }
+
+  endCall(): void {
+    this.callService.endCall();
+    this.isSpeakerOn = false;
+    this.isMicMuted = false;
+  }
+
+  isSpeakerOn = false;
+  isMicMuted = false;
+
+  async toggleSpeaker() {
+    this.isSpeakerOn = !this.isSpeakerOn;
+    if (this.remoteAudio && this.remoteAudio.nativeElement) {
+      // Logic: Iterate devices or just try to default/speaker if available
+      // Since specific speaker selection requires deviceId, and 'speaker' isn't standard enum,
+      // we'll try a common heuristic: 'default' vs unique ID.
+      // But typically we simply want to toggle this.isSpeakerOn for UI for now,
+      // and if browser allows enumeration maybe we pick the last one?
+      // For MOBILE WEB: Browsers handle this. We might just need to ensure audio volume is max.
+
+      // Try to find a sink that is NOT the default one to switch to "speaker" if default is earpiece
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioOutputs = devices.filter((d) => d.kind === 'audiooutput');
+
+      // Simple toggle: If on, try to set to the 2nd device if available (assumed speaker), else default.
+      if (audioOutputs.length > 1 && this.isSpeakerOn) {
+        // Ideally we need to know which one is the speaker.
+        // Often 'default' is earpiece on mobile? Or 'communications'
+        // Let's just try to set it to the last one as a "toggle" test.
+        // This is experimental.
+        const target =
+          audioOutputs[0].deviceId === 'default'
+            ? audioOutputs[1].deviceId
+            : audioOutputs[0].deviceId;
+        await this.callService.setAudioOutput(
+          target,
+          this.remoteAudio.nativeElement
+        );
+      } else {
+        await this.callService.setAudioOutput(
+          'default',
+          this.remoteAudio.nativeElement
+        );
+      }
+    }
+  }
+
+  toggleMic() {
+    this.isMicMuted = !this.isMicMuted;
+    this.callService.toggleMic(this.isMicMuted);
   }
 }

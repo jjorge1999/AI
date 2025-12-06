@@ -88,6 +88,54 @@
             <button *ngIf="!isAppUser" class="btn-logout" (click)="logout()" title="Logout">
               🚪
             </button>
+            <button 
+              class="btn-call" 
+              (click)="startCall()" 
+              title="Start Audio Call"
+              [disabled]="isAppUser && !currentConversationId"
+            >
+              📞
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Call Overlays -->
+      <!-- 1. Incoming Call -->
+      <div class="call-overlay incoming" *ngIf="callStatus === 'incoming' && incomingCall">
+        <div class="call-content">
+          <h3>📞 Incoming Call</h3>
+          <p>{{ incomingCall.callerName }} is calling...</p>
+          <div class="call-actions">
+            <button class="btn-accept" (click)="acceptCall()">Accept</button>
+            <button class="btn-reject" (click)="rejectCall()">Reject</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Active Call -->
+      <div class="call-overlay active" *ngIf="callStatus === 'connected' || callStatus === 'calling'">
+        <div class="call-content">
+          <div class="call-avatar pulsing">👤</div>
+          <h3>{{ callStatus === 'calling' ? 'Calling...' : 'Connected' }}</h3>
+          <p>{{ isAppUser ? currentConversationId : 'Support' }}</p>
+          
+          <!-- Audio Element for Remote Stream (Visible for debugging/browser policy) -->
+          <div style="opacity: 0; height: 0; width: 0; overflow: hidden; position: absolute; pointer-events: none;">
+             <audio #remoteAudio [srcObject]="remoteStream" autoplay playsinline controls></audio>
+          </div>
+
+          <div class="call-utilities">
+            <button class="btn-round" [class.active]="isSpeakerOn" (click)="toggleSpeaker()" title="Toggle Speaker">
+              {{ isSpeakerOn ? '🔊' : '🔈' }}
+            </button>
+            <button *ngIf="isAppUser" class="btn-round" [class.active]="isMicMuted" (click)="toggleMic()" title="Toggle Microphone">
+              {{ isMicMuted ? '🔇' : '🎙️' }}
+            </button>
+          </div>
+
+          <div class="call-actions">
+            <button class="btn-end" (click)="endCall()">End Call</button>
           </div>
         </div>
       </div>

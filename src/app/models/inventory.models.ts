@@ -68,6 +68,16 @@ export interface Message {
   audioBase64?: string;
 }
 
+export interface WebRTCCall {
+  id: string;
+  conversationId: string;
+  callerName: string;
+  status: 'offering' | 'answered' | 'ended' | 'rejected';
+  offer?: any;
+  answer?: any;
+  timestamp: Date;
+}
+
 export interface User {
   id: string;
   username: string;
