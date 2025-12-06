@@ -264,9 +264,24 @@ export class CallService {
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia({
         video: false,
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
       });
       console.log('CallService: Local media acquired', this.localStream);
+      this.localStream.getAudioTracks().forEach((track) => {
+        console.log(
+          'Local Track:',
+          track.label,
+          track.readyState,
+          track.enabled,
+          track.muted
+        );
+        // Explicitly ensure enabled
+        track.enabled = true;
+      });
     } catch (e) {
       console.error('CallService: Error getting user media', e);
       throw e;
@@ -275,6 +290,21 @@ export class CallService {
 
   private setupPeerConnection(callId: string) {
     this.peerConnection = new RTCPeerConnection(this.servers);
+
+    this.peerConnection.oniceconnectionstatechange = () => {
+      console.log(
+        'CallService: ICE Connection State Change:',
+        this.peerConnection?.iceConnectionState
+      );
+      if (
+        this.peerConnection?.iceConnectionState === 'failed' ||
+        this.peerConnection?.iceConnectionState === 'disconnected'
+      ) {
+        console.warn(
+          'CallService: Peer connection failed/disconnected. Check firewall/network.'
+        );
+      }
+    };
 
     this.peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
