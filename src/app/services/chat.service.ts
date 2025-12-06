@@ -10,6 +10,8 @@ import {
   onSnapshot,
   addDoc,
   Timestamp,
+  deleteDoc,
+  doc,
 } from 'firebase/firestore';
 import { environment } from '../../environments/environment';
 import { Message } from '../models/inventory.models';
@@ -46,6 +48,7 @@ export class ChatService {
             timestamp: (data['timestamp'] as Timestamp).toDate(),
             userId: data['userId'],
             conversationId: data['conversationId'],
+            audioBase64: data['audioBase64'],
           } as Message;
         });
         this.messagesSubject.next(messages);
@@ -68,6 +71,26 @@ export class ChatService {
       conversationId,
       timestamp: new Date(),
     });
+  }
+
+  async sendAudioMessage(
+    audioBase64: string,
+    senderName: string,
+    conversationId?: string
+  ): Promise<void> {
+    const messagesRef = collection(this.db, 'messages');
+    await addDoc(messagesRef, {
+      text: '🎤 Voice Message',
+      senderName,
+      audioBase64,
+      conversationId,
+      timestamp: new Date(),
+    });
+  }
+
+  async deleteMessage(messageId: string): Promise<void> {
+    const messageDocRef = doc(this.db, 'messages', messageId);
+    await deleteDoc(messageDocRef);
   }
 
   getMessages(): Observable<Message[]> {

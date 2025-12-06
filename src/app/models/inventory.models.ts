@@ -65,6 +65,7 @@ export interface Message {
   timestamp: Date;
   userId?: string;
   conversationId?: string;
+  audioBase64?: string;
 }
 
 export interface User {

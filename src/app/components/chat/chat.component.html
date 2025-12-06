@@ -107,7 +107,13 @@
             <span class="sender-name">{{ message.senderName }}</span>
             <span class="message-time">{{ formatTime(message.timestamp) }}</span>
           </div>
-          <div class="message-text">{{ message.text }}</div>
+          <div class="message-text" *ngIf="message.text">{{ message.text }}</div>
+          <div class="message-audio" *ngIf="message.audioBase64">
+            <audio controls [src]="message.audioBase64"></audio>
+          </div>
+          <button *ngIf="isMyMessage(message)" class="btn-delete-msg" (click)="deleteMessage(message)" title="Delete message">
+            🗑️
+          </button>
         </div>
       </div>
 
@@ -126,6 +132,19 @@
           class="btn-send"
         >
           Send
+        </button>
+        <button
+          class="btn-mic"
+          [class.recording]="isRecording"
+          (mousedown)="startRecording($event)"
+          (mouseup)="stopRecording($event)"
+          (mouseleave)="stopRecording($event)"
+          (touchstart)="startRecording($event)"
+          (touchend)="stopRecording($event)"
+          title="Hold to talk"
+          [disabled]="isAppUser && !currentConversationId"
+        >
+          {{ isRecording ? '🔴' : '🎙️' }}
         </button>
       </div>
     </div>

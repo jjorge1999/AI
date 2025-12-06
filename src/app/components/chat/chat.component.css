@@ -485,3 +485,76 @@
   }
 }
 
+/* Audio Message Styles */
+.btn-mic {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  user-select: none; /* Prevent selection while holding */
+  touch-action: manipulation; /* Improve touch handling */
+}
+
+.btn-mic:hover {
+  background: var(--color-bg);
+  transform: scale(1.05);
+}
+
+.btn-mic:active {
+  transform: scale(0.95);
+}
+
+.btn-mic.recording {
+  background: #ef4444; /* Red */
+  border-color: #ef4444;
+  color: white;
+  transform: scale(1.1);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.message-audio {
+  padding: 0.25rem;
+  border-radius: 12px;
+  background: transparent;
+  width: 100%;
+}
+
+audio {
+  height: 36px;
+  max-width: 100%;
+  border-radius: 18px;
+}
+
+.btn-delete-msg {
+  align-self: flex-end;
+  background: transparent;
+  border: none;
+  font-size: 0.8rem;
+  opacity: 0.5;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 4px;
+  transition: opacity 0.2s;
+}
+
+.btn-delete-msg:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+
