@@ -42,7 +42,7 @@
             class="form-textarea"
             rows="3"
             required
-            readonly
+            [readonly]="isLocationReadOnly"
           ></textarea>
         </div>
 
@@ -55,7 +55,7 @@
                name="gpsCoordinates"
                placeholder="Lat, Lng (Auto-detected)"
                class="form-input"
-               readonly
+               [readonly]="isLocationReadOnly"
              />
              <button type="button" class="btn-location" (click)="getLocation()">📍</button>
           </div>

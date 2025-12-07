@@ -48,7 +48,10 @@ export class PosCalculatorComponent implements OnInit {
     private customerService: CustomerService
   ) {
     const today = new Date();
-    this.minDate = today.toISOString().split('T')[0];
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    this.minDate = `${year}-${month}-${day}`;
     this.deliveryDate = this.minDate;
   }
 
@@ -79,7 +82,11 @@ export class PosCalculatorComponent implements OnInit {
     if (this.deliveryFilterDate) {
       filtered = filtered.filter((s) => {
         if (!s.deliveryDate) return false;
-        const dateStr = new Date(s.deliveryDate).toISOString().split('T')[0];
+        const d = new Date(s.deliveryDate);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
         return dateStr === this.deliveryFilterDate;
       });
     }
@@ -251,7 +258,10 @@ export class PosCalculatorComponent implements OnInit {
     this.isEditModalOpen = true;
     if (sale.deliveryDate) {
       const dateObj = new Date(sale.deliveryDate);
-      this.editDeliveryDate = dateObj.toISOString().split('T')[0];
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      this.editDeliveryDate = `${year}-${month}-${day}`;
       this.editDeliveryTime = dateObj.toTimeString().substring(0, 5);
     } else {
       this.editDeliveryDate = '';

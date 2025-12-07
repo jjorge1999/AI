@@ -190,8 +190,9 @@
   >
     <span class="chat-icon">💬</span>
     <span class="chat-label">Chat</span>
-    <span class="notification-badge" *ngIf="totalUnreadMessages > 0">{{ totalUnreadMessages }}</span>
   </button>
+  
+  <span class="notification-badge" *ngIf="totalUnreadMessages > 0">{{ totalUnreadMessages }}</span>
   
   <div class="chat-modal" [class.open]="isChatOpen">
     <div class="chat-modal-content">

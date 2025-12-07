@@ -51,6 +51,7 @@ export class ChatComponent
   senderName = '';
   @Input() isOpen = false;
   @Output() totalUnreadCountChange = new EventEmitter<number>();
+  isLocationReadOnly = true;
   private shouldScroll = false;
 
   // Cache for resolving IDs/names to Full Names
@@ -63,8 +64,8 @@ export class ChatComponent
   customerInfo: CustomerInfo = {
     name: '',
     phoneNumber: '',
-    address: '',
-    gpsCoordinates: '',
+    address: 'N/A',
+    gpsCoordinates: 'N/A',
   };
   allCustomers: Customer[] = [];
   errorMessage = '';
@@ -183,7 +184,12 @@ export class ChatComponent
 
     // Call Status Listener
     this.callStatusSubscription = this.callService.callStatus$.subscribe(
-      (status) => (this.callStatus = status)
+      (status) => {
+        this.callStatus = status;
+        if (status !== 'incoming') {
+          this.stopRinging();
+        }
+      }
     );
 
     this.incomingCallSubscription = this.callService.incomingCall$.subscribe(
@@ -195,6 +201,7 @@ export class ChatComponent
 
         this.incomingCall = call;
         this.callStatus = 'incoming';
+        this.startRinging();
       }
     );
 
@@ -254,8 +261,8 @@ export class ChatComponent
     this.customerInfo = {
       name: '',
       phoneNumber: '',
-      address: '',
-      gpsCoordinates: '',
+      address: 'N/A',
+      gpsCoordinates: 'N/A',
     };
     this.messages = [];
   }
@@ -274,13 +281,15 @@ export class ChatComponent
       // Default name to username found in storage
       this.senderName = appUsername || 'User';
 
+      // Load messages immediately
+      this.loadMessages();
+
       // Refine name with full profile if ID exists
       if (appUserId) {
         // Try sync fetch
         const user = this.userService.getUserById(appUserId);
         if (user) {
           this.senderName = user.fullName || user.username;
-          this.loadMessages();
         } else {
           // Async fetch
           this.userService.users$.pipe(take(1)).subscribe((users) => {
@@ -288,22 +297,8 @@ export class ChatComponent
             if (u) {
               this.senderName = u.fullName || u.username;
             }
-            // Reload messages with potentially updated name (though generic admin view doesn't depend on name for ID)
-            this.loadMessages();
-            this.loadMessages();
-
-            // Listen for calls on this conversationId (User ID)
-            // Note: Admin listens per conversation select? No, Admin should listen to all?
-            // Wait, for scalability Admin should get notification.
-            // For now, let's keep it simple: Admin only sees incoming call if he selects the user?
-            // Or we assume "Conversation ID" is the channel.
-            // If Admin is Global, he needs to listen to EVERYTHING?
-            // Let's stick to: Customer listens to their ID. Admin listens to "Selected ID".
-            // So Admin logic handles listener on selectConversation.
           });
         }
-      } else {
-        this.loadMessages();
       }
       return;
     }
@@ -699,6 +694,63 @@ export class ChatComponent
     }
   }
 
+  private ringInterval: any = null;
+
+  private startRinging(): void {
+    if (this.ringInterval) return; // Already ringing
+
+    const playRing = () => {
+      try {
+        const AudioContext =
+          (window as any).AudioContext || (window as any).webkitAudioContext;
+        const ctx = new AudioContext();
+
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ctx.destination);
+
+        // Standard US Ringtone frequencies
+        osc1.frequency.value = 440;
+        osc2.frequency.value = 480;
+
+        // Modulate volume
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.5, ctx.currentTime + 1.8);
+        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 2.0);
+
+        osc1.start(ctx.currentTime);
+        osc2.start(ctx.currentTime);
+
+        osc1.stop(ctx.currentTime + 2);
+        osc2.stop(ctx.currentTime + 2);
+
+        // Cleanup context after ring duration
+        setTimeout(() => {
+          if (ctx.state !== 'closed') {
+            ctx.close();
+          }
+        }, 2500);
+      } catch (e) {
+        console.warn('Ring playback failed', e);
+      }
+    };
+
+    playRing();
+    this.ringInterval = setInterval(playRing, 4000);
+  }
+
+  private stopRinging(): void {
+    if (this.ringInterval) {
+      clearInterval(this.ringInterval);
+      this.ringInterval = null;
+    }
+  }
+
   sendMessage(): void {
     if (!this.newMessage.trim()) return;
 
@@ -741,12 +793,14 @@ export class ChatComponent
         (error) => {
           console.error('Error getting location', error);
           if (!silent) {
+            this.isLocationReadOnly = false; // Allow manual entry
             alert('Unable to retrieve location. Please enter manually.');
           }
         }
       );
     } else {
       if (!silent) {
+        this.isLocationReadOnly = false;
         alert('Geolocation is not supported by your browser.');
       }
     }
@@ -961,6 +1015,7 @@ export class ChatComponent
       this.callService.rejectCall(this.incomingCall.id);
       this.incomingCall = null;
       this.callStatus = 'idle';
+      this.stopRinging();
     }
   }
 

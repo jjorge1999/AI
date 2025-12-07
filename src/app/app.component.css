@@ -210,7 +210,7 @@
 /* Tab Content */
 .tab-content {
   min-height: calc(100vh - 400px);
-  padding-bottom: var(--space-2xl);
+  padding-bottom: var(--space-md);
   position: relative;
 }
 
@@ -238,7 +238,7 @@
   background: var(--color-surface);
   border-top: 1px solid var(--color-border);
   padding: var(--space-lg) 0;
-  margin-top: var(--space-2xl);
+  margin-top: var(--space-lg);
 }
 
 .footer p {
@@ -344,30 +344,25 @@
   max-width: calc(100vw - 48px);
   height: 650px;
   max-height: calc(100vh - 120px);
-  background: var(--color-surface);
-  border-radius: var(--radius-xl);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   opacity: 0;
   transform: translateY(20px) scale(0.95);
   pointer-events: none;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
+  z-index: 2000;
 }
 
 .chat-modal.open {
   opacity: 1;
   transform: translateY(0) scale(1);
   pointer-events: all;
-  overflow: auto;
 }
 
 .chat-modal-close {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: -50px; /* Floating above the modal */
+  right: 0;
   width: 36px;
   height: 36px;
   border-radius: var(--radius-lg);
@@ -395,8 +390,12 @@
 
 .chat-modal-content {
   flex: 1;
-  /* display: flex; */
-  flex-direction: column;
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  height: 100%;
 }
 
 @media (max-width: 768px) {
@@ -429,27 +428,39 @@
   
   .chat-modal-close {
     top: 16px;
-    right: 16px;
+    right: auto;
+    left: 16px;
     width: 44px;
-    height: 44px; /* Larger touch target */
+    height: 44px;
   }
 }
 
 /* Notification Badge */
 .notification-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
   background: #ef4444; 
   color: white; 
   padding: 2px 8px; 
   border-radius: 12px; 
-  margin-left: 8px;
   font-size: 0.8rem;
   font-weight: bold;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
   animation: badgePop 0.3s ease-out;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 20px;
+  z-index: 1001; /* Above button */
+  pointer-events: none; /* Allow clicking button underneath if needed */
+  transition: transform 0.3s ease; /* Match button transition */
+  border: 2px solid white; /* Optional: adds a nice separation */
+}
+
+/* Sync badge movement with button hover */
+.chat-toggle-button:hover + .notification-badge {
+  transform: translateY(-4px) scale(1.05);
 }
 
 @keyframes badgePop {
