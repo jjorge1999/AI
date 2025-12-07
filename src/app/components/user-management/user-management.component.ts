@@ -87,6 +87,8 @@ export class UserManagementComponent implements OnInit {
         id: this.currentUser.id,
         username: this.currentUser.username,
         fullName: this.currentUser.fullName,
+        address: this.currentUser.address,
+        gpsCoordinates: this.currentUser.gpsCoordinates,
         role: this.currentUser.role,
       };
 
@@ -105,6 +107,7 @@ export class UserManagementComponent implements OnInit {
         ...this.currentUser,
         password: this.formPassword,
         createdBy: currentUserId,
+        userId: currentUserId,
       } as User;
 
       this.userService.addUser(newUser).subscribe(() => {

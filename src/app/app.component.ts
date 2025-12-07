@@ -51,6 +51,7 @@ export class AppComponent {
   isLoggedIn = false;
   userRole = '';
   isChatOpen = false;
+  totalUnreadMessages = 0;
 
   constructor(
     private inventoryService: InventoryService,

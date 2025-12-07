@@ -190,11 +190,15 @@
   >
     <span class="chat-icon">💬</span>
     <span class="chat-label">Chat</span>
+    <span class="notification-badge" *ngIf="totalUnreadMessages > 0">{{ totalUnreadMessages }}</span>
   </button>
   
   <div class="chat-modal" [class.open]="isChatOpen">
     <div class="chat-modal-content">
-      <app-chat></app-chat>
+      <app-chat 
+        [isOpen]="isChatOpen" 
+        (totalUnreadCountChange)="totalUnreadMessages = $event"
+      ></app-chat>
     </div>
     <button class="chat-modal-close" (click)="toggleChat()" title="Close Chat">✕</button>
   </div>

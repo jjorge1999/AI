@@ -12,6 +12,8 @@ import {
   Timestamp,
   deleteDoc,
   doc,
+  updateDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import { environment } from '../../environments/environment';
 import { Message } from '../models/inventory.models';
@@ -49,6 +51,7 @@ export class ChatService {
             userId: data['userId'],
             conversationId: data['conversationId'],
             audioBase64: data['audioBase64'],
+            isRead: data['isRead'] || false,
           } as Message;
         });
         this.messagesSubject.next(messages);
@@ -65,11 +68,14 @@ export class ChatService {
     conversationId?: string
   ): Promise<void> {
     const messagesRef = collection(this.db, 'messages');
+    const userId = localStorage.getItem('jjm_user_id') || null;
     await addDoc(messagesRef, {
       text,
       senderName,
       conversationId,
       timestamp: new Date(),
+      userId,
+      isRead: false,
     });
   }
 
@@ -79,18 +85,30 @@ export class ChatService {
     conversationId?: string
   ): Promise<void> {
     const messagesRef = collection(this.db, 'messages');
+    const userId = localStorage.getItem('jjm_user_id') || null;
     await addDoc(messagesRef, {
       text: '🎤 Voice Message',
       senderName,
       audioBase64,
       conversationId,
       timestamp: new Date(),
+      userId,
+      isRead: false,
     });
   }
 
   async deleteMessage(messageId: string): Promise<void> {
     const messageDocRef = doc(this.db, 'messages', messageId);
     await deleteDoc(messageDocRef);
+  }
+
+  async markAsRead(messageIds: string[]): Promise<void> {
+    const batch = writeBatch(this.db);
+    messageIds.forEach((id) => {
+      const ref = doc(this.db, 'messages', id);
+      batch.update(ref, { isRead: true });
+    });
+    await batch.commit();
   }
 
   getMessages(): Observable<Message[]> {

@@ -435,3 +435,24 @@
   }
 }
 
+/* Notification Badge */
+.notification-badge {
+  background: #ef4444; 
+  color: white; 
+  padding: 2px 8px; 
+  border-radius: 12px; 
+  margin-left: 8px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  animation: badgePop 0.3s ease-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+}
+
+@keyframes badgePop {
+  0% { transform: scale(0); }
+  100% { transform: scale(1); }
+}

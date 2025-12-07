@@ -123,6 +123,29 @@
 }
 
 /* Chat Wrapper (after registration) */
+/* Notification Balloon */
+.active-indicator {
+  background-color: #ef4444;
+  color: white;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 0 6px;
+  box-shadow: 0 2px 5px rgba(239, 68, 68, 0.4);
+  animation: bounceIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes bounceIn {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 .chat-wrapper {
   display: flex;
   flex-direction: row; /* Change to row to support sidebar */
@@ -155,43 +178,94 @@
 .conversation-list {
   flex: 1;
   overflow-y: auto;
+  padding: 12px; /* Add padding for bubbles */
+  display: flex;
+  flex-direction: column;
+  gap: 8px; /* Space between bubbles */
 }
 
 .conversation-item {
-  padding: var(--space-md);
-  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 15px;
+  border-radius: 16px; /* Bubble/pill shape */
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid transparent;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: 0; /* Remove if previously set */
 }
 
 .conversation-item:hover {
-  background: var(--color-bg);
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
 
 .conversation-item.active {
-  background: rgba(59, 130, 246, 0.1);
-  border-left: 3px solid var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  border-color: transparent;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+.conv-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+  color: #4f46e5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  transition: all 0.2s;
+}
+
+.conversation-item.active .conv-avatar {
+  background: white;
+  color: var(--color-primary);
+  transform: scale(1.05);
+}
+
+.conv-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
 }
 
 .conversation-name {
   font-weight: 600;
-  font-size: 0.9375rem;
+  font-size: 0.95rem;
   color: var(--color-text);
-  display: block;
+  margin-bottom: 2px;
+  transition: color 0.2s;
 }
 
 .conversation-preview {
-  font-size: 0.8125rem;
+  font-size: 0.8rem;
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: block;
-  margin-top: 4px;
+  transition: color 0.2s;
+}
+
+.conversation-item.active .conversation-name {
+  color: white;
+}
+
+.conversation-item.active .conversation-preview {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .chat-header {
   padding: var(--space-lg);
+  padding-bottom: 2rem; /* Add space for subtitle at bottom */
   background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   color: white;
   border-bottom: 2px solid var(--color-border);
@@ -318,6 +392,62 @@
   color: var(--color-primary);
 }
 
+.header-details-subtitle {
+  position: absolute;
+  top: 70%;
+  left: 20px; /* Align with header start or title */
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.85);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.btn-location {
+  padding: 0.5rem;
+  font-size: 1.25rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-location:hover {
+  background: var(--color-bg);
+  transform: scale(1.05);
+}
+
+.message-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.message-address {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  background: rgba(0,0,0,0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gps-link {
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.gps-link:hover {
+  background: rgba(0,0,0,0.1);
+  text-decoration: underline;
+  color: var(--color-primary);
+}
+
 .message-time {
   font-size: 0.75rem;
   color: var(--color-text-muted);
@@ -425,6 +555,14 @@
   background: var(--color-text-muted);
 }
 
+textarea[readonly], input[readonly] {
+  background-color: var(--color-bg);
+  cursor: not-allowed;
+  opacity: 0.8;
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+}
+
 
 @media (max-width: 640px) {
   .message {
@@ -438,13 +576,58 @@
   
   .chat-sidebar {
     width: 100%;
-    height: 30%;
+    height: auto; /* Allow content to dictate height */
+    min-height: 85px; /* Minimum for touch targets */
+    flex-shrink: 0;
     border-right: none;
     border-bottom: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Make the list horizontal scrolling bubbles */
+  .conversation-list {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 10px;
+    gap: 12px;
+  }
+
+  .conversation-item {
+    padding: 4px;
+    border-radius: 50%; /* Round container */
+    background: transparent;
+    flex-shrink: 0;
+    position: relative; /* For badge positioning */
+  }
+
+  /* Hide text info on mobile */
+  .conv-info {
+    display: none;
+  }
+
+  /* Make avatar slightly larger on mobile for touch */
+  .conv-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 1.25rem;
+  }
+
+  /* Position badge absolute on mobile */
+  .active-indicator {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    min-width: 18px;
+    height: 18px;
+    font-size: 0.7rem;
+    border: 2px solid var(--color-surface); /* Separation border */
   }
 
   .chat-main-area {
-    height: 70%;
+    height: 100%; /* Take remaining space */
+    overflow: hidden;
   }
 
   .chat-header {

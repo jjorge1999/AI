@@ -83,6 +83,7 @@ export class UserService {
     const newUserTemplate = {
       ...user,
       createdAt: new Date(),
+      userId: user.userId || localStorage.getItem('jjm_user_id') || 'system',
     };
 
     return from(this.hashPassword(user.password || '')).pipe(

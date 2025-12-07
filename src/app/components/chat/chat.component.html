@@ -38,11 +38,27 @@
             id="address"
             [(ngModel)]="customerInfo.address"
             name="address"
-            placeholder="Enter your complete delivery address"
+            placeholder="Address will be detected automatically..."
             class="form-textarea"
             rows="3"
             required
+            readonly
           ></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>GPS Coordinates</label>
+          <div style="display: flex; gap: 8px;">
+             <input
+               type="text"
+               [(ngModel)]="customerInfo.gpsCoordinates"
+               name="gpsCoordinates"
+               placeholder="Lat, Lng (Auto-detected)"
+               class="form-input"
+               readonly
+             />
+             <button type="button" class="btn-location" (click)="getLocation()">📍</button>
+          </div>
         </div>
 
         <button type="submit" class="btn-register">
@@ -66,8 +82,12 @@
           [class.active]="currentConversationId === conv"
           (click)="selectConversation(conv)"
         >
-          <span class="conversation-name">{{ conv }}</span>
-          <span class="conversation-preview">Click to view chat</span>
+          <div class="conv-avatar">{{ getDisplayName(conv).charAt(0).toUpperCase() }}</div>
+          <div class="conv-info">
+            <span class="conversation-name">{{ getDisplayName(conv) }}</span>
+            <span class="conversation-preview">Click to view chat</span>
+          </div>
+          <div class="active-indicator" *ngIf="unreadCounts[conv] > 0">{{ unreadCounts[conv] }}</div>
         </div>
         <div *ngIf="conversations.length === 0" class="no-messages">
           No conversations yet.
@@ -79,7 +99,22 @@
     <div class="chat-main-area">
       <div class="chat-header">
         <div class="header-content">
-          <h2>💬 {{ isAppUser && currentConversationId ? 'Chat with ' + currentConversationId : 'Customer Support Chat' }}</h2>
+          <h2>
+            💬 {{ isAppUser && currentConversationId ? 'Chat with ' + getDisplayName(currentConversationId) : 'Customer Support Chat' }}
+          </h2>
+          <!-- Show Address/GPS in Header for Admin -->
+          <div *ngIf="isAppUser && currentConversationId" class="header-details-subtitle">
+            <div *ngIf="getUserAddress(currentConversationId)">📍 {{ getUserAddress(currentConversationId) }}</div>
+            <a 
+              *ngIf="getUserGps(currentConversationId)" 
+              [href]="'https://www.google.com/maps/search/?api=1&query=' + getUserGps(currentConversationId)"
+              target="_blank"
+              style="color: inherit; text-decoration: none; display: flex; align-items: center; gap: 4px;"
+            >
+              🌍 {{ getUserGps(currentConversationId) }}
+            </a>
+          </div>
+          
           <div class="user-info">
             <span class="user-name">{{ senderName }}</span>
             <button class="btn-edit" (click)="changeInfo()" title="Edit information">
@@ -158,7 +193,21 @@
         >
           <div class="message-header">
             <span class="sender-name">{{ message.senderName }}</span>
-            <span class="message-time">{{ formatTime(message.timestamp) }}</span>
+            <div class="message-meta">
+               <span class="message-address" *ngIf="!isMyMessage(message) && getUserAddress(message.senderName)">
+                 📍 {{ getUserAddress(message.senderName) }}
+               </span>
+               <a 
+                 class="message-address gps-link" 
+                 *ngIf="!isMyMessage(message) && getUserGps(message.senderName)"
+                 [href]="'https://www.google.com/maps/search/?api=1&query=' + getUserGps(message.senderName)"
+                 target="_blank"
+                 title="View on Google Maps"
+               >
+                 🌍 {{ getUserGps(message.senderName) }}
+               </a>
+               <span class="message-time">{{ formatTime(message.timestamp) }}</span>
+            </div>
           </div>
           <div class="message-text" *ngIf="message.text">{{ message.text }}</div>
           <div class="message-audio" *ngIf="message.audioBase64">

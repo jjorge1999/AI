@@ -5,6 +5,12 @@ import {
   ElementRef,
   AfterViewChecked,
   OnDestroy,
+  HostListener,
+  Input,
+  OnChanges,
+  SimpleChanges,
+  Output,
+  EventEmitter,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -12,13 +18,19 @@ import { ChatService } from '../../services/chat.service';
 import { CustomerService } from '../../services/customer.service';
 import { UserService } from '../../services/user.service';
 import { CallService } from '../../services/call.service';
-import { Message, Customer, WebRTCCall } from '../../models/inventory.models';
+import {
+  Message,
+  Customer,
+  WebRTCCall,
+  User,
+} from '../../models/inventory.models';
 import { Subscription, take } from 'rxjs';
 
 interface CustomerInfo {
   name: string;
   phoneNumber: string;
   address: string;
+  gpsCoordinates?: string;
 }
 
 @Component({
@@ -28,14 +40,23 @@ interface CustomerInfo {
   templateUrl: './chat.component.html',
   styleUrl: './chat.component.css',
 })
-export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
+export class ChatComponent
+  implements OnInit, AfterViewChecked, OnDestroy, OnChanges
+{
   @ViewChild('messagesContainer') private messagesContainer!: ElementRef;
   @ViewChild('remoteAudio') private remoteAudio!: ElementRef<HTMLAudioElement>;
 
   messages: Message[] = [];
   newMessage = '';
   senderName = '';
+  @Input() isOpen = false;
+  @Output() totalUnreadCountChange = new EventEmitter<number>();
   private shouldScroll = false;
+
+  // Cache for resolving IDs/names to Full Names
+  private userNamesCache = new Map<string, string>();
+  private userAddressesCache = new Map<string, string>();
+  private userGpsCache = new Map<string, string>();
 
   // Customer registration
   isRegistered = false;
@@ -43,6 +64,7 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
     name: '',
     phoneNumber: '',
     address: '',
+    gpsCoordinates: '',
   };
   allCustomers: Customer[] = [];
   errorMessage = '';
@@ -60,12 +82,85 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
 
   private incomingCallListener?: () => void;
 
+  private notificationAudioContext: AudioContext | null = null;
+  private audioUnlocked = false;
+
   constructor(
     private chatService: ChatService,
     private customerService: CustomerService,
     private userService: UserService,
     private callService: CallService
-  ) {}
+  ) {
+    // Request notification permission immediately
+    this.requestNotificationPermission();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['isOpen'] && this.isOpen) {
+      // Chat opened, refresh view (this marks messages as read if logic allows)
+      this.updateFilteredMessages(false);
+      this.shouldScroll = true; // Ensure we scroll to bottom when opening
+    }
+  }
+
+  private requestNotificationPermission() {
+    if ('Notification' in window) {
+      Notification.requestPermission();
+    }
+  }
+
+  // Handle visibility changes to manage connection/status if needed
+  @HostListener('document:visibilitychange')
+  onVisibilityChange() {
+    if (!document.hidden) {
+      // Clear title notification if active
+      document.title = 'JJM Inventory';
+    }
+  }
+
+  // "Unlock" audio context on first user interaction (iOS requirement)
+  // We play a silent buffer to force the audio subsystem to wake up.
+  private unlockAudioContext() {
+    if (this.audioUnlocked) return;
+
+    if (!this.notificationAudioContext) {
+      const AudioContext =
+        (window as any).AudioContext || (window as any).webkitAudioContext;
+      this.notificationAudioContext = new AudioContext();
+    }
+
+    const ctx = this.notificationAudioContext;
+    if (ctx) {
+      // 1. Resume
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
+      // 2. Play silent buffer (The "Warm Up" trick for iOS)
+      try {
+        const buffer = ctx.createBuffer(1, 1, 22050);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(0);
+
+        // If we get here without error, we assume it worked
+        this.audioUnlocked = true;
+        console.log(
+          'ChatComponent: AudioContext unlocked via user interaction.'
+        );
+      } catch (e) {
+        console.error('ChatComponent: Failed to unlock audio', e);
+      }
+    }
+  }
+
+  @HostListener('document:click')
+  @HostListener('document:touchstart')
+  @HostListener('document:keydown')
+  onUserInteraction() {
+    this.unlockAudioContext();
+  }
 
   ngOnInit(): void {
     // Load customers list first for validation
@@ -160,6 +255,7 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
       name: '',
       phoneNumber: '',
       address: '',
+      gpsCoordinates: '',
     };
     this.messages = [];
   }
@@ -238,7 +334,12 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
         localStorage.removeItem('chatCustomerInfo');
         localStorage.removeItem('chatUserName');
         this.isRegistered = false;
+        // Attempt to auto-locate for new guest
+        this.getLocation(true);
       }
+    } else {
+      // No saved info, new guest
+      this.getLocation(true);
     }
   }
 
@@ -325,33 +426,164 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
   private allMessagesCached: Message[] = [];
   private messagesSubscription?: Subscription;
 
+  unreadCounts: { [key: string]: number } = {};
+  private conversationMessageCounts: { [key: string]: number } = {};
+
+  // Audio/Call States
+  isSpeakerOn = false;
+  isMicMuted = false;
+  audioLevel = 0;
+  private audioContext: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private source: MediaStreamAudioSourceNode | null = null;
+  private dataArray: Uint8Array | null = null;
+  private animationFrameId: number | null = null;
+
+  private notifyUser(message: Message): void {
+    if (this.isMyMessage(message)) return;
+
+    this.playNotificationSound();
+
+    if (
+      document.hidden &&
+      'Notification' in window &&
+      Notification.permission === 'granted'
+    ) {
+      new Notification('New Message', {
+        body: message.text || 'You received a new audio message',
+        icon: '/assets/icons/icon-72x72.png',
+      });
+      document.title = `New Message from ${message.senderName}`;
+    }
+  }
+
   private loadMessages(): void {
     if (this.messagesSubscription) {
-      // Already subscribed, just refresh view
       this.updateFilteredMessages(false);
       return;
     }
 
-    // Subscribe to messages
     this.messagesSubscription = this.chatService.getMessages().subscribe({
       next: (allMessages) => {
         this.allMessagesCached = allMessages;
 
-        // Admin Logic: Find all unique conversation IDs
         if (this.isAppUser) {
+          const convMap = new Map<string, number>();
           const convSet = new Set<string>();
+          const latestMsgMap = new Map<string, Message>();
+
           allMessages.forEach((msg) => {
-            if (msg.conversationId) convSet.add(msg.conversationId);
+            if (msg.conversationId) {
+              convSet.add(msg.conversationId);
+              convMap.set(
+                msg.conversationId,
+                (convMap.get(msg.conversationId) || 0) + 1
+              );
+              // Store latest message
+              latestMsgMap.set(msg.conversationId, msg);
+            }
           });
+
           this.conversations = Array.from(convSet);
+
+          // Resolve names
+          this.userService.users$.pipe(take(1)).subscribe((users) => {
+            this.conversations.forEach((convId) => {
+              if (
+                !this.userNamesCache.has(convId) ||
+                !this.userAddressesCache.get(convId) ||
+                !this.userGpsCache.get(convId)
+              ) {
+                const user = users.find(
+                  (u) =>
+                    u.username === convId ||
+                    u.fullName === convId ||
+                    u.id === convId
+                );
+                if (user) {
+                  this.userNamesCache.set(
+                    convId,
+                    user.fullName || user.username
+                  );
+                  this.userAddressesCache.set(convId, user.address || '');
+                  this.userGpsCache.set(convId, user.gpsCoordinates || '');
+                } else {
+                  const customer = this.allCustomers.find(
+                    (c) => c.name === convId
+                  );
+                  if (customer) {
+                    this.userNamesCache.set(convId, customer.name);
+                    this.userAddressesCache.set(
+                      convId,
+                      customer.deliveryAddress
+                    );
+                    this.userGpsCache.set(
+                      convId,
+                      customer.gpsCoordinates || ''
+                    );
+                  } else {
+                    this.userNamesCache.set(convId, convId);
+                  }
+                }
+              }
+            });
+          });
+
+          // Detect new messages & Update unread counts
+          this.conversations.forEach((convId) => {
+            const currentCount = convMap.get(convId) || 0;
+            const prevCount = this.conversationMessageCounts[convId] || 0;
+
+            // Update unread count based on isRead flag
+            this.unreadCounts[convId] = allMessages.filter(
+              (m) =>
+                m.conversationId === convId && !m.isRead && !this.isMyMessage(m)
+            ).length;
+
+            if (currentCount > prevCount) {
+              // Trigger notification for ANY new message in ANY conversation
+              const lastMsg = latestMsgMap.get(convId);
+              if (lastMsg) {
+                this.notifyUser(lastMsg);
+              }
+            }
+            this.conversationMessageCounts[convId] = currentCount;
+          });
         }
 
-        this.updateFilteredMessages(true);
+        // Calculate and Emit Total Unread
+        let totalUnread = 0;
+        if (this.isAppUser) {
+          totalUnread = Object.values(this.unreadCounts).reduce(
+            (a, b) => a + b,
+            0
+          );
+        } else {
+          totalUnread = allMessages.filter(
+            (m) => !m.isRead && !this.isMyMessage(m)
+          ).length;
+        }
+        this.totalUnreadCountChange.emit(totalUnread);
+
+        this.updateFilteredMessages(!this.isAppUser);
       },
       error: (error) => {
         console.error('Error loading messages:', error);
       },
     });
+  }
+
+  // Helper to get display name
+  getDisplayName(convId: string): string {
+    return this.userNamesCache.get(convId) || convId;
+  }
+
+  getUserAddress(convId: string): string {
+    return this.userAddressesCache.get(convId) || '';
+  }
+
+  getUserGps(convId: string): string {
+    return this.userGpsCache.get(convId) || '';
   }
 
   private updateFilteredMessages(notify: boolean): void {
@@ -372,43 +604,96 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
 
     this.messages = filteredMessages;
 
+    // Mark unread messages as read if we are looking at them and chat is open
+    if (this.isOpen && targetId) {
+      const unreadIds = filteredMessages
+        .filter((m) => !m.isRead && !this.isMyMessage(m))
+        .map((m) => m.id);
+
+      if (unreadIds.length > 0) {
+        this.chatService.markAsRead(unreadIds);
+      }
+    }
+
     // Check for new incoming messages for Notification
     if (notify && hadMessages && newCount > previousCount) {
       const lastMsg = filteredMessages[newCount - 1];
       if (!this.isMyMessage(lastMsg)) {
         this.playNotificationSound();
+
+        // System Notification if hidden
+        if (
+          document.hidden &&
+          'Notification' in window &&
+          Notification.permission === 'granted'
+        ) {
+          new Notification('New Message', {
+            body: lastMsg.text || 'You received a new audio message',
+            icon: '/assets/icons/icon-72x72.png', // Ensure this exists or use default
+          });
+          document.title = `(${
+            newCount - previousCount
+          }) New Message - JJM Inventory`;
+        }
       }
     }
 
-    // Auto-scroll on new messages
+    // Auto-scroll on new messages or if forced
     if (!hadMessages || newCount > previousCount) {
       this.shouldScroll = true;
+      // Force scroll immediately after a tick to ensure DOM is ready
+      setTimeout(() => this.scrollToBottom(), 100);
     }
   }
 
   private playNotificationSound(): void {
     try {
-      const AudioContext =
-        (window as any).AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContext) return;
+      // Use the unlocked context if available
+      let ctx = this.notificationAudioContext;
 
-      const ctx = new AudioContext();
-      const osc = ctx.createOscillator();
+      // Fallback if not initialized (rare if user interacted)
+      if (!ctx) {
+        const AudioContext =
+          (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (AudioContext) {
+          ctx = new AudioContext();
+        }
+      }
+
+      if (!ctx) return;
+
+      // Ensure it is running
+      if (ctx.state === 'suspended') {
+        ctx
+          .resume()
+          .catch((e) => console.warn('Could not resume audio context', e));
+      }
+
+      const now = ctx.currentTime;
+
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
       const gain = ctx.createGain();
 
-      osc.connect(gain);
+      osc1.type = 'sine';
+      osc2.type = 'sine';
+
+      osc1.frequency.setValueAtTime(1200, now);
+      osc2.frequency.setValueAtTime(2400, now);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
       gain.connect(ctx.destination);
 
-      osc.type = 'sine';
-      // Pleasant "Ding"
-      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-      osc.frequency.exponentialRampToValueAtTime(1046.5, ctx.currentTime + 0.1); // C6
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.5, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
 
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      osc1.start(now);
+      osc2.start(now);
 
-      osc.start();
-      osc.stop(ctx.currentTime + 0.5);
+      osc1.stop(now + 0.6);
+      osc2.stop(now + 0.6);
     } catch (e) {
       console.warn('Audio playback failed', e);
     }
@@ -438,8 +723,54 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
       });
   }
 
+  getLocation(silent: boolean = false): void {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          this.customerInfo.gpsCoordinates = `${lat.toFixed(6)}, ${lon.toFixed(
+            6
+          )}`;
+
+          // Auto-fetch address from GPS
+          if (!this.customerInfo.address) {
+            this.fetchAddressFromGps(lat, lon);
+          }
+        },
+        (error) => {
+          console.error('Error getting location', error);
+          if (!silent) {
+            alert('Unable to retrieve location. Please enter manually.');
+          }
+        }
+      );
+    } else {
+      if (!silent) {
+        alert('Geolocation is not supported by your browser.');
+      }
+    }
+  }
+
+  private async fetchAddressFromGps(lat: number, lon: number): Promise<void> {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        if (data.display_name) {
+          this.customerInfo.address = data.display_name;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to reverse geocode', e);
+    }
+  }
+
   selectConversation(convId: string): void {
     this.currentConversationId = convId;
+    this.unreadCounts[convId] = 0; // Clear unread count
     this.updateFilteredMessages(false); // Refreshes view with new filter, no sound
 
     // Admin listens to calls on this channel
@@ -640,21 +971,22 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
     this.cleanupAudioVisualizer();
   }
 
-  isSpeakerOn = false;
-  isMicMuted = false;
-  audioLevel = 0;
-  private audioContext: AudioContext | null = null;
-  private analyser: AnalyserNode | null = null;
-  private dataArray: Uint8Array | null = null;
-  private source: MediaStreamAudioSourceNode | null = null;
-  private animationFrameId: number | null = null;
-
   setupAudioVisualizer(stream: MediaStream): void {
     this.cleanupAudioVisualizer(); // Safety cleanup
     try {
       const AudioContext =
         window.AudioContext || (window as any).webkitAudioContext;
       this.audioContext = new AudioContext();
+      // Resume if suspended (common in Chrome/Edge)
+      if (this.audioContext.state === 'suspended') {
+        console.log(
+          'ChatComponent: AudioContext suspended. Attempting to resume...'
+        );
+        this.audioContext
+          .resume()
+          .then(() => console.log('ChatComponent: AudioContext resumed!'));
+      }
+
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = 64; // Low res is fine for volume
       this.source = this.audioContext.createMediaStreamSource(stream);
@@ -665,6 +997,9 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
         if (!this.analyser || !this.dataArray) return;
         // @ts-ignore
         this.analyser.getByteFrequencyData(this.dataArray);
+
+        // Log occasional non-zero for debug
+        // if (this.dataArray[0] > 0) console.log('Audio Data:', this.dataArray[0]);
 
         // Calculate average volume
         let sum = 0;

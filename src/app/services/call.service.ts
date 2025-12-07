@@ -47,6 +47,7 @@ export class CallService {
     iceServers: [
       {
         urls: [
+          'stun:stun.l.google.com:19302',
           'stun:stun1.l.google.com:19302',
           'stun:stun2.l.google.com:19302',
           'stun:stun3.l.google.com:19302',
@@ -54,7 +55,6 @@ export class CallService {
         ],
       },
     ],
-    iceCandidatePoolSize: 10,
   };
 
   constructor() {}
@@ -74,12 +74,19 @@ export class CallService {
     this.setupPeerConnection(this.currentCallId);
 
     // 4. Add Local Tracks to PC
-    this.localStream!.getTracks().forEach((track) => {
-      this.peerConnection!.addTrack(track, this.localStream!);
-    });
+    if (this.localStream) {
+      this.localStream.getTracks().forEach((track) => {
+        if (this.peerConnection && this.localStream) {
+          this.peerConnection.addTrack(track, this.localStream);
+        }
+      });
+    }
 
     // 5. Create Offer
-    const offerDescription = await this.peerConnection!.createOffer();
+    const offerDescription = await this.peerConnection!.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: false,
+    });
     await this.peerConnection!.setLocalDescription(offerDescription);
 
     const callData: any = {
@@ -96,7 +103,6 @@ export class CallService {
 
     await setDoc(callDocRef, callData);
 
-    // 6. Listen for Answer
     // 6. Listen for Answer
     this.callDocSubscription = onSnapshot(callDocRef, async (snapshot) => {
       const data = snapshot.data();
@@ -296,22 +302,34 @@ export class CallService {
     this.peerConnection = new RTCPeerConnection(this.servers);
 
     this.peerConnection.oniceconnectionstatechange = () => {
-      console.log(
-        'CallService: ICE Connection State Change:',
-        this.peerConnection?.iceConnectionState
-      );
-      if (
-        this.peerConnection?.iceConnectionState === 'failed' ||
-        this.peerConnection?.iceConnectionState === 'disconnected'
-      ) {
+      const state = this.peerConnection?.iceConnectionState;
+      console.log('CallService: ICE Connection State Change:', state);
+      if (state === 'failed' || state === 'disconnected') {
         console.warn(
           'CallService: Peer connection failed/disconnected. Check firewall/network.'
         );
       }
+      if (state === 'connected') {
+        console.log('CallService: P2P Connection Established!');
+      }
+    };
+
+    this.peerConnection.onicecandidateerror = (event: any) => {
+      console.error(
+        'CallService: ICE Candidate Error:',
+        event.errorCode,
+        event.errorText,
+        event.url
+      );
     };
 
     this.peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log(
+          'CallService: Generated ICE Candidate:',
+          event.candidate.type,
+          event.candidate.address
+        );
         // We need to know if we are the caller or callee to put candidates in the right place.
         // A simple heuristic: if we created the offer, we are the caller -> 'offerCandidates'
         // If we created the answer, we are the callee -> 'answerCandidates'

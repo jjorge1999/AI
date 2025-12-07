@@ -34,6 +34,7 @@ export interface Customer {
   name: string;
   phoneNumber: string;
   deliveryAddress: string;
+  gpsCoordinates?: string;
   createdAt: Date;
   userId?: string;
 }
@@ -66,6 +67,7 @@ export interface Message {
   userId?: string;
   conversationId?: string;
   audioBase64?: string;
+  isRead?: boolean;
 }
 
 export interface WebRTCCall {
@@ -82,6 +84,8 @@ export interface User {
   id: string;
   username: string;
   fullName: string;
+  address?: string; // Added for chat/profile info
+  gpsCoordinates?: string;
   password?: string; // Optional for display, required for auth
   role: 'admin' | 'user';
   createdAt: Date;
