@@ -2,7 +2,7 @@
 <div *ngIf="!isLoggedIn" class="public-container">
   <!-- Navigation/Switcher -->
   <div class="public-nav">
-    <button (click)="showReservation = !showReservation" class="btn-public-toggle">
+    <button (click)="toggleReservation()" class="btn-public-toggle">
       {{ showReservation ? '← Back to Login' : '📅 Make a Reservation' }}
     </button>
   </div>

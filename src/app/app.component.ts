@@ -75,6 +75,16 @@ export class AppComponent {
 
     // Expose service for migration
     (window as any).inventoryService = this.inventoryService;
+
+    // Check URL hash for direct reservation link
+    this.checkUrlForReservation();
+  }
+
+  private checkUrlForReservation(): void {
+    const hash = window.location.hash;
+    if (hash === '#/reservation' || hash === '#reservation') {
+      this.showReservation = true;
+    }
   }
 
   setActiveTab(
@@ -123,5 +133,20 @@ export class AppComponent {
 
   toggleChat(): void {
     this.isChatOpen = !this.isChatOpen;
+  }
+
+  toggleReservation(): void {
+    this.showReservation = !this.showReservation;
+
+    // Update URL hash to reflect state
+    if (this.showReservation) {
+      window.location.hash = '#/reservation';
+    } else {
+      window.location.hash = '';
+    }
+  }
+
+  getReservationLink(): string {
+    return `${window.location.origin}${window.location.pathname}#/reservation`;
   }
 }
