@@ -41,6 +41,7 @@ export class CallService {
   public remoteStream$ = new BehaviorSubject<MediaStream | null>(null);
 
   private currentCallId: string | null = null;
+  private candidateQueue: RTCIceCandidate[] = [];
 
   private servers = {
     iceServers: [
@@ -96,7 +97,8 @@ export class CallService {
     await setDoc(callDocRef, callData);
 
     // 6. Listen for Answer
-    this.callDocSubscription = onSnapshot(callDocRef, (snapshot) => {
+    // 6. Listen for Answer
+    this.callDocSubscription = onSnapshot(callDocRef, async (snapshot) => {
       const data = snapshot.data();
       if (!this.peerConnection || !data) return;
 
@@ -105,8 +107,16 @@ export class CallService {
         data['answer']
       ) {
         const answerDescription = new RTCSessionDescription(data['answer']);
-        this.peerConnection.setRemoteDescription(answerDescription);
+        await this.peerConnection.setRemoteDescription(answerDescription);
         this.callStatus$.next('connected');
+
+        // Flush candidate buffer
+        this.candidateQueue.forEach((c) => {
+          this.peerConnection
+            ?.addIceCandidate(c)
+            .catch((e) => console.error('Error adding buffered candidate', e));
+        });
+        this.candidateQueue = []; // clear
       }
 
       // Handle rejection/end
@@ -125,19 +135,13 @@ export class CallService {
             const candidateData = change.doc.data();
             const candidate = new RTCIceCandidate(candidateData);
 
-            // Check if remote description is set
             if (this.peerConnection?.remoteDescription) {
               this.peerConnection
                 .addIceCandidate(candidate)
                 .catch((e) => console.error('Error adding candidate', e));
             } else {
-              // Buffer logic could go here, but usually onSnapshot fires AFTER connection setup completes if we are fast enough,
-              // or we just rely on the fact that if we are the caller, we wait for answer properties first in the other listener.
-              // Actually, for active listener, we might receive candidates early.
-              // Simple fix: Wait for remote description.
-              console.warn(
-                'Received candidate before remote description set. Dropping for now (robustness TODO)'
-              );
+              console.log('Buffering candidate...');
+              this.candidateQueue.push(candidate);
             }
           }
         });

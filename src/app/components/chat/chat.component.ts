@@ -134,9 +134,10 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
             );
             audioEl
               .play()
-              .then(() =>
-                console.log('ChatComponent: Audio playing successfully')
-              )
+              .then(() => {
+                console.log('ChatComponent: Audio playing successfully');
+                this.setupAudioVisualizer(stream);
+              })
               .catch((e) =>
                 console.error('ChatComponent: Error playing audio:', e)
               );
@@ -636,10 +637,67 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
     this.callService.endCall();
     this.isSpeakerOn = false;
     this.isMicMuted = false;
+    this.cleanupAudioVisualizer();
   }
 
   isSpeakerOn = false;
   isMicMuted = false;
+  audioLevel = 0;
+  private audioContext: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private dataArray: Uint8Array | null = null;
+  private source: MediaStreamAudioSourceNode | null = null;
+  private animationFrameId: number | null = null;
+
+  setupAudioVisualizer(stream: MediaStream): void {
+    this.cleanupAudioVisualizer(); // Safety cleanup
+    try {
+      const AudioContext =
+        window.AudioContext || (window as any).webkitAudioContext;
+      this.audioContext = new AudioContext();
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 64; // Low res is fine for volume
+      this.source = this.audioContext.createMediaStreamSource(stream);
+      this.source.connect(this.analyser);
+      this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+
+      const updateVolume = () => {
+        if (!this.analyser || !this.dataArray) return;
+        // @ts-ignore
+        this.analyser.getByteFrequencyData(this.dataArray);
+
+        // Calculate average volume
+        let sum = 0;
+        for (let i = 0; i < this.dataArray.length; i++) {
+          sum += this.dataArray[i];
+        }
+        const average = sum / this.dataArray.length; // 0 to 255
+        // Normalize to percentage (roughly) and boost a bit
+        this.audioLevel = Math.min(100, Math.max(0, (average / 255) * 300));
+
+        this.animationFrameId = requestAnimationFrame(updateVolume);
+      };
+      updateVolume();
+    } catch (e) {
+      console.error('Error setting up visualizer', e);
+    }
+  }
+
+  cleanupAudioVisualizer(): void {
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+    if (this.source) {
+      this.source.disconnect();
+      this.source = null;
+    }
+    if (this.audioContext) {
+      this.audioContext.close().catch(() => {});
+      this.audioContext = null;
+    }
+    this.audioLevel = 0;
+  }
 
   async toggleSpeaker() {
     this.isSpeakerOn = !this.isSpeakerOn;

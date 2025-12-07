@@ -125,6 +125,11 @@
              <audio #remoteAudio [srcObject]="remoteStream" autoplay playsinline controls></audio>
           </div>
 
+          <!-- Volume Visualizer -->
+          <div class="volume-meter" title="Audio Signal Strength">
+             <div class="volume-bar" [style.width.%]="audioLevel"></div>
+          </div>
+
           <div class="call-utilities">
             <button class="btn-round" [class.active]="isSpeakerOn" (click)="toggleSpeaker()" title="Toggle Speaker">
               {{ isSpeakerOn ? '🔊' : '🔈' }}
