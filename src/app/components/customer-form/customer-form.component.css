@@ -65,16 +65,16 @@
 .customer-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
-  margin-top: var(--space-lg);
+  gap: 4px;
+  margin-top: var(--space-md);
 }
 
 .customer-item {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-md);
-  padding: var(--space-lg);
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
   background: var(--color-bg);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
@@ -83,56 +83,58 @@
 
 .customer-item:hover {
   background: #e0e7ff;
-  transform: translateX(4px);
+  transform: translateX(2px);
 }
 
 .customer-info {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: 2px;
 }
 
 .customer-name {
   font-weight: 600;
-  font-size: 1.125rem;
+  font-size: 0.95rem;
   color: var(--color-text);
 }
 
 .customer-details {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-lg);
+  align-items: center;
 }
 
 .detail-row {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  font-size: 0.875rem;
+  gap: 4px;
+  font-size: 0.8rem;
   color: var(--color-text-muted);
 }
 
 .detail-icon {
-  font-size: 1rem;
+  font-size: 0.9rem;
 }
 
 .customer-actions {
   display: flex;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
 }
 
 .btn-delete {
-  padding: var(--space-sm);
+  padding: 0;
   background: transparent;
   border: 1px solid var(--color-border);
   color: var(--color-danger);
   border-radius: var(--radius-md);
-  font-size: 1.25rem;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: all var(--transition-base);
-  width: 40px;
-  height: 40px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -179,16 +181,16 @@
 }
 
 .btn-edit {
-  padding: var(--space-sm);
+  padding: 0;
   background: transparent;
   border: 1px solid var(--color-border);
   color: var(--color-primary);
   border-radius: var(--radius-md);
-  font-size: 1.25rem;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: all var(--transition-base);
-  width: 40px;
-  height: 40px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
