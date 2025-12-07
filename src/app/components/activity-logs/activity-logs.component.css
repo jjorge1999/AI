@@ -87,66 +87,70 @@
 .logs-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: 4px;
 }
 
 .log-item {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-md);
+  gap: var(--space-sm);
+  padding: 8px 12px;
   background: var(--color-bg);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   transition: all var(--transition-base);
 }
 
 .log-item:hover {
   background: var(--color-surface);
-  transform: translateX(4px);
+  transform: translateX(2px);
 }
 
 .log-icon {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 2px;
-  font-size: 1.25rem;
+  gap: 4px;
+  font-size: 1rem;
+  min-width: 40px;
+  justify-content: center;
 }
 
 .entity-icon {
-  font-size: 1.5rem;
+  font-size: 1.1rem;
 }
 
 .action-icon {
-  font-size: 1rem;
+  font-size: 0.9rem;
 }
 
 .log-info {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
 }
 
 .log-header {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
 }
 
 .log-entity {
   font-weight: 600;
   color: var(--color-text);
-  font-size: 1rem;
+  font-size: 0.9rem;
 }
 
 .log-action-badge {
-  padding: 2px 8px;
+  padding: 1px 6px;
   background: var(--color-primary);
   color: white;
   border-radius: var(--radius-sm);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 500;
   text-transform: uppercase;
 }
@@ -155,7 +159,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   color: var(--color-text-muted);
 }
 
@@ -166,6 +170,10 @@
 
 .log-description {
   font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 400px;
 }
 
 .log-timestamp {
