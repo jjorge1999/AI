@@ -145,9 +145,9 @@ export class ReservationComponent implements OnInit {
         this.pickupDate +
           (this.pickupTime ? 'T' + this.pickupTime : 'T00:00:00')
       );
-      const fullNotes = `Payment: ${
-        this.paymentOption || 'Not Specified'
-      }\nAddress: ${this.customerAddress}\n\n${this.notes}`;
+      const fullNotes = `Payment: ${this.paymentOption || 'Not Specified'}\n\n${
+        this.notes
+      }`;
 
       // 1. Check if customer already exists by phone number
       let existingCustomer: any = null;
