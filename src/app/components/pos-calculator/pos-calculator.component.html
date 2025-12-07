@@ -151,7 +151,7 @@
     <div class="pending-item" *ngFor="let group of groupedPendingSales">
       <div class="pending-details">
         <div class="pending-header">
-           <div class="header-left" style="display:flex; flex-direction:column;">
+           <div class="header-left">
               <span class="product-name" *ngIf="!group.isGroup">{{ group.sales[0].productName }}</span>
               <span class="product-name" *ngIf="group.isGroup">Order #{{ group.orderId | slice:4:12 }}... ({{ group.sales.length }} items)</span>
            </div>
@@ -159,7 +159,7 @@
           <span class="sale-date">{{ group.timestamp | date : 'short' }}</span>
         </div>
 
-        <div class="multi-item-list" *ngIf="group.isGroup" style="margin: 5px 0; font-size: 0.9em; color: var(--color-text-muted);">
+        <div class="multi-item-list" *ngIf="group.isGroup">
             <div *ngFor="let s of group.sales" class="sub-item">
                • {{ s.productName }} <span class="sub-qty">(x{{ s.quantitySold }})</span>
             </div>
@@ -168,7 +168,7 @@
         <div class="pending-info">
           <span *ngIf="!group.isGroup">Qty: {{ group.quantityTotal }}</span>
           <span *ngIf="group.isGroup">Total Qty: {{ group.quantityTotal }}</span>
-          <span class="total-price font-bold" style="font-weight:600;">Due: ${{ group.total | number:'1.2-2' }}</span>
+          <span class="total-price">Due: ${{ group.total | number:'1.2-2' }}</span>
         </div>
 
         <div class="customer-details" *ngIf="group.customer">
@@ -186,7 +186,7 @@
       </div>
       
       <div class="pending-actions">
-        <button class="btn-edit" *ngIf="!group.isGroup" (click)="openEditModal(group.sales[0])">✏️ Edit</button>
+        <button class="btn-edit" (click)="openEditModal(group.sales[0])">✏️ Edit</button>
         
         <button 
           *ngIf="group.status === 'pending_confirmation'" 
@@ -198,10 +198,9 @@
         </button>
 
         <button 
-          *ngIf="group.status === 'pending_confirmation'" 
           class="btn-delete" 
-          (click)="cancelGroupReservation(group.sales)"
-          title="Cancel Reservation"
+          (click)="cancelGroupOrder(group.sales)"
+          title="Cancel Order"
         >
           🗑️ Cancel
         </button>

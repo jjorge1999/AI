@@ -146,19 +146,29 @@
         </h3>
 
         <div class="sales-list">
-          <div class="sale-item" *ngFor="let sale of pendingSales">
+          <div class="sale-item" *ngFor="let group of groupedPendingSales">
             <div class="sale-info">
-              <div class="sale-name">{{ sale.productName }}</div>
-              <div class="sale-details-text">
-                {{ sale.quantitySold }} × ${{ sale.price.toFixed(2) }}
+              <div class="sale-name">
+                 {{ group.productName }}
+                 <span *ngIf="group.isGroup" style="font-size:0.8em; color:gray">({{ group.quantityCount }} items)</span>
               </div>
+              
+              <div class="sale-details-text" *ngIf="!group.isGroup">
+                 {{ group.items[0].quantitySold }} × ${{ group.items[0].price.toFixed(2) }}
+              </div>
+               <div class="sale-details-text" *ngIf="group.isGroup">
+                 <div *ngFor="let item of group.items" style="font-size:0.9em; margin-bottom:2px">
+                   • {{ item.productName }} (x{{ item.quantitySold }})
+                 </div>
+              </div>
+
               <div class="delivery-badge warning">
-                Pending Delivery
+                Pending Delivery <span *ngIf="group.deliveryDate">({{ group.deliveryDate | date:'shortDate' }})</span>
               </div>
             </div>
             <div class="sale-amount">
-              <div class="sale-total">${{ sale.total.toFixed(2) }}</div>
-              <div class="sale-date">{{ sale.timestamp | date:'medium' }}</div>
+              <div class="sale-total">${{ group.total.toFixed(2) }}</div>
+              <div class="sale-date">{{ group.timestamp | date:'short' }}</div>
             </div>
           </div>
         </div>

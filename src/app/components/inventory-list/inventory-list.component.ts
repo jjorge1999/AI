@@ -64,6 +64,66 @@ export class InventoryListComponent implements OnInit {
     return this.sales.filter((s) => s.pending === true);
   }
 
+  get groupedPendingSales(): any[] {
+    const groups = new Map<string, Sale[]>();
+    const singles: Sale[] = [];
+
+    this.pendingSales.forEach((sale) => {
+      if (sale.orderId) {
+        if (!groups.has(sale.orderId)) {
+          groups.set(sale.orderId, []);
+        }
+        groups.get(sale.orderId)!.push(sale);
+      } else {
+        singles.push(sale);
+      }
+    });
+
+    const result: any[] = [];
+
+    // Process Groups
+    groups.forEach((sales, orderId) => {
+      const first = sales[0];
+      result.push({
+        isGroup: true,
+        orderId: orderId,
+        sales: sales,
+        total: sales.reduce((sum, s) => sum + s.total, 0),
+        productName: `Order #${orderId.substring(4, 10)}...`,
+        quantityCount: sales.length,
+        items: sales,
+        timestamp: first.timestamp,
+        deliveryDate: first.deliveryDate,
+        pending: true,
+      });
+    });
+
+    // Process Singles
+    singles.forEach((sale) => {
+      result.push({
+        isGroup: false,
+        sales: [sale],
+        total: sale.total,
+        productName: sale.productName,
+        quantityCount: 1,
+        items: [sale],
+        timestamp: sale.timestamp,
+        deliveryDate: sale.deliveryDate,
+        pending: true,
+      });
+    });
+
+    return result.sort((a, b) => {
+      const aTime = a.deliveryDate
+        ? new Date(a.deliveryDate).getTime()
+        : Infinity;
+      const bTime = b.deliveryDate
+        ? new Date(b.deliveryDate).getTime()
+        : Infinity;
+      return aTime - bTime;
+    });
+  }
+
   get filteredSales(): Sale[] {
     // Exclude pending sales; only show completed ones
     const completed = this.sales.filter((s) => s.pending !== true);

@@ -448,12 +448,30 @@ export class PosCalculatorComponent implements OnInit {
         newDeliveryDate = new Date(this.editDeliveryDate);
       }
     }
-    const updatedSale: Sale = {
-      ...this.editingSale,
-      deliveryDate: newDeliveryDate,
-      deliveryNotes: this.editDeliveryNotes,
-    };
-    this.inventoryService.updateSale(updatedSale);
+
+    const orderId = this.editingSale.orderId;
+
+    if (orderId) {
+      // Update ALL sales in this order
+      const salesToUpdate = this.pendingSales.filter(
+        (s) => s.orderId === orderId
+      );
+      salesToUpdate.forEach((s) => {
+        const updatedSale: Sale = {
+          ...s,
+          deliveryDate: newDeliveryDate,
+          deliveryNotes: this.editDeliveryNotes,
+        };
+        this.inventoryService.updateSale(updatedSale);
+      });
+    } else {
+      const updatedSale: Sale = {
+        ...this.editingSale,
+        deliveryDate: newDeliveryDate,
+        deliveryNotes: this.editDeliveryNotes,
+      };
+      this.inventoryService.updateSale(updatedSale);
+    }
     this.closeEditModal();
   }
 
@@ -473,8 +491,10 @@ export class PosCalculatorComponent implements OnInit {
     }
   }
 
-  cancelGroupReservation(sales: Sale[]): void {
-    if (confirm(`Cancel reservation for ${sales.length} items?`)) {
+  cancelGroupOrder(sales: Sale[]): void {
+    if (
+      confirm(`Cancel order for ${sales.length} items? This cannot be undone.`)
+    ) {
       sales.forEach((s) => this.inventoryService.deleteSale(s.id));
     }
   }

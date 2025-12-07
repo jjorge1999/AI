@@ -24,6 +24,8 @@ export class ReservationComponent implements OnInit {
   customerContact = '';
   customerAddress = '';
   notes = '';
+  paymentOption = '';
+  paymentOptions = ['Cash on Delivery', 'Gcash', 'Bank Transfer'];
   pickupDate: string = ''; // YYYY-MM-DD
   pickupTime: string = '';
 
@@ -48,30 +50,65 @@ export class ReservationComponent implements OnInit {
     this.loadProducts();
   }
 
+  tempQuantities: { [id: string]: number } = {};
+
   loadProducts() {
     this.inventoryService.getProducts().subscribe((products) => {
       this.products = products.filter((p) => p.quantity > 0); // Only show in-stock
     });
   }
 
-  addToOrder() {
-    if (!this.selectedProduct) return;
+  getQty(product: Product): number {
+    return this.tempQuantities[product.id] || 1;
+  }
 
-    const existing = this.orderItems.find(
-      (i) => i.product.id === this.selectedProduct?.id
-    );
+  incrementQty(product: Product): void {
+    const current = this.getQty(product);
+    if (current < product.quantity) {
+      this.tempQuantities[product.id] = current + 1;
+    }
+  }
+
+  decrementQty(product: Product): void {
+    const current = this.getQty(product);
+    if (current > 1) {
+      this.tempQuantities[product.id] = current - 1;
+    }
+  }
+
+  manualQty(product: Product, event: any): void {
+    const val = parseInt(event.target.value, 10);
+    if (!isNaN(val) && val >= 1 && val <= product.quantity) {
+      this.tempQuantities[product.id] = val;
+    }
+  }
+
+  addToOrder(product: Product): void {
+    const quantity = this.getQty(product);
+
+    const existing = this.orderItems.find((i) => i.product.id === product.id);
+
+    // Check total quantity including cart
+    const currentInCart = existing ? existing.quantity : 0;
+
+    if (currentInCart + quantity > product.quantity) {
+      alert(
+        `Cannot add more. You already have ${currentInCart} in cart. Max stock is ${product.quantity}.`
+      );
+      return;
+    }
+
     if (existing) {
-      existing.quantity += this.selectedQuantity;
+      existing.quantity += quantity;
     } else {
       this.orderItems.push({
-        product: this.selectedProduct,
-        quantity: this.selectedQuantity,
+        product: product,
+        quantity: quantity,
       });
     }
 
     // Reset selection
-    this.selectedProduct = null;
-    this.selectedQuantity = 1;
+    this.tempQuantities[product.id] = 1;
   }
 
   removeFromOrder(index: number) {
@@ -106,7 +143,9 @@ export class ReservationComponent implements OnInit {
         this.pickupDate +
           (this.pickupTime ? 'T' + this.pickupTime : 'T00:00:00')
       );
-      const fullNotes = `Address: ${this.customerAddress}\n\n${this.notes}`;
+      const fullNotes = `Payment: ${
+        this.paymentOption || 'Not Specified'
+      }\nAddress: ${this.customerAddress}\n\n${this.notes}`;
 
       await this.reservationService.addReservation({
         customerName: this.customerName,
@@ -140,6 +179,7 @@ export class ReservationComponent implements OnInit {
     this.customerName = '';
     this.customerContact = '';
     this.customerAddress = '';
+    this.paymentOption = '';
     this.notes = '';
     this.selectedProduct = null;
     this.pickupTime = '';

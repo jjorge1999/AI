@@ -31,6 +31,13 @@
              <label for="address">Delivery Address *</label>
              <input type="text" id="address" [(ngModel)]="customerAddress" class="form-input" placeholder="Street, City, Province" required>
           </div>
+          <div class="form-group full-width" style="grid-column: 1 / -1;">
+             <label for="payment">Payment Option (Optional)</label>
+             <select id="payment" [(ngModel)]="paymentOption" class="form-input" style="height: 42px;">
+                <option value="" selected>Select Payment Method</option>
+                <option *ngFor="let opt of paymentOptions" [value]="opt">{{ opt }}</option>
+             </select>
+          </div>
         </div>
         
         <h3 style="margin-top: var(--space-lg)">🚚 Pickup/Delivery Date</h3>
@@ -49,21 +56,29 @@
       <!-- 2. Select Products -->
       <section class="form-section">
         <h3>Select Items</h3>
-        <div class="add-item-row">
-          <div class="form-group product-select-group">
-            <select [(ngModel)]="selectedProduct" class="form-select">
-              <option [ngValue]="null" disabled selected>Select a Product</option>
-              <option *ngFor="let p of products" [ngValue]="p">
-                {{ p.name }} - ${{ p.price | number:'1.2-2' }} (Stock: {{ p.quantity }})
-              </option>
-            </select>
+        <div class="product-grid">
+          <div class="product-card" *ngFor="let p of products">
+            <div class="card-image">
+               <img *ngIf="p.imageUrl" [src]="p.imageUrl" [alt]="p.name" loading="lazy">
+               <div *ngIf="!p.imageUrl" class="placeholder-img">📦</div>
+            </div>
+            <div class="card-content">
+               <h4 class="card-title">{{ p.name }}</h4>
+               <div class="card-meta">
+                 <span class="price">₱{{ p.price | number:'1.2-2' }}</span>
+                 <span class="stock" [class.low]="p.quantity < 10">Stock: {{ p.quantity }}</span>
+               </div>
+               
+               <div class="card-actions">
+                  <div class="qty-control">
+                     <button class="qty-btn" (click)="decrementQty(p)">-</button>
+                     <input type="number" [value]="getQty(p)" (input)="manualQty(p, $event)" class="qty-input-sm" min="1" [max]="p.quantity">
+                     <button class="qty-btn" (click)="incrementQty(p)">+</button>
+                  </div>
+                  <button class="btn-add-card" (click)="addToOrder(p)">Add</button>
+               </div>
+            </div>
           </div>
-          <div class="form-group qty-group">
-            <input type="number" [(ngModel)]="selectedQuantity" min="1" class="form-input qty-input">
-          </div>
-          <button class="btn-add" (click)="addToOrder()" [disabled]="!selectedProduct">
-            Add
-          </button>
         </div>
       </section>
 
