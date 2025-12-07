@@ -6,39 +6,55 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [CommonModule],
   templateUrl: './landing.component.html',
-  styleUrl: './landing.component.css'
+  styleUrl: './landing.component.css',
 })
 export class LandingComponent {
   features = [
     {
       icon: '📦',
-      title: 'Product Management',
-      description: 'Add, track, and manage your inventory with ease'
+      title: 'Smart Inventory',
+      description:
+        'Add, track, and manage your products with real-time stock updates.',
     },
     {
       icon: '💰',
-      title: 'Point of Sale',
-      description: 'Quick and efficient sales processing with delivery scheduling'
+      title: 'Advanced POS',
+      description:
+        'Seamless sales processing with pending delivery scheduling and alarms.',
+    },
+    {
+      icon: '📞',
+      title: 'Live Communication',
+      description:
+        'Real-time chat and crystal clear audio calls for instant support.',
+    },
+    {
+      icon: '🌍',
+      title: 'GPS Location',
+      description:
+        'Integrated location sharing for precise delivery coordination.',
     },
     {
       icon: '📊',
       title: 'Analytics & Reports',
-      description: 'Track income, expenses, and profit margins in real-time'
+      description:
+        'Visualize income, expenses, and profit margins with detailed charts.',
+    },
+    {
+      icon: '📋',
+      title: 'Activity Logs',
+      description:
+        'Complete audit trail of all system actions for security and accountability.',
     },
     {
       icon: '👥',
-      title: 'Customer Management',
-      description: 'Maintain customer records and delivery information'
+      title: 'Customer CRM',
+      description: 'Maintain detailed customer profiles and purchase history.',
     },
     {
       icon: '💸',
       title: 'Expense Tracking',
-      description: 'Monitor business expenses and maintain financial records'
+      description: 'Monitor operational costs to ensure maximum profitability.',
     },
-    {
-      icon: '🚚',
-      title: 'Delivery Management',
-      description: 'Schedule and track pending deliveries efficiently'
-    }
   ];
 }
