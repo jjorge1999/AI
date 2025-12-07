@@ -17,6 +17,9 @@ export class ReservationService {
     // This allows them to appear in the POS and be managed.
     // If a dedicated 'reservations' collection is needed later, an API endpoint should be created.
 
+    const orderId =
+      'RES-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+
     const promises = reservation.items.map((item) => {
       const saleData: any = {
         productId: item.productId,
@@ -38,6 +41,7 @@ export class ReservationService {
         pending: true,
         reservationStatus: 'pending_confirmation',
         userId: 'guest', // Mark as guest/public
+        orderId: orderId,
       };
 
       return firstValueFrom(

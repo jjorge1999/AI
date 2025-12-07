@@ -156,6 +156,7 @@
               <span class="product-name" *ngIf="group.isGroup">Order #{{ group.orderId | slice:4:12 }}... ({{ group.sales.length }} items)</span>
            </div>
           <span class="status-badge warning" *ngIf="group.status === 'pending_confirmation'">⚠️ RESERVATION</span>
+          <span class="status-badge success" *ngIf="group.status === 'confirmed'">✅ CONFIRMED</span>
           <span class="sale-date">{{ group.timestamp | date : 'short' }}</span>
         </div>
 
@@ -210,7 +211,7 @@
           class="btn-deliver" 
           (click)="markGroupAsDelivered(group.sales)"
         >
-          ✅ Delivered
+          🚚 Mark Delivered
         </button>
       </div>
     </div>

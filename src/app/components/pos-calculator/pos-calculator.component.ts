@@ -476,7 +476,11 @@ export class PosCalculatorComponent implements OnInit {
   }
 
   markGroupAsDelivered(sales: Sale[]): void {
-    if (confirm(`Mark ${sales.length} items as delivered?`)) {
+    if (
+      confirm(
+        `Mark ${sales.length} items as delivered?\nThis will deduct stock and complete the order.`
+      )
+    ) {
       sales.forEach((s) => this.inventoryService.completePendingSale(s.id));
     }
   }
