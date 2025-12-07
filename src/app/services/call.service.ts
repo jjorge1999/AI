@@ -398,6 +398,21 @@ export class CallService {
     });
   }
 
+  listenForAllIncomingCalls() {
+    const callsRef = collection(this.db, 'calls');
+    const q = query(callsRef, where('status', '==', 'offering'), limit(1));
+
+    return onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const data = change.doc.data() as WebRTCCall;
+          data.id = change.doc.id;
+          this.incomingCall$.next(data);
+        }
+      });
+    });
+  }
+
   toggleMic(muted: boolean) {
     if (this.localStream) {
       this.localStream.getAudioTracks().forEach((track) => {

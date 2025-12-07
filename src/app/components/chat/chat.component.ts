@@ -284,6 +284,10 @@ export class ChatComponent
       // Load messages immediately
       this.loadMessages();
 
+      // Start global listener for Admin to hear all incoming calls
+      if (this.incomingCallListener) this.incomingCallListener();
+      this.incomingCallListener = this.callService.listenForAllIncomingCalls();
+
       // Refine name with full profile if ID exists
       if (appUserId) {
         // Try sync fetch
@@ -827,11 +831,7 @@ export class ChatComponent
     this.unreadCounts[convId] = 0; // Clear unread count
     this.updateFilteredMessages(false); // Refreshes view with new filter, no sound
 
-    // Admin listens to calls on this channel
-    if (this.incomingCallListener) {
-      this.incomingCallListener();
-    }
-    this.incomingCallListener = this.callService.listenForIncomingCalls(convId);
+    // Admin uses global listener started in checkLoginAndStatus
   }
 
   private scrollToBottom(): void {
