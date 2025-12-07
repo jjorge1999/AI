@@ -862,6 +862,13 @@ export class ChatComponent
   }
 
   isMyMessage(message: Message): boolean {
+    // Check by User ID first (most reliable for App Users)
+    const storedId = localStorage.getItem('jjm_user_id');
+    if (this.isAppUser && storedId && message.userId === storedId) {
+      return true;
+    }
+
+    // Check by Sender Name
     return message.senderName === this.senderName;
   }
 
