@@ -490,3 +490,48 @@
   margin-top: var(--space-sm);
   padding-top: var(--space-md);
 }
+
+/* Reservation Badges */
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-badge.warning {
+  background: #fef3c7;
+  color: #d97706;
+  border: 1px solid #fcd34d;
+}
+
+.btn-confirm {
+  padding: 0.5rem 1rem;
+  background-color: #f59e0b; /* Amber/Orange */
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+
+.btn-delete {
+  padding: 0.5rem 1rem;
+  background-color: #ef4444; /* Red */
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-delete:hover {
+  background-color: #dc2626;
+  transform: translateY(-1px);
+}

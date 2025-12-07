@@ -27,6 +27,7 @@ export interface Sale {
   discount?: number;
   discountType?: 'amount' | 'percent';
   userId?: string;
+  reservationStatus?: 'pending_confirmation' | 'confirmed';
 }
 
 export interface Customer {
@@ -91,4 +92,22 @@ export interface User {
   createdAt: Date;
   createdBy?: string;
   userId?: string;
+}
+
+export interface Reservation {
+  id?: string;
+  customerName: string;
+  customerContact: string;
+  customerAddress?: string;
+  pickupDate: Date;
+  status: 'pending' | 'confirmed' | 'rejected' | 'completed';
+  items: {
+    productId: string;
+    productName: string;
+    quantity: number;
+    price: number;
+  }[];
+  totalAmount: number;
+  notes?: string;
+  reservationDate: Date;
 }

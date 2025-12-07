@@ -29,10 +29,12 @@ export async function GET(request: Request) {
     query = query.limit(limit) as any;
 
     const snapshot = await query.get();
-    const logs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const logs: any[] = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
 
     // Sort in memory to avoid composite index requirement
-    // @ts-ignore
     logs.sort((a, b) => {
       const dateA = a.timestamp?._seconds
         ? new Date(a.timestamp._seconds * 1000)

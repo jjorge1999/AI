@@ -98,15 +98,26 @@
 <div class="card pending-deliveries">
   <h3>🚚 Pending Deliveries</h3>
   <div class="filter-row">
-    <label for="deliveryFilter">Filter by Delivery Date:</label>
-    <button class="btn-primary" (click)="deliveryFilterDate = ''"><span>❌</span> Clear</button>
-    <input type="date" id="deliveryFilter" [(ngModel)]="deliveryFilterDate" name="deliveryFilter" />
+    <div class="filter-group">
+      <label for="deliveryFilter">Date:</label>
+      <input type="date" id="deliveryFilter" [(ngModel)]="deliveryFilterDate" name="deliveryFilter" />
+      <button class="btn-clear" (click)="deliveryFilterDate = ''" *ngIf="deliveryFilterDate" title="Clear Date">❌</button>
+    </div>
+    
+    <div class="filter-group">
+       <label for="statusFilter">Show:</label>
+       <select id="statusFilter" [(ngModel)]="statusFilter" class="status-select">
+         <option value="all">All Deliveries</option>
+         <option value="reservation">⚠️ Reservations</option>
+       </select>
+    </div>
   </div>
   <div class="pending-list">
     <div class="pending-item" *ngFor="let sale of filteredPendingSales">
       <div class="pending-details">
         <div class="pending-header">
           <span class="product-name">{{ sale.productName }}</span>
+          <span class="status-badge warning" *ngIf="sale.reservationStatus === 'pending_confirmation'">⚠️ RESERVATION FOR CONFIRMATION</span>
           <span class="sale-date">{{ sale.timestamp | date : 'short' }}</span>
         </div>
         <div class="pending-info">
@@ -127,7 +138,32 @@
       </div>
       <div class="pending-actions">
         <button class="btn-edit" (click)="openEditModal(sale)">✏️ Edit</button>
-        <button class="btn-deliver" (click)="markAsDelivered(sale.id)">✅ Mark Delivered</button>
+        
+        <button 
+          *ngIf="sale.reservationStatus === 'pending_confirmation'" 
+          class="btn-confirm" 
+          (click)="confirmReservation(sale)"
+          title="Confirm this reservation to allow delivery"
+        >
+          📝 Confirm
+        </button>
+
+        <button 
+          *ngIf="sale.reservationStatus === 'pending_confirmation'" 
+          class="btn-delete" 
+          (click)="deleteReservation(sale)"
+          title="Cancel Reservation"
+        >
+          🗑️ Cancel
+        </button>
+
+        <button 
+          *ngIf="sale.reservationStatus !== 'pending_confirmation'"
+          class="btn-deliver" 
+          (click)="markAsDelivered(sale.id)"
+        >
+          ✅ Mark Delivered
+        </button>
       </div>
     </div>
   </div>

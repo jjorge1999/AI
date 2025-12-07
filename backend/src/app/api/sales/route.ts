@@ -10,7 +10,8 @@ export async function GET(request: Request) {
     let query: FirebaseFirestore.Query = db.collection(COLLECTION_NAME);
 
     if (userId) {
-      query = query.where('userId', '==', userId);
+      // Allow users to see their own sales AND public guest reservations
+      query = query.where('userId', 'in', [userId, 'guest']);
     }
 
     const snapshot = await query.get();

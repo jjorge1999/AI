@@ -1,0 +1,108 @@
+<div class="reservation-page">
+  <div class="reservation-container">
+    <div class="reservation-header">
+      <h2>📅 Make a Reservation</h2>
+      <p>Reserve items for pickup or delivery.</p>
+    </div>
+
+    <!-- Success Message -->
+    <div *ngIf="successMessage" class="success-alert">
+      <div class="success-icon">✅</div>
+      <p>{{ successMessage }}</p>
+      <button (click)="successMessage = ''" class="btn-primary">Make Another Reservation</button>
+    </div>
+
+    <!-- Reservation Form -->
+    <div *ngIf="!successMessage" class="reservation-form">
+      
+      <!-- 1. Customer Details -->
+      <section class="form-section">
+        <h3>📋 Customer Information</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="name">Full Name *</label>
+            <input type="text" id="name" [(ngModel)]="customerName" class="form-input" placeholder="Enter your name" required>
+          </div>
+          <div class="form-group">
+            <label for="contact">Phone Number *</label>
+            <input type="text" id="contact" [(ngModel)]="customerContact" class="form-input" placeholder="Phone number" required>
+          </div>
+          <div class="form-group full-width" style="grid-column: 1 / -1;">
+             <label for="address">Delivery Address *</label>
+             <input type="text" id="address" [(ngModel)]="customerAddress" class="form-input" placeholder="Street, City, Province" required>
+          </div>
+        </div>
+        
+        <h3 style="margin-top: var(--space-lg)">🚚 Pickup/Delivery Date</h3>
+        <div class="form-grid">
+           <div class="form-group">
+            <label for="date">Date *</label>
+            <input type="date" id="date" [(ngModel)]="pickupDate" class="form-input" required>
+          </div>
+          <div class="form-group">
+             <label for="time">Time</label>
+             <input type="time" id="time" [(ngModel)]="pickupTime" class="form-input">
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Select Products -->
+      <section class="form-section">
+        <h3>Select Items</h3>
+        <div class="add-item-row">
+          <div class="form-group product-select-group">
+            <select [(ngModel)]="selectedProduct" class="form-select">
+              <option [ngValue]="null" disabled selected>Select a Product</option>
+              <option *ngFor="let p of products" [ngValue]="p">
+                {{ p.name }} - ${{ p.price | number:'1.2-2' }} (Stock: {{ p.quantity }})
+              </option>
+            </select>
+          </div>
+          <div class="form-group qty-group">
+            <input type="number" [(ngModel)]="selectedQuantity" min="1" class="form-input qty-input">
+          </div>
+          <button class="btn-add" (click)="addToOrder()" [disabled]="!selectedProduct">
+            Add
+          </button>
+        </div>
+      </section>
+
+      <!-- 3. Order Summary -->
+      <section class="form-section summary-section" *ngIf="orderItems.length > 0">
+        <h3>Order Summary</h3>
+        <div class="order-list">
+          <div class="order-item" *ngFor="let item of orderItems; let i = index">
+            <div class="item-info">
+              <span class="item-name">{{ item.product.name }}</span>
+              <span class="item-details">{{ item.quantity }} x ₱{{ item.product.price | number:'1.2-2' }}</span>
+            </div>
+            <div class="item-total">
+              ₱{{ (item.product.price * item.quantity) | number:'1.2-2' }}
+              <button class="btn-remove" (click)="removeFromOrder(i)" title="Remove">✕</button>
+            </div>
+          </div>
+        </div>
+        <div class="order-total">
+          <span>Total Amount:</span>
+          <span class="total-price">₱{{ totalAmount | number:'1.2-2' }}</span>
+        </div>
+        
+        <div class="form-group">
+          <label for="notes">Additional Notes</label>
+          <textarea id="notes" [(ngModel)]="notes" rows="3" class="form-textarea" placeholder="Any special requests?"></textarea>
+        </div>
+
+        <div class="actions">
+          <button class="btn-submit" (click)="submitReservation()" [disabled]="isSubmitting">
+            {{ isSubmitting ? 'Submitting...' : 'Confirm Reservation' }}
+          </button>
+        </div>
+      </section>
+
+      <div class="empty-cart-msg" *ngIf="orderItems.length === 0">
+        <p>Your cart is empty. Add items above.</p>
+      </div>
+
+    </div>
+  </div>
+</div>

@@ -844,6 +844,7 @@ export class ChatComponent
   }
 
   private scrollToBottom(): void {
+    if (!this.messagesContainer) return;
     try {
       this.messagesContainer.nativeElement.scrollTop =
         this.messagesContainer.nativeElement.scrollHeight;

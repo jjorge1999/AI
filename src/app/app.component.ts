@@ -13,6 +13,7 @@ import { LoginComponent } from './components/login/login.component';
 import { ActivityLogsComponent } from './components/activity-logs/activity-logs.component';
 import { ChatComponent } from './components/chat/chat.component';
 import { UserManagementComponent } from './components/user-management/user-management.component';
+import { ReservationComponent } from './components/reservation/reservation.component';
 
 @Component({
   selector: 'app-root',
@@ -30,6 +31,7 @@ import { UserManagementComponent } from './components/user-management/user-manag
     ActivityLogsComponent,
     ChatComponent,
     UserManagementComponent,
+    ReservationComponent,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
@@ -52,6 +54,7 @@ export class AppComponent {
   userRole = '';
   isChatOpen = false;
   totalUnreadMessages = 0;
+  showReservation = false;
 
   constructor(
     private inventoryService: InventoryService,

@@ -42,12 +42,15 @@ export class InventoryService {
 
   private fetchProducts(): void {
     const userId = this.getCurrentUser();
-    this.http
-      .get<Product[]>(`${this.apiUrl}/products?userId=${userId}`)
-      .subscribe({
-        next: (products) => this.productsSubject.next(products),
-        error: (err) => console.error('Error fetching products:', err),
-      });
+    let url = `${this.apiUrl}/products`;
+    if (userId && userId !== 'guest') {
+      url += `?userId=${userId}`;
+    }
+
+    this.http.get<Product[]>(url).subscribe({
+      next: (products) => this.productsSubject.next(products),
+      error: (err) => console.error('Error fetching products:', err),
+    });
   }
 
   private fetchSales(): void {
@@ -260,6 +263,49 @@ export class InventoryService {
     });
   }
 
+  confirmReservation(sale: Sale): void {
+    const products = this.productsSubject.value;
+    const product = products.find((p) => p.id === sale.productId);
+
+    if (!product) {
+      console.error('Product not found for confirmation stock deduction');
+      return;
+    }
+
+    // 1. Update sale status to confirmed
+    const updatedSale: Sale = { ...sale, reservationStatus: 'confirmed' };
+
+    this.http
+      .put<Sale>(`${this.apiUrl}/sales/${sale.id}`, updatedSale)
+      .subscribe({
+        next: (responseSale) => {
+          // Update local sales
+          const currentSales = this.salesSubject.value;
+          const newSales = currentSales.map((s) =>
+            s.id === sale.id ? this.transformSale(updatedSale) : s
+          );
+          this.salesSubject.next(newSales);
+
+          // 2. Deduct Stock
+          const quantityToDeduct = sale.quantitySold;
+          const updatedProduct = {
+            ...product,
+            quantity: product.quantity - quantityToDeduct,
+          };
+          this.updateProduct(updatedProduct);
+
+          this.loggingService.logActivity(
+            'update',
+            'sale',
+            sale.id,
+            sale.productName,
+            'Confirmed reservation & deducted stock'
+          );
+        },
+        error: (err) => console.error('Error confirming reservation:', err),
+      });
+  }
+
   private transformSale(sale: any): Sale {
     return {
       ...sale,
@@ -299,6 +345,25 @@ export class InventoryService {
         `Added ${quantityToAdd} units`
       );
     }
+  }
+
+  deleteSale(saleId: string): void {
+    this.http.delete(`${this.apiUrl}/sales/${saleId}`).subscribe({
+      next: () => {
+        const currentSales = this.salesSubject.value;
+        const updatedSales = currentSales.filter((s) => s.id !== saleId);
+        this.salesSubject.next(updatedSales);
+
+        this.loggingService.logActivity(
+          'delete',
+          'sale',
+          saleId,
+          'Reservation/Sale',
+          'Deleted sale record'
+        );
+      },
+      error: (err) => console.error('Error deleting sale:', err),
+    });
   }
 
   updateProduct(product: Product): void {

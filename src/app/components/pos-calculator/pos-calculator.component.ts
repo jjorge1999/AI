@@ -35,6 +35,7 @@ export class PosCalculatorComponent implements OnInit {
 
   // Filter for pending deliveries
   deliveryFilterDate: string = '';
+  statusFilter: 'all' | 'reservation' = 'all';
 
   // Edit modal state
   isEditModalOpen = false;
@@ -79,6 +80,14 @@ export class PosCalculatorComponent implements OnInit {
   /** Returns pending sales filtered by selected delivery date (if any) and sorted by delivery date */
   get filteredPendingSales(): Sale[] {
     let filtered = this.pendingSales;
+
+    // Status Filter
+    if (this.statusFilter === 'reservation') {
+      filtered = filtered.filter(
+        (s) => s.reservationStatus === 'pending_confirmation'
+      );
+    }
+
     if (this.deliveryFilterDate) {
       filtered = filtered.filter((s) => {
         if (!s.deliveryDate) return false;
@@ -91,6 +100,13 @@ export class PosCalculatorComponent implements OnInit {
       });
     }
     return filtered.slice().sort((a, b) => {
+      // Sort priority: Pending Confirmations FIRST
+      const aReserved = a.reservationStatus === 'pending_confirmation';
+      const bReserved = b.reservationStatus === 'pending_confirmation';
+
+      if (aReserved && !bReserved) return -1;
+      if (!aReserved && bReserved) return 1;
+
       const aTime = a.deliveryDate
         ? new Date(a.deliveryDate).getTime()
         : Infinity;
@@ -250,6 +266,22 @@ export class PosCalculatorComponent implements OnInit {
   markAsDelivered(saleId: string): void {
     if (confirm('Are you sure you want to mark this item as delivered?')) {
       this.inventoryService.completePendingSale(saleId);
+    }
+  }
+
+  confirmReservation(sale: Sale): void {
+    if (
+      confirm(
+        'Confirming this reservation will deduct items from inventory. Continue?'
+      )
+    ) {
+      this.inventoryService.confirmReservation(sale);
+    }
+  }
+
+  deleteReservation(sale: Sale): void {
+    if (confirm('Are you sure you want to remove this reservation?')) {
+      this.inventoryService.deleteSale(sale.id);
     }
   }
 

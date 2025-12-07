@@ -1,5 +1,15 @@
-<!-- Login Page -->
-<app-login *ngIf="!isLoggedIn"></app-login>
+<!-- Public / Login Section -->
+<div *ngIf="!isLoggedIn" class="public-container">
+  <!-- Navigation/Switcher -->
+  <div class="public-nav">
+    <button (click)="showReservation = !showReservation" class="btn-public-toggle">
+      {{ showReservation ? '← Back to Login' : '📅 Make a Reservation' }}
+    </button>
+  </div>
+
+  <app-reservation *ngIf="showReservation"></app-reservation>
+  <app-login *ngIf="!showReservation"></app-login>
+</div>
 
 <!-- Main Application -->
 <div *ngIf="isLoggedIn">
