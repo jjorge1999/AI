@@ -98,6 +98,31 @@ export class ChatComponent
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['isOpen'] && this.isOpen) {
+      // Check for new or expired credentials when chat opens
+      const savedCustomerInfo = localStorage.getItem('chatCustomerInfo');
+
+      if (savedCustomerInfo && !this.isRegistered) {
+        // Check if credentials exist and are valid
+        try {
+          const parsedInfo = JSON.parse(savedCustomerInfo);
+
+          // Check expiration
+          if (parsedInfo.expiresAt && Date.now() > parsedInfo.expiresAt) {
+            // Expired - clear them
+            localStorage.removeItem('chatCustomerInfo');
+            localStorage.removeItem('chatUserName');
+            console.log('Chat credentials expired, cleared from storage');
+          } else {
+            // Valid credentials found - trigger login check
+            this.checkLoginAndStatus();
+          }
+        } catch (e) {
+          console.error('Error parsing chat credentials', e);
+          localStorage.removeItem('chatCustomerInfo');
+          localStorage.removeItem('chatUserName');
+        }
+      }
+
       // Chat opened, refresh view (this marks messages as read if logic allows)
       this.updateFilteredMessages(false);
       this.shouldScroll = true; // Ensure we scroll to bottom when opening
@@ -321,29 +346,38 @@ export class ChatComponent
     if (savedCustomerInfo) {
       const parsedInfo = JSON.parse(savedCustomerInfo);
 
-      // Verify against customer list if needed, or just trust storage for speed + verification later
-      const foundCustomer = this.allCustomers.find(
-        (c) => c.name.toLowerCase() === parsedInfo.name.toLowerCase()
-      );
-
-      if (foundCustomer) {
-        this.customerInfo = parsedInfo;
-        this.senderName = this.customerInfo.name;
-        this.isRegistered = true;
-        this.loadMessages();
-        // Start listening for calls on my channel
-        if (this.incomingCallListener) {
-          this.incomingCallListener();
-        }
-        this.incomingCallListener = this.callService.listenForIncomingCalls(
-          this.senderName
-        );
-      } else {
+      // Check if credentials have expired (2 hours)
+      if (parsedInfo.expiresAt && Date.now() > parsedInfo.expiresAt) {
         localStorage.removeItem('chatCustomerInfo');
         localStorage.removeItem('chatUserName');
         this.isRegistered = false;
-        // Attempt to auto-locate for new guest
         this.getLocation(true);
+        console.log('Chat credentials expired after 2 hours');
+        return;
+      }
+
+      // Trust localStorage and auto-login immediately
+      this.customerInfo = parsedInfo;
+      this.senderName = this.customerInfo.name;
+      this.isRegistered = true;
+      this.loadMessages();
+
+      // Start listening for calls on my channel
+      if (this.incomingCallListener) {
+        this.incomingCallListener();
+      }
+      this.incomingCallListener = this.callService.listenForIncomingCalls(
+        this.senderName
+      );
+
+      // Optional: Verify against customer list in background (non-blocking)
+      const foundCustomer = this.allCustomers.find(
+        (c) => c.phoneNumber === parsedInfo.phoneNumber
+      );
+      if (!foundCustomer) {
+        console.log(
+          'Customer not yet in database, but logged in via localStorage'
+        );
       }
     } else {
       // No saved info, new guest

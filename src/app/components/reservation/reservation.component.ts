@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InventoryService } from '../../services/inventory.service';
 import { ReservationService } from '../../services/reservation.service';
+import { CustomerService } from '../../services/customer.service';
 import { Product } from '../../models/inventory.models';
 
 interface OrderItem {
@@ -38,7 +39,8 @@ export class ReservationComponent implements OnInit {
 
   constructor(
     private inventoryService: InventoryService,
-    private reservationService: ReservationService
+    private reservationService: ReservationService,
+    private customerService: CustomerService
   ) {}
 
   ngOnInit(): void {
@@ -147,9 +149,31 @@ export class ReservationComponent implements OnInit {
         this.paymentOption || 'Not Specified'
       }\nAddress: ${this.customerAddress}\n\n${this.notes}`;
 
+      // 1. Check if customer already exists by phone number
+      let existingCustomer: any = null;
+      this.customerService.getCustomers().subscribe((customers) => {
+        existingCustomer = customers.find(
+          (c) => c.phoneNumber === this.customerContact
+        );
+      });
+
+      // Wait a bit for the subscription to complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Only create customer if they don't exist
+      if (!existingCustomer) {
+        this.customerService.addCustomer({
+          name: this.customerName,
+          phoneNumber: this.customerContact,
+          deliveryAddress: this.customerAddress,
+        });
+      }
+
+      // 2. Submit reservation
       await this.reservationService.addReservation({
         customerName: this.customerName,
         customerContact: this.customerContact,
+        customerAddress: this.customerAddress,
         reservationDate: new Date(),
         pickupDate: fullDate,
         status: 'pending',
@@ -163,8 +187,22 @@ export class ReservationComponent implements OnInit {
         notes: fullNotes,
       });
 
+      // 3. Auto-login to chat by storing customer info with 2-hour expiration
+      const chatCustomerInfo = {
+        name: this.customerName,
+        phoneNumber: this.customerContact,
+        address: this.customerAddress,
+        gpsCoordinates: '', // Can be added later if needed
+        expiresAt: Date.now() + 2 * 60 * 60 * 1000, // 2 hours from now
+      };
+      localStorage.setItem(
+        'chatCustomerInfo',
+        JSON.stringify(chatCustomerInfo)
+      );
+      localStorage.setItem('chatUserName', this.customerName);
+
       this.successMessage =
-        'Reservation submitted successfully! We will contact you shortly.';
+        'Reservation submitted successfully! We will contact you shortly. You can now chat with us!';
       this.resetForm();
     } catch (e) {
       console.error('Error submitting reservation', e);

@@ -224,9 +224,10 @@
 }
 
 .conversation-item.active .conv-avatar {
-  background: white;
+  background: var(--color-surface);
   color: var(--color-primary);
   transform: scale(1.05);
+  border: 2px solid var(--color-primary);
 }
 
 .conv-info {
@@ -254,7 +255,8 @@
 }
 
 .conversation-item.active .conversation-name {
-  color: white;
+  color: var(--color-text);
+  font-weight: 700;
 }
 
 .conversation-item.active .conversation-preview {
@@ -265,7 +267,6 @@
   padding: var(--space-lg);
   padding-bottom: 2rem; /* Add space for subtitle at bottom */
   background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-  color: white;
   border-bottom: 2px solid var(--color-border);
   position: relative;
   z-index: 10;
@@ -277,6 +278,7 @@
   justify-content: space-between;
   align-items: center;
   gap: var(--space-md);
+  color: inherit; /* Explicitly inherit white from chat-header */
 }
 
 .chat-header h2 {
@@ -395,7 +397,7 @@
   top: 70%;
   left: 20px; /* Align with header start or title */
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.95);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -425,7 +427,7 @@
 .message-address {
   font-size: 0.7rem;
   color: var(--color-text-muted);
-  background: rgba(0,0,0,0.05);
+  background: var(--color-border);
   padding: 2px 6px;
   border-radius: 4px;
   max-width: 150px;
@@ -441,7 +443,7 @@
 }
 
 .gps-link:hover {
-  background: rgba(0,0,0,0.1);
+  background: var(--color-bg);
   text-decoration: underline;
   color: var(--color-primary);
 }
@@ -891,7 +893,7 @@ audio {
 }
 
 .btn-round.active {
-  background: white;
-  color: black;
-  border-color: white;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
