@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { InventoryService } from '../../services/inventory.service';
 import { CustomerService } from '../../services/customer.service';
 import { Product, Customer, Sale } from '../../models/inventory.models';
+import { DialogService } from '../../services/dialog.service';
 
 interface CartItem {
   product: Product;
@@ -55,9 +56,13 @@ export class PosCalculatorComponent implements OnInit {
   editDeliveryTime: string = '';
   editDeliveryNotes: string = '';
 
+  // Alarm state
+  private alarmInterval: any = null;
+
   constructor(
     private inventoryService: InventoryService,
-    private customerService: CustomerService
+    private customerService: CustomerService,
+    private dialogService: DialogService
   ) {
     const today = new Date();
     const year = today.getFullYear();
@@ -149,23 +154,68 @@ export class PosCalculatorComponent implements OnInit {
       day: 'numeric',
     });
     const message = `⚠️ Delivery for "${sale.productName}" is due in ${daysAhead} day(s) (${dateStr}).`;
+    this.playLoopingAlarm();
+    this.dialogService
+      .alert(message, 'Delivery Reminder', 'warning')
+      .then(() => {
+        this.stopAlarm();
+      });
+  }
+
+  private playLoopingAlarm(): void {
+    // Stop any existing alarm first
+    this.stopAlarm();
+
+    // Play immediately
     this.playBeep();
-    alert(message);
+
+    // Then repeat every 2 seconds
+    this.alarmInterval = setInterval(() => {
+      this.playBeep();
+    }, 2000);
+  }
+
+  private stopAlarm(): void {
+    if (this.alarmInterval) {
+      clearInterval(this.alarmInterval);
+      this.alarmInterval = null;
+    }
   }
 
   private playBeep(): void {
     try {
       const ctx = new (window.AudioContext ||
         (window as any).webkitAudioContext)();
-      const oscillator = ctx.createOscillator();
+
+      // Create two oscillators for a pleasant harmony
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
       const gain = ctx.createGain();
-      oscillator.type = 'square';
-      oscillator.frequency.setValueAtTime(1000, ctx.currentTime);
-      gain.gain.setValueAtTime(0.5, ctx.currentTime);
-      oscillator.connect(gain);
+
+      // Use sine wave for smooth sound
+      osc1.type = 'sine';
+      osc2.type = 'sine';
+
+      // Pleasant frequencies (C and E notes)
+      osc1.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+      osc2.frequency.setValueAtTime(659.25, ctx.currentTime); // E5
+
+      // Connect oscillators to gain
+      osc1.connect(gain);
+      osc2.connect(gain);
       gain.connect(ctx.destination);
-      oscillator.start();
-      oscillator.stop(ctx.currentTime + 2);
+
+      // Smooth envelope: gentle fade in and fade out
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.05); // Gentle start
+      gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.4); // Hold
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8); // Smooth fade out
+
+      // Play the sound
+      osc1.start(ctx.currentTime);
+      osc2.start(ctx.currentTime);
+      osc1.stop(ctx.currentTime + 0.8);
+      osc2.stop(ctx.currentTime + 0.8);
     } catch (e) {
       console.error('Audio alarm failed', e);
     }
