@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterOutlet } from '@angular/router';
 import { InventoryService } from './services/inventory.service';
 import { ChatService } from './services/chat.service';
 import { ProductFormComponent } from './components/product-form/product-form.component';
@@ -22,6 +23,7 @@ import { LoadingComponent } from './components/loading/loading.component';
   standalone: true,
   imports: [
     CommonModule,
+    RouterOutlet,
     ProductFormComponent,
     PosCalculatorComponent,
     InventoryListComponent,
