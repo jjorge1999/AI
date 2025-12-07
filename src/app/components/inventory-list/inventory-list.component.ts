@@ -9,7 +9,7 @@ import { Product, Sale } from '../../models/inventory.models';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './inventory-list.component.html',
-  styleUrl: './inventory-list.component.css'
+  styleUrl: './inventory-list.component.css',
 })
 export class InventoryListComponent implements OnInit {
   products: Product[] = [];
@@ -17,7 +17,14 @@ export class InventoryListComponent implements OnInit {
 
   // Category filter
   selectedCategory: string = 'All';
-  categories: string[] = ['All', 'Lechon', 'Hollow blocks', 'Sand and Gravel', 'Copra', 'Others'];
+  categories: string[] = [
+    'All',
+    'Lechon',
+    'Hollow blocks',
+    'Sand and Gravel',
+    'Copra',
+    'Others',
+  ];
 
   // Page size options
   pageSizeOptions: number[] = [10, 20, 50, 100];
@@ -44,44 +51,47 @@ export class InventoryListComponent implements OnInit {
   constructor(private inventoryService: InventoryService) {}
 
   ngOnInit(): void {
-    this.inventoryService.getProducts().subscribe(products => {
+    this.inventoryService.getProducts().subscribe((products) => {
       this.products = products;
     });
 
-    this.inventoryService.getSales().subscribe(sales => {
+    this.inventoryService.getSales().subscribe((sales) => {
       this.sales = sales;
     });
   }
 
   get pendingSales(): Sale[] {
-    return this.sales.filter(s => s.pending === true);
+    return this.sales.filter((s) => s.pending === true);
   }
 
   get filteredSales(): Sale[] {
     // Exclude pending sales; only show completed ones
-    const completed = this.sales.filter(s => s.pending !== true);
+    const completed = this.sales.filter((s) => s.pending !== true);
     if (this.selectedCategory === 'All') {
       return completed;
     }
-    return completed.filter(s => s.category === this.selectedCategory);
+    return completed.filter((s) => s.category === this.selectedCategory);
   }
 
   get availableProducts(): Product[] {
-    return this.products.filter(p => p.quantity > 0);
+    return this.products.filter((p) => p.quantity > 0);
   }
 
   get paginatedAvailableProducts(): Product[] {
-    const start = (this.availableProductsPage - 1) * this.availableProductsPageSize;
+    const start =
+      (this.availableProductsPage - 1) * this.availableProductsPageSize;
     const end = start + this.availableProductsPageSize;
     return this.availableProducts.slice(start, end);
   }
 
   get availableProductsTotalPages(): number {
-    return Math.ceil(this.availableProducts.length / this.availableProductsPageSize);
+    return Math.ceil(
+      this.availableProducts.length / this.availableProductsPageSize
+    );
   }
 
   get outOfStockProducts(): Product[] {
-    return this.products.filter(p => p.quantity === 0);
+    return this.products.filter((p) => p.quantity === 0);
   }
 
   get paginatedOutOfStockProducts(): Product[] {
@@ -106,28 +116,37 @@ export class InventoryListComponent implements OnInit {
 
   get salesByCategory(): { category: string; total: number; count: number }[] {
     const categoryMap = new Map<string, { total: number; count: number }>();
-    
-    this.sales.forEach(sale => {
-      const existing = categoryMap.get(sale.category) || { total: 0, count: 0 };
-      categoryMap.set(sale.category, {
-        total: existing.total + sale.total,
-        count: existing.count + 1
+
+    // Only consider delivered (non-pending) sales for analytics
+    this.sales
+      .filter((s) => !s.pending)
+      .forEach((sale) => {
+        const existing = categoryMap.get(sale.category) || {
+          total: 0,
+          count: 0,
+        };
+        categoryMap.set(sale.category, {
+          total: existing.total + sale.total,
+          count: existing.count + 1,
+        });
       });
-    });
 
     return Array.from(categoryMap.entries()).map(([category, data]) => ({
       category,
       total: data.total,
-      count: data.count
+      count: data.count,
     }));
   }
 
   get totalInventoryValue(): number {
-    return this.products.reduce((sum, p) => sum + (p.price * p.quantity), 0);
+    return this.products.reduce((sum, p) => sum + p.price * p.quantity, 0);
   }
 
   get totalSalesValue(): number {
-    return this.sales.reduce((sum, s) => sum + s.total, 0);
+    // Only consider delivered (non-pending) sales
+    return this.sales
+      .filter((s) => !s.pending)
+      .reduce((sum, s) => sum + s.total, 0);
   }
 
   // Pagination methods for available products
@@ -253,7 +272,7 @@ export class InventoryListComponent implements OnInit {
       ...this.editingProduct,
       name: this.editProductName,
       quantity: this.editProductQuantity,
-      price: this.editProductPrice
+      price: this.editProductPrice,
     };
 
     this.inventoryService.updateProduct(updatedProduct);

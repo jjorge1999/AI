@@ -28,6 +28,7 @@ export interface Sale {
   discountType?: 'amount' | 'percent';
   userId?: string;
   reservationStatus?: 'pending_confirmation' | 'confirmed';
+  orderId?: string;
 }
 
 export interface Customer {

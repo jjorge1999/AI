@@ -140,7 +140,8 @@ export class InventoryService {
     deliveryNotes?: string,
     customerId?: string,
     discount: number = 0,
-    discountType: 'amount' | 'percent' = 'amount'
+    discountType: 'amount' | 'percent' = 'amount',
+    orderId?: string
   ): void {
     const products = this.productsSubject.value;
     const product = products.find((p) => p.id === productId);
@@ -189,6 +190,7 @@ export class InventoryService {
       discount,
       discountType,
       userId: this.getCurrentUser(),
+      orderId,
     };
 
     this.http.post<Sale>(`${this.apiUrl}/sales`, saleData).subscribe({
@@ -197,19 +199,21 @@ export class InventoryService {
         const currentSales = this.salesSubject.value;
         this.salesSubject.next([...currentSales, this.transformSale(newSale)]);
 
-        // Update product quantity via API
+        // Inventory is NOT deducted here. It is deducted upon delivery.
+        /* 
         const updatedProduct = {
           ...product,
           quantity: product.quantity - quantitySold,
         };
         this.updateProduct(updatedProduct);
+        */
 
         this.loggingService.logActivity(
           'create',
           'sale',
           newSale.id,
           product.name,
-          `Sold ${quantitySold} units`
+          `Sold ${quantitySold} units (Pending Delivery)`
         );
       },
       error: (err) => console.error('Error recording sale:', err),
@@ -217,26 +221,42 @@ export class InventoryService {
   }
 
   completePendingSale(saleId: string): void {
+    // Determine sale details first to deduct stock
+    const currentSales = this.salesSubject.value;
+    const sale = currentSales.find((s) => s.id === saleId);
+
+    if (!sale) {
+      console.error('Sale not found via ID');
+      return;
+    }
+
     this.http
       .put<Sale>(`${this.apiUrl}/sales/${saleId}`, { pending: false })
       .subscribe({
         next: () => {
-          const currentSales = this.salesSubject.value;
-          const sale = currentSales.find((s) => s.id === saleId);
-          const updatedSales = currentSales.map((sale) =>
-            sale.id === saleId ? { ...sale, pending: false } : sale
+          const updatedSales = currentSales.map((s) =>
+            s.id === saleId ? { ...s, pending: false } : s
           );
           this.salesSubject.next(updatedSales);
 
-          if (sale) {
-            this.loggingService.logActivity(
-              'complete',
-              'sale',
-              saleId,
-              sale.productName,
-              'Marked as delivered'
-            );
+          // Deduct Inventory Now
+          const products = this.productsSubject.value;
+          const product = products.find((p) => p.id === sale.productId);
+          if (product) {
+            const updatedProduct = {
+              ...product,
+              quantity: product.quantity - sale.quantitySold,
+            };
+            this.updateProduct(updatedProduct);
           }
+
+          this.loggingService.logActivity(
+            'complete',
+            'sale',
+            saleId,
+            sale.productName,
+            `Marked as delivered & Deducted ${sale.quantitySold} units`
+          );
         },
         error: (err) => console.error('Error completing sale:', err),
       });
@@ -286,20 +306,14 @@ export class InventoryService {
           );
           this.salesSubject.next(newSales);
 
-          // 2. Deduct Stock
-          const quantityToDeduct = sale.quantitySold;
-          const updatedProduct = {
-            ...product,
-            quantity: product.quantity - quantityToDeduct,
-          };
-          this.updateProduct(updatedProduct);
+          // 2. No Stock Deduction on Confirmation (Only on Delivery)
 
           this.loggingService.logActivity(
             'update',
             'sale',
             sale.id,
             sale.productName,
-            'Confirmed reservation & deducted stock'
+            'Confirmed reservation (Stock deduction pending delivery)'
           );
         },
         error: (err) => console.error('Error confirming reservation:', err),

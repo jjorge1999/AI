@@ -1,97 +1,132 @@
 <div class="card">
   <h3>Point of Sale</h3>
 
-  <form (ngSubmit)="processSale()" class="form">
-    <!-- Customer Selection -->
-    <div class="form-group">
-      <label for="customer">Select Customer (Optional)</label>
-      <select id="customer" [(ngModel)]="selectedCustomerId" name="customer">
-        <option value="">-- Walk-in Customer --</option>
-        <option *ngFor="let customer of customers" [value]="customer.id">
-          {{ customer.name }} - {{ customer.phoneNumber }}
-        </option>
-      </select>
-    </div>
-
-    <!-- Customer Info Display -->
-    <div class="customer-info-display" *ngIf="selectedCustomerId && selectedCustomer">
-      <div class="info-header">📋 Customer Information</div>
-      <div class="info-row"><span class="info-label">Name:</span> <span class="info-value">{{ selectedCustomer.name }}</span></div>
-      <div class="info-row"><span class="info-label">Phone:</span> <span class="info-value">{{ selectedCustomer.phoneNumber }}</span></div>
-      <div class="info-row"><span class="info-label">Address:</span> <span class="info-value">{{ selectedCustomer.deliveryAddress }}</span></div>
-    </div>
-
-    <!-- Product Selection -->
-    <div class="form-group">
-      <label for="product">Select Product</label>
-      <select id="product" [(ngModel)]="selectedProductId" name="product" (change)="onProductChange()" required>
-        <option value="">-- Choose a product --</option>
-        <option *ngFor="let product of products" [value]="product.id">
-          {{ product.name }} - ${{ product.price.toFixed(2) }} (Stock: {{ product.quantity }})
-        </option>
-      </select>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group">
-        <label for="quantity">Quantity</label>
-        <input type="number" id="quantity" [(ngModel)]="quantity" name="quantity" [min]="1" [max]="maxQuantity" placeholder="1" required />
-      </div>
-      <div class="form-group">
-        <label for="cash">Cash Received</label>
-        <input type="number" id="cash" [(ngModel)]="cashReceived" name="cash" min="0" step="0.01" placeholder="0.00" required />
-      </div>
-    </div>
-
-    <!-- Discount Section -->
-    <div class="form-row">
-      <div class="form-group">
-        <label>Discount Type</label>
-        <div class="radio-group">
-          <label class="radio-label"><input type="radio" [(ngModel)]="discountType" name="discountType" value="amount" /> Amount ($)</label>
-          <label class="radio-label"><input type="radio" [(ngModel)]="discountType" name="discountType" value="percent" /> Percent (%)</label>
-        </div>
-      </div>
-      <div class="form-group">
-        <label for="discount">Discount Value</label>
-        <input type="number" id="discount" [(ngModel)]="discount" name="discount" min="0" placeholder="0" />
-      </div>
-    </div>
-
-    <!-- Delivery Scheduling Section -->
-    <div class="delivery-section">
-      <h4 class="section-title"><span class="section-icon">🚚</span> Delivery Schedule (Optional)</h4>
+  <div class="pos-layout">
+    <!-- Selection Panel -->
+    <div class="selection-panel">
       <div class="form-row">
         <div class="form-group">
-          <label for="deliveryDate">Delivery Date</label>
-          <input type="date" id="deliveryDate" [(ngModel)]="deliveryDate" name="deliveryDate" [min]="minDate" class="date-input" />
+          <label for="customer">Select Customer</label>
+          <select id="customer" [(ngModel)]="selectedCustomerId">
+            <option value="">-- Walk-in Customer --</option>
+            <option *ngFor="let customer of customers" [value]="customer.id">
+              {{ customer.name }}
+            </option>
+          </select>
+        </div>
+        <div class="form-group flex-grow">
+          <label for="product">Select Product</label>
+          <select id="product" [(ngModel)]="selectedProductId" (change)="onProductChange()">
+            <option value="">-- Choose a product --</option>
+            <option *ngFor="let product of products" [value]="product.id">
+              {{ product.name }} - ${{ product.price | number:'1.2-2' }} (Stock: {{ product.quantity }})
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row align-end">
+        <div class="form-group small-width">
+          <label for="qty">Quantity</label>
+          <input type="number" id="qty" [(ngModel)]="quantity" [min]="1" [max]="maxQuantity" />
         </div>
         <div class="form-group">
-          <label for="deliveryTime">Delivery Time</label>
-          <input type="time" id="deliveryTime" [(ngModel)]="deliveryTime" name="deliveryTime" class="time-input" />
+          <label>Discount</label>
+          <div class="discount-row">
+            <input type="number" [(ngModel)]="discount" placeholder="0" class="small-input">
+            <select [(ngModel)]="discountType" class="small-select">
+              <option value="amount">$</option>
+              <option value="percent">%</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+           <button class="btn-primary btn-add" (click)="addToCart()" [disabled]="!selectedProductId">
+             ➕ Add to Cart
+           </button>
         </div>
       </div>
-      <div class="form-group">
-        <label for="deliveryNotes">Delivery Notes</label>
-        <textarea id="deliveryNotes" [(ngModel)]="deliveryNotes" name="deliveryNotes" placeholder="Special instructions, address, contact info..." rows="3" class="textarea-input"></textarea>
-      </div>
     </div>
 
-    <!-- Transaction Summary -->
-    <div class="transaction-summary" *ngIf="selectedProduct">
-      <div class="summary-row"><span class="label">Subtotal:</span> <span class="value">${{ subtotal.toFixed(2) }}</span></div>
-      <div class="summary-row" *ngIf="discount > 0"><span class="label">Discount:</span> <span class="value discount-value">- ${{ (subtotal - total).toFixed(2) }}</span></div>
-      <div class="summary-row total-row"><span class="label">Total:</span> <span class="value">${{ total.toFixed(2) }}</span></div>
-      <div class="summary-row change-row" [class.negative]="change < 0"><span class="label">Change:</span> <span class="value">${{ change.toFixed(2) }}</span></div>
-      <div class="summary-row delivery-info" *ngIf="deliveryDate">
-        <span class="label">📅 Delivery:</span>
-        <span class="value">{{ deliveryDate | date : 'mediumDate' }}<span *ngIf="deliveryTime"> at {{ deliveryTime }}</span></span>
-      </div>
-    </div>
-
+    <!-- Error Message -->
     <div class="error-message" *ngIf="errorMessage">⚠️ {{ errorMessage }}</div>
-    <button type="submit" [disabled]="!isValid()" class="btn-primary btn-success"><span>💰</span> Complete Sale</button>
-  </form>
+
+    <!-- Cart Display -->
+    <div class="cart-container">
+      <table class="cart-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th class="text-right">Price</th>
+            <th class="text-center">Qty</th>
+            <th class="text-right">Total</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of cart; let i = index">
+            <td>
+               <div class="cart-prod-name">{{ item.product.name }}</div>
+               <div class="cart-prod-disc" *ngIf="item.discount > 0">
+                 Disc: -{{ item.discountType === 'percent' ? item.discount + '%' : '$' + item.discount }}
+               </div>
+            </td>
+            <td class="text-right">${{ item.product.price | number:'1.2-2' }}</td>
+            <td class="text-center">{{ item.quantity }}</td>
+            <td class="text-right font-bold">${{ item.total | number:'1.2-2' }}</td>
+            <td class="text-center">
+              <button class="btn-remove-sm" (click)="removeFromCart(i)" title="Remove">✕</button>
+            </td>
+          </tr>
+          <tr *ngIf="cart.length === 0">
+             <td colspan="5" class="empty-cart-cell">Cart is empty. Add items above.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Checkout Panel -->
+    <div class="checkout-panel" *ngIf="cart.length > 0">
+      <div class="delivery-card">
+         <h4>🚚 Delivery Options</h4>
+         <div class="form-row">
+           <div class="form-group">
+             <label>Date</label>
+             <input type="date" [(ngModel)]="deliveryDate" [min]="minDate">
+           </div>
+           <div class="form-group">
+             <label>Time</label>
+             <input type="time" [(ngModel)]="deliveryTime">
+           </div>
+         </div>
+         <div class="form-group">
+           <textarea [(ngModel)]="deliveryNotes" placeholder="Delivery notes..." rows="2"></textarea>
+         </div>
+      </div>
+
+      <div class="payment-card">
+         <h4>💰 Payment</h4>
+         <div class="summary-line total-line">
+           <span>Total Due:</span>
+           <span>${{ total | number:'1.2-2' }}</span>
+         </div>
+         
+         <div class="form-group cash-group">
+           <label>Cash Received ($)</label>
+           <input type="number" [(ngModel)]="cashReceived" class="cash-input" placeholder="0.00">
+         </div>
+         
+         <div class="summary-line change-line" [class.negative]="change < 0">
+           <span>Change:</span>
+           <span>${{ change | number:'1.2-2' }}</span>
+         </div>
+
+         <button class="btn-checkout" (click)="checkout()" [disabled]="!isValid()">
+           Complete Order
+         </button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Pending Deliveries -->
@@ -113,56 +148,70 @@
     </div>
   </div>
   <div class="pending-list">
-    <div class="pending-item" *ngFor="let sale of filteredPendingSales">
+    <div class="pending-item" *ngFor="let group of groupedPendingSales">
       <div class="pending-details">
         <div class="pending-header">
-          <span class="product-name">{{ sale.productName }}</span>
-          <span class="status-badge warning" *ngIf="sale.reservationStatus === 'pending_confirmation'">⚠️ RESERVATION FOR CONFIRMATION</span>
-          <span class="sale-date">{{ sale.timestamp | date : 'short' }}</span>
+           <div class="header-left" style="display:flex; flex-direction:column;">
+              <span class="product-name" *ngIf="!group.isGroup">{{ group.sales[0].productName }}</span>
+              <span class="product-name" *ngIf="group.isGroup">Order #{{ group.orderId | slice:4:12 }}... ({{ group.sales.length }} items)</span>
+           </div>
+          <span class="status-badge warning" *ngIf="group.status === 'pending_confirmation'">⚠️ RESERVATION</span>
+          <span class="sale-date">{{ group.timestamp | date : 'short' }}</span>
         </div>
+
+        <div class="multi-item-list" *ngIf="group.isGroup" style="margin: 5px 0; font-size: 0.9em; color: var(--color-text-muted);">
+            <div *ngFor="let s of group.sales" class="sub-item">
+               • {{ s.productName }} <span class="sub-qty">(x{{ s.quantitySold }})</span>
+            </div>
+        </div>
+        
         <div class="pending-info">
-          <span>Qty: {{ sale.quantitySold }}</span>
-          <span>Total: ${{ sale.total.toFixed(2) }}</span>
+          <span *ngIf="!group.isGroup">Qty: {{ group.quantityTotal }}</span>
+          <span *ngIf="group.isGroup">Total Qty: {{ group.quantityTotal }}</span>
+          <span class="total-price font-bold" style="font-weight:600;">Due: ${{ group.total | number:'1.2-2' }}</span>
         </div>
-        <div class="customer-details" *ngIf="getCustomerById(sale.customerId) as customer">
+
+        <div class="customer-details" *ngIf="group.customer">
           <div class="customer-header">👤 Customer Details</div>
-          <div class="customer-row"><span class="customer-label">Name:</span> <span class="customer-value">{{ customer.name }}</span></div>
-          <div class="customer-row"><span class="customer-label">Phone:</span> <span class="customer-value">{{ customer.phoneNumber }}</span></div>
-          <div class="customer-row"><span class="customer-label">Address:</span> <span class="customer-value">{{ customer.deliveryAddress }}</span></div>
+          <div class="customer-row"><span class="customer-label">Name:</span> <span class="customer-value">{{ group.customer.name }}</span></div>
+          <div class="customer-row"><span class="customer-label">Phone:</span> <span class="customer-value">{{ group.customer.phoneNumber }}</span></div>
+          <div class="customer-row"><span class="customer-label">Address:</span> <span class="customer-value">{{ group.customer.deliveryAddress }}</span></div>
         </div>
-        <div class="delivery-info" *ngIf="sale.deliveryDate">
-          <span>📅 Due: {{ sale.deliveryDate | date : 'mediumDate' }}</span>
-          <span>📅 Time: {{ sale.deliveryDate | date : 'shortTime' }}</span>
-          <span *ngIf="sale.deliveryNotes">📝 {{ sale.deliveryNotes }}</span>
+        
+        <div class="delivery-info" *ngIf="group.deliveryDate">
+          <span>📅 Due: {{ group.deliveryDate | date : 'mediumDate' }}</span>
+          <span>📅 Time: {{ group.deliveryDate | date : 'shortTime' }}</span>
+          <span *ngIf="group.deliveryNotes">📝 {{ group.deliveryNotes }}</span>
         </div>
       </div>
+      
       <div class="pending-actions">
-        <button class="btn-edit" (click)="openEditModal(sale)">✏️ Edit</button>
+        <button class="btn-edit" *ngIf="!group.isGroup" (click)="openEditModal(group.sales[0])">✏️ Edit</button>
         
         <button 
-          *ngIf="sale.reservationStatus === 'pending_confirmation'" 
+          *ngIf="group.status === 'pending_confirmation'" 
           class="btn-confirm" 
-          (click)="confirmReservation(sale)"
-          title="Confirm this reservation to allow delivery"
+          (click)="confirmGroupReservation(group.sales)"
+          title="Confirm Reservation"
         >
           📝 Confirm
         </button>
 
         <button 
-          *ngIf="sale.reservationStatus === 'pending_confirmation'" 
+          *ngIf="group.status === 'pending_confirmation'" 
           class="btn-delete" 
-          (click)="deleteReservation(sale)"
+          (click)="cancelGroupReservation(group.sales)"
           title="Cancel Reservation"
         >
           🗑️ Cancel
         </button>
 
         <button 
-          *ngIf="sale.reservationStatus !== 'pending_confirmation'"
+          *ngIf="group.status !== 'pending_confirmation'"
           class="btn-deliver" 
-          (click)="markAsDelivered(sale.id)"
+          (click)="markGroupAsDelivered(group.sales)"
         >
-          ✅ Mark Delivered
+          ✅ Delivered
         </button>
       </div>
     </div>
