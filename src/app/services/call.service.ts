@@ -36,7 +36,7 @@ export class CallService {
   private offerCandidatesSubscription: Unsubscribe | null = null;
   private answerCandidatesSubscription: Unsubscribe | null = null;
 
-  public incomingCall$ = new Subject<WebRTCCall>();
+  public incomingCall$ = new Subject<WebRTCCall | null>();
   public callStatus$ = new BehaviorSubject<string>('idle'); // idle, calling, connected, incoming
   public remoteStream$ = new BehaviorSubject<MediaStream | null>(null);
 
@@ -373,17 +373,10 @@ export class CallService {
     }
 
     const callsRef = collection(this.db, 'calls');
-    // Query for calls meant for this conversation conversationId, status 'offering'
-    // Note: conversationId is shared. We need to filter by WHO sent it.
-    // We don't want to ring for our own calls.
-    // But we can filter that on client side if needed, or by 'callerName' != myName
-    // Simpler: Just query by conversationId.
-
     const q = query(
       callsRef,
       where('conversationId', '==', conversationId),
       where('status', '==', 'offering'),
-      // orderBy('timestamp', 'desc'), // Requires index
       limit(1)
     );
 
@@ -393,6 +386,9 @@ export class CallService {
           const data = change.doc.data() as WebRTCCall;
           data.id = change.doc.id;
           this.incomingCall$.next(data);
+        }
+        if (change.type === 'removed') {
+          this.incomingCall$.next(null);
         }
       });
     });
@@ -408,6 +404,9 @@ export class CallService {
           const data = change.doc.data() as WebRTCCall;
           data.id = change.doc.id;
           this.incomingCall$.next(data);
+        }
+        if (change.type === 'removed') {
+          this.incomingCall$.next(null);
         }
       });
     });

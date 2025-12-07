@@ -194,6 +194,15 @@ export class ChatComponent
 
     this.incomingCallSubscription = this.callService.incomingCall$.subscribe(
       (call) => {
+        if (!call) {
+          if (this.callStatus === 'incoming') {
+            this.incomingCall = null;
+            this.callStatus = 'idle';
+            this.stopRinging();
+          }
+          return;
+        }
+
         // Don't accept if already busy
         if (this.callStatus !== 'idle') return;
         // Don't accept my own calls (simple check: senderName matches callerName)
