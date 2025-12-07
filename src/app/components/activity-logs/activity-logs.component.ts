@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LoggingService } from '../../services/logging.service';
+import { DialogService } from '../../services/dialog.service';
 import { ActivityLog } from '../../models/inventory.models';
 
 @Component({
@@ -26,7 +27,10 @@ export class ActivityLogsComponent implements OnInit {
   entityTypes = ['all', 'product', 'sale', 'expense', 'customer'];
   actions = ['all', 'create', 'update', 'delete', 'restock', 'complete'];
 
-  constructor(private loggingService: LoggingService) {}
+  constructor(
+    private loggingService: LoggingService,
+    private dialogService: DialogService
+  ) {}
 
   ngOnInit(): void {
     this.loggingService.getLogs().subscribe((logs) => {
@@ -78,16 +82,23 @@ export class ActivityLogsComponent implements OnInit {
     this.loggingService.refreshLogs();
   }
 
-  cleanupOldLogs(): void {
-    if (confirm('This will delete all logs older than 30 days. Continue?')) {
+  async cleanupOldLogs(): Promise<void> {
+    if (
+      await this.dialogService.confirm(
+        'This will delete all logs older than 30 days. Continue?',
+        'Cleanup Logs'
+      )
+    ) {
       this.loggingService.cleanupOldLogs().subscribe({
-        next: (result) => {
-          alert(`Cleanup completed! Deleted ${result.deletedCount} logs.`);
+        next: async (result) => {
+          await this.dialogService.success(
+            `Cleanup completed! Deleted ${result.deletedCount} logs.`
+          );
           this.refreshLogs();
         },
-        error: (err) => {
+        error: async (err) => {
           console.error('Cleanup error:', err);
-          alert('Failed to cleanup logs');
+          await this.dialogService.error('Failed to cleanup logs');
         },
       });
     }

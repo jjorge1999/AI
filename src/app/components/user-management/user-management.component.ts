@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { UserService } from '../../services/user.service';
+import { DialogService } from '../../services/dialog.service';
 import { User } from '../../models/inventory.models';
 
 @Component({
@@ -26,7 +27,10 @@ export class UserManagementComponent implements OnInit {
   };
   formPassword = ''; // Separate variable for form input
 
-  constructor(private userService: UserService) {}
+  constructor(
+    private userService: UserService,
+    private dialogService: DialogService
+  ) {}
 
   ngOnInit(): void {
     this.loadUsers();
@@ -69,15 +73,21 @@ export class UserManagementComponent implements OnInit {
     this.isModalOpen = false;
   }
 
-  saveUser(): void {
+  async saveUser(): Promise<void> {
     if (!this.currentUser.username || !this.currentUser.role) {
-      alert('Please fill in username and role.');
+      await this.dialogService.error(
+        'Please fill in username and role.',
+        'Validation Error'
+      );
       return;
     }
 
     // Password validation
     if (!this.isEditing && !this.formPassword) {
-      alert('Password is required for new users.');
+      await this.dialogService.error(
+        'Password is required for new users.',
+        'Validation Error'
+      );
       return;
     }
 
@@ -116,8 +126,13 @@ export class UserManagementComponent implements OnInit {
     }
   }
 
-  deleteUser(userId: string): void {
-    if (confirm('Are you sure you want to delete this user?')) {
+  async deleteUser(userId: string): Promise<void> {
+    if (
+      await this.dialogService.confirm(
+        'Are you sure you want to delete this user?',
+        'Delete User'
+      )
+    ) {
       this.userService.deleteUser(userId).subscribe();
     }
   }

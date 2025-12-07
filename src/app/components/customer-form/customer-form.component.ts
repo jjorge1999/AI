@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CustomerService } from '../../services/customer.service';
+import { DialogService } from '../../services/dialog.service';
 import { Customer } from '../../models/inventory.models';
 
 @Component({
@@ -9,22 +10,25 @@ import { Customer } from '../../models/inventory.models';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './customer-form.component.html',
-  styleUrl: './customer-form.component.css'
+  styleUrl: './customer-form.component.css',
 })
 export class CustomerFormComponent implements OnInit {
   customers: Customer[] = [];
   editingId: string | null = null;
-  
+
   customer = {
     name: '',
     phoneNumber: '',
-    deliveryAddress: ''
+    deliveryAddress: '',
   };
 
-  constructor(private customerService: CustomerService) {}
+  constructor(
+    private customerService: CustomerService,
+    private dialogService: DialogService
+  ) {}
 
   ngOnInit(): void {
-    this.customerService.getCustomers().subscribe(customers => {
+    this.customerService.getCustomers().subscribe((customers) => {
       this.customers = customers;
     });
   }
@@ -35,14 +39,14 @@ export class CustomerFormComponent implements OnInit {
         this.customerService.updateCustomer(this.editingId, {
           name: this.customer.name,
           phoneNumber: this.customer.phoneNumber,
-          deliveryAddress: this.customer.deliveryAddress
+          deliveryAddress: this.customer.deliveryAddress,
         });
         this.editingId = null;
       } else {
         this.customerService.addCustomer({
           name: this.customer.name,
           phoneNumber: this.customer.phoneNumber,
-          deliveryAddress: this.customer.deliveryAddress
+          deliveryAddress: this.customer.deliveryAddress,
         });
       }
 
@@ -56,7 +60,7 @@ export class CustomerFormComponent implements OnInit {
     this.customer = {
       name: cust.name,
       phoneNumber: cust.phoneNumber || '',
-      deliveryAddress: cust.deliveryAddress || ''
+      deliveryAddress: cust.deliveryAddress || '',
     };
   }
 
@@ -69,12 +73,17 @@ export class CustomerFormComponent implements OnInit {
     this.customer = {
       name: '',
       phoneNumber: '',
-      deliveryAddress: ''
+      deliveryAddress: '',
     };
   }
 
-  deleteCustomer(id: string): void {
-    if (confirm('Are you sure you want to delete this customer?')) {
+  async deleteCustomer(id: string): Promise<void> {
+    if (
+      await this.dialogService.confirm(
+        'Are you sure you want to delete this customer?',
+        'Delete Customer'
+      )
+    ) {
       this.customerService.deleteCustomer(id);
       if (this.editingId === id) {
         this.cancelEdit();
