@@ -14,6 +14,7 @@ import { ActivityLogsComponent } from './components/activity-logs/activity-logs.
 import { ChatComponent } from './components/chat/chat.component';
 import { UserManagementComponent } from './components/user-management/user-management.component';
 import { ReservationComponent } from './components/reservation/reservation.component';
+import { DialogComponent } from './components/dialog/dialog.component';
 
 @Component({
   selector: 'app-root',
@@ -32,6 +33,7 @@ import { ReservationComponent } from './components/reservation/reservation.compo
     ChatComponent,
     UserManagementComponent,
     ReservationComponent,
+    DialogComponent,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',

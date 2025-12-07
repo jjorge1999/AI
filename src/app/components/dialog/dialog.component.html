@@ -1,0 +1,29 @@
+<div class="dialog-overlay" *ngIf="dialogState.isOpen" (click)="onBackdropClick($event)">
+  <div class="dialog-container" [@dialogAnimation]>
+    <div class="dialog-header" [class]="'dialog-header-' + dialogState.config?.type">
+      <div class="dialog-icon">{{ getIcon() }}</div>
+      <h2 class="dialog-title">{{ dialogState.config?.title }}</h2>
+    </div>
+    
+    <div class="dialog-body">
+      <p class="dialog-message">{{ dialogState.config?.message }}</p>
+    </div>
+    
+    <div class="dialog-footer">
+      <button 
+        *ngIf="dialogState.config?.showCancel" 
+        class="dialog-btn dialog-btn-cancel"
+        (click)="onCancel()"
+      >
+        {{ dialogState.config?.cancelText || 'Cancel' }}
+      </button>
+      <button 
+        class="dialog-btn dialog-btn-confirm"
+        [class]="'dialog-btn-' + dialogState.config?.type"
+        (click)="onConfirm()"
+      >
+        {{ dialogState.config?.confirmText || 'OK' }}
+      </button>
+    </div>
+  </div>
+</div>

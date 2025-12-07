@@ -135,7 +135,7 @@ export class PosCalculatorComponent implements OnInit {
       const delivery = new Date(sale.deliveryDate);
       const diffMs = delivery.getTime() - now.getTime();
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      if (diffDays === 1 || diffDays === 2) {
+      if (diffDays === 1 || diffDays === 2 || diffDays < 0) {
         this.triggerAlarm(sale, diffDays);
       }
     });
