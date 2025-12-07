@@ -9,9 +9,9 @@
 /* Registration Form Styles */
 .registration-container {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  height: 100%;
+  min-height: 100%;
   padding: var(--space-lg);
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(147, 51, 234, 0.05));
   overflow-y: auto;
@@ -24,6 +24,7 @@
   padding: var(--space-xl);
   max-width: 500px;
   width: 100%;
+  margin: auto;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   animation: fadeInUp 0.5s ease-out;
 }
@@ -44,10 +45,7 @@
   font-size: 1.875rem;
   font-weight: 700;
   text-align: center;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--color-primary);
 }
 
 .registration-subtitle {
