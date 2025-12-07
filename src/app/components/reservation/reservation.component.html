@@ -71,9 +71,9 @@
                
                <div class="card-actions">
                   <div class="qty-control">
-                     <button class="qty-btn" (click)="decrementQty(p)">-</button>
+                     <button type="button" class="qty-btn" (click)="decrementQty(p)">-</button>
                      <input type="number" [value]="getQty(p)" (input)="manualQty(p, $event)" class="qty-input-sm" min="1" [max]="p.quantity">
-                     <button class="qty-btn" (click)="incrementQty(p)">+</button>
+                     <button type="button" class="qty-btn" (click)="incrementQty(p)">+</button>
                   </div>
                   <button class="btn-add-card" (click)="addToOrder(p)">Add</button>
                </div>
