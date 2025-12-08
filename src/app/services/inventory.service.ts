@@ -4,6 +4,7 @@ import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { Product, Sale, Expense } from '../models/inventory.models';
 import { environment } from '../../environments/environment';
 import { LoggingService } from './logging.service';
+import { CustomerService } from './customer.service';
 import { initializeApp } from 'firebase/app';
 import {
   getFirestore,
@@ -49,7 +50,8 @@ export class InventoryService {
 
   constructor(
     private http: HttpClient,
-    private loggingService: LoggingService
+    private loggingService: LoggingService,
+    private customerService: CustomerService
   ) {
     // Manual loading only (via AppComponent or specific components)
   }
@@ -368,15 +370,6 @@ export class InventoryService {
     }
 
     // 2. Legacy Backend (Direct)
-    // If Firestore failed, we rely on JSON-Server to generate ID (or we mock it?)
-    // JSON-Server generates ID if not provided.
-    // If we passed `id: firestoreId`, it uses it.
-    // If firestoreId is undefined, JSON-server makes one.
-    // BUT! Listener logic expects Firestore ID if syncing.
-    // If we are in Polling Mode, we read from HTTP.
-    // If we are in Realtime Mode, we read from Firestore.
-    // So if Firestore Write fails, we likely ARE in Polling Mode (or read-only).
-
     const legacyData = { ...baseData, userId: this.getCurrentUser() };
     if (firestoreId) {
       Object.assign(legacyData, { id: firestoreId });
@@ -506,7 +499,6 @@ export class InventoryService {
     let firestoreId: string | undefined;
     try {
       const firestoreData = { ...baseData, userId: this.getFirestoreUserId() };
-      // Must use Timestamp logic if needed, but Date works for now
       const docRef = await addDoc(collection(this.db, 'sales'), firestoreData);
       firestoreId = docRef.id;
     } catch (e) {
@@ -567,6 +559,30 @@ export class InventoryService {
               quantity: product.quantity - sale.quantitySold,
             };
             this.updateProduct(updatedProduct);
+          }
+
+          // Award Credits to Customer
+          if (sale.customerId) {
+            const customer = this.customerService.getCustomerById(
+              sale.customerId
+            );
+            if (customer) {
+              const creditsEarned = Math.floor(sale.total / 5000); // 1 credit per 10 pesos
+              if (creditsEarned > 0) {
+                const currentCredits = customer.credits || 0;
+                this.customerService.updateCustomer(customer.id, {
+                  credits: currentCredits + creditsEarned,
+                });
+
+                this.loggingService.logActivity(
+                  'update',
+                  'customer',
+                  customer.id,
+                  customer.name,
+                  `Awarded ${creditsEarned} credits for purchase`
+                );
+              }
+            }
           }
 
           this.loggingService.logActivity(
