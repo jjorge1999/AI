@@ -1,8 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InventoryService } from '../../services/inventory.service';
 import { Product, Sale } from '../../models/inventory.models';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-inventory-list',
@@ -11,9 +12,10 @@ import { Product, Sale } from '../../models/inventory.models';
   templateUrl: './inventory-list.component.html',
   styleUrl: './inventory-list.component.css',
 })
-export class InventoryListComponent implements OnInit {
+export class InventoryListComponent implements OnInit, OnDestroy {
   products: Product[] = [];
   sales: Sale[] = [];
+  private subscriptions: Subscription = new Subscription();
 
   // Category filter
   selectedCategory: string = 'All';
@@ -53,13 +55,21 @@ export class InventoryListComponent implements OnInit {
   constructor(private inventoryService: InventoryService) {}
 
   ngOnInit(): void {
-    this.inventoryService.getProducts().subscribe((products) => {
-      this.products = products;
-    });
+    this.subscriptions.add(
+      this.inventoryService.getProducts().subscribe((products) => {
+        this.products = products;
+      })
+    );
 
-    this.inventoryService.getSales().subscribe((sales) => {
-      this.sales = sales;
-    });
+    this.subscriptions.add(
+      this.inventoryService.getSales().subscribe((sales) => {
+        this.sales = sales;
+      })
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
   }
 
   get pendingSales(): Sale[] {

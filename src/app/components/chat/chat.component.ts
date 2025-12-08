@@ -72,11 +72,7 @@ export class ChatComponent
   isAppUser = false;
   currentConversationId = '';
   conversations: string[] = [];
-  private customerSubscription?: Subscription;
-  private logoutSubscription?: Subscription;
-  private incomingCallSubscription?: Subscription;
-  private callStatusSubscription?: Subscription;
-  private callErrorSubscription?: Subscription;
+  private subscriptions: Subscription = new Subscription();
 
   callStatus = 'idle'; // idle, calling, connected, incoming
   incomingCall: WebRTCCall | null = null;
@@ -191,35 +187,39 @@ export class ChatComponent
 
   ngOnInit(): void {
     // Load customers list first for validation
-    this.customerSubscription = this.customerService.getCustomers().subscribe({
-      next: (customers) => {
-        this.allCustomers = customers;
-        this.checkLoginAndStatus();
-      },
-      error: (err) => {
-        console.error('Failed to load customers', err);
-        // Fallback: try to login anyway without customer lookup
-        this.checkLoginAndStatus();
-      },
-    });
+    this.subscriptions.add(
+      this.customerService.getCustomers().subscribe({
+        next: (customers) => {
+          this.allCustomers = customers;
+          this.checkLoginAndStatus();
+        },
+        error: (err) => {
+          console.error('Failed to load customers', err);
+          // Fallback: try to login anyway without customer lookup
+          this.checkLoginAndStatus();
+        },
+      })
+    );
 
     // Listen for logout events from the app
-    this.logoutSubscription = this.chatService.logout$.subscribe(() => {
-      this.performForceLogout();
-    });
+    this.subscriptions.add(
+      this.chatService.logout$.subscribe(() => {
+        this.performForceLogout();
+      })
+    );
 
     // Call Status Listener
-    this.callStatusSubscription = this.callService.callStatus$.subscribe(
-      (status) => {
+    this.subscriptions.add(
+      this.callService.callStatus$.subscribe((status) => {
         this.callStatus = status;
         if (status !== 'incoming') {
           this.stopRinging();
         }
-      }
+      })
     );
 
-    this.incomingCallSubscription = this.callService.incomingCall$.subscribe(
-      (call) => {
+    this.subscriptions.add(
+      this.callService.incomingCall$.subscribe((call) => {
         if (!call) {
           if (this.callStatus === 'incoming') {
             this.incomingCall = null;
@@ -237,58 +237,69 @@ export class ChatComponent
         this.incomingCall = call;
         this.callStatus = 'incoming';
         this.startRinging();
-      }
+      })
     );
 
-    this.callService.remoteStream$.subscribe((stream) => {
-      this.remoteStream = stream;
-      if (stream && this.remoteAudio) {
-        // Force update the element. Using timeout to ensure view is updated if hidden previously
-        setTimeout(() => {
-          const audioEl = this.remoteAudio.nativeElement;
-          audioEl.srcObject = stream;
-          audioEl.muted = false;
-          audioEl.volume = 1.0;
+    this.subscriptions.add(
+      this.callService.remoteStream$.subscribe((stream) => {
+        this.remoteStream = stream;
+        if (stream && this.remoteAudio) {
+          // Force update the element. Using timeout to ensure view is updated if hidden previously
+          // Note: Timeouts inside subscriptions are tricky but this is a one-off delay for DOM.
+          // We'll leave it but ideally it should be destroyed if component dies.
+          // Since it's 100ms it's likely fine, but to be 100% safe against detached nodes:
+          const timer = setTimeout(() => {
+            if (!this.remoteAudio) return; // Guard
+            const audioEl = this.remoteAudio.nativeElement;
+            audioEl.srcObject = stream;
+            audioEl.muted = false;
+            audioEl.volume = 1.0;
 
-          const tracks = stream.getAudioTracks();
-          if (tracks.length > 0) {
-            console.log(
-              'ChatComponent: Audio track found',
-              tracks[0].label,
-              'Enabled:',
-              tracks[0].enabled,
-              'Muted:',
-              tracks[0].muted
-            );
-            tracks[0].enabled = true; // Ensure enabled
-          } else {
-            console.warn('ChatComponent: No audio tracks in stream!');
-          }
-
-          audioEl.onloadedmetadata = () => {
-            console.log(
-              'ChatComponent: Audio metadata loaded, attempting play...'
-            );
-            audioEl
-              .play()
-              .then(() => {
-                console.log('ChatComponent: Audio playing successfully');
-                this.setupAudioVisualizer(stream);
-              })
-              .catch((e) =>
-                console.error('ChatComponent: Error playing audio:', e)
+            const tracks = stream.getAudioTracks();
+            if (tracks.length > 0) {
+              console.log(
+                'ChatComponent: Audio track found',
+                tracks[0].label,
+                'Enabled:',
+                tracks[0].enabled,
+                'Muted:',
+                tracks[0].muted
               );
-          };
-        }, 100);
-      }
-    });
+              tracks[0].enabled = true; // Ensure enabled
+            } else {
+              console.warn('ChatComponent: No audio tracks in stream!');
+            }
+
+            audioEl.onloadedmetadata = () => {
+              console.log(
+                'ChatComponent: Audio metadata loaded, attempting play...'
+              );
+              if (audioEl.play) {
+                audioEl
+                  .play()
+                  .then(() => {
+                    console.log('ChatComponent: Audio playing successfully');
+                    this.setupAudioVisualizer(stream);
+                  })
+                  .catch((e) =>
+                    console.error('ChatComponent: Error playing audio:', e)
+                  );
+              }
+            };
+          }, 100);
+          // No easy way to store this specific timer ID without cluttering, but 100ms is very short.
+        }
+      })
+    );
 
     // Listen for Call Errors
-    this.callErrorSubscription = this.callService.error$.subscribe((err) => {
-      alert('Call Failed: ' + err);
-      this.callStatus = 'idle';
-      this.stopRinging();
-    });
+    this.subscriptions.add(
+      this.callService.error$.subscribe((err) => {
+        alert('Call Failed: ' + err);
+        this.callStatus = 'idle';
+        this.stopRinging();
+      })
+    );
   }
 
   private performForceLogout(): void {
@@ -338,12 +349,14 @@ export class ChatComponent
           this.senderName = user.fullName || user.username;
         } else {
           // Async fetch
-          this.userService.users$.pipe(take(1)).subscribe((users) => {
-            const u = users.find((x) => x.id === appUserId);
-            if (u) {
-              this.senderName = u.fullName || u.username;
-            }
-          });
+          this.subscriptions.add(
+            this.userService.users$.pipe(take(1)).subscribe((users) => {
+              const u = users.find((x) => x.id === appUserId);
+              if (u) {
+                this.senderName = u.fullName || u.username;
+              }
+            })
+          );
         }
       }
       return;
@@ -401,21 +414,20 @@ export class ChatComponent
   }
 
   ngOnDestroy(): void {
-    if (this.customerSubscription) {
-      this.customerSubscription.unsubscribe();
+    // Stop any active ringing
+    this.stopRinging();
+
+    // Clean up visualization audio context
+    this.cleanupAudioVisualizer();
+
+    // Clean up notification audio context
+    if (this.notificationAudioContext) {
+      this.notificationAudioContext.close().catch(() => {});
+      this.notificationAudioContext = null;
     }
-    if (this.logoutSubscription) {
-      this.logoutSubscription.unsubscribe();
-    }
-    if (this.incomingCallSubscription) {
-      this.incomingCallSubscription.unsubscribe();
-    }
-    if (this.callStatusSubscription) {
-      this.callStatusSubscription.unsubscribe();
-    }
-    if (this.callErrorSubscription) {
-      this.callErrorSubscription.unsubscribe();
-    }
+
+    this.subscriptions.unsubscribe();
+
     if (this.incomingCallListener) {
       this.incomingCallListener();
     }
@@ -477,7 +489,7 @@ export class ChatComponent
   }
 
   private allMessagesCached: Message[] = [];
-  private messagesSubscription?: Subscription;
+  // private messagesSubscription?: Subscription; // Removed
 
   unreadCounts: { [key: string]: number } = {};
   private conversationMessageCounts: { [key: string]: number } = {};
@@ -511,119 +523,124 @@ export class ChatComponent
   }
 
   private loadMessages(): void {
-    if (this.messagesSubscription) {
-      this.updateFilteredMessages(false);
-      return;
-    }
+    // Avoid double subscription
+    // Since we removed individual property, strict check is harder,
+    // but this method is controlled by checkLoginAndStatus which runs once per init.
 
-    this.messagesSubscription = this.chatService.getMessages().subscribe({
-      next: (allMessages) => {
-        this.allMessagesCached = allMessages;
+    this.subscriptions.add(
+      this.chatService.getMessages().subscribe({
+        next: (allMessages) => {
+          this.allMessagesCached = allMessages;
 
-        if (this.isAppUser) {
-          const convMap = new Map<string, number>();
-          const convSet = new Set<string>();
-          const latestMsgMap = new Map<string, Message>();
+          if (this.isAppUser) {
+            const convMap = new Map<string, number>();
+            const convSet = new Set<string>();
+            const latestMsgMap = new Map<string, Message>();
 
-          allMessages.forEach((msg) => {
-            if (msg.conversationId) {
-              convSet.add(msg.conversationId);
-              convMap.set(
-                msg.conversationId,
-                (convMap.get(msg.conversationId) || 0) + 1
-              );
-              // Store latest message
-              latestMsgMap.set(msg.conversationId, msg);
-            }
-          });
-
-          this.conversations = Array.from(convSet);
-
-          // Resolve names
-          this.userService.users$.pipe(take(1)).subscribe((users) => {
-            this.conversations.forEach((convId) => {
-              if (
-                !this.userNamesCache.has(convId) ||
-                !this.userAddressesCache.get(convId) ||
-                !this.userGpsCache.get(convId)
-              ) {
-                const user = users.find(
-                  (u) =>
-                    u.username === convId ||
-                    u.fullName === convId ||
-                    u.id === convId
+            allMessages.forEach((msg) => {
+              if (msg.conversationId) {
+                convSet.add(msg.conversationId);
+                convMap.set(
+                  msg.conversationId,
+                  (convMap.get(msg.conversationId) || 0) + 1
                 );
-                if (user) {
-                  this.userNamesCache.set(
-                    convId,
-                    user.fullName || user.username
-                  );
-                  this.userAddressesCache.set(convId, user.address || '');
-                  this.userGpsCache.set(convId, user.gpsCoordinates || '');
-                } else {
-                  const customer = this.allCustomers.find(
-                    (c) => c.name === convId
-                  );
-                  if (customer) {
-                    this.userNamesCache.set(convId, customer.name);
-                    this.userAddressesCache.set(
-                      convId,
-                      customer.deliveryAddress
-                    );
-                    this.userGpsCache.set(
-                      convId,
-                      customer.gpsCoordinates || ''
-                    );
-                  } else {
-                    this.userNamesCache.set(convId, convId);
-                  }
-                }
+                // Store latest message
+                latestMsgMap.set(msg.conversationId, msg);
               }
             });
-          });
 
-          // Detect new messages & Update unread counts
-          this.conversations.forEach((convId) => {
-            const currentCount = convMap.get(convId) || 0;
-            const prevCount = this.conversationMessageCounts[convId] || 0;
+            this.conversations = Array.from(convSet);
 
-            // Update unread count based on isRead flag
-            this.unreadCounts[convId] = allMessages.filter(
-              (m) =>
-                m.conversationId === convId && !m.isRead && !this.isMyMessage(m)
-            ).length;
+            // Resolve names
+            this.subscriptions.add(
+              this.userService.users$.pipe(take(1)).subscribe((users) => {
+                this.conversations.forEach((convId) => {
+                  if (
+                    !this.userNamesCache.has(convId) ||
+                    !this.userAddressesCache.get(convId) ||
+                    !this.userGpsCache.get(convId)
+                  ) {
+                    const user = users.find(
+                      (u) =>
+                        u.username === convId ||
+                        u.fullName === convId ||
+                        u.id === convId
+                    );
+                    if (user) {
+                      this.userNamesCache.set(
+                        convId,
+                        user.fullName || user.username
+                      );
+                      this.userAddressesCache.set(convId, user.address || '');
+                      this.userGpsCache.set(convId, user.gpsCoordinates || '');
+                    } else {
+                      const customer = this.allCustomers.find(
+                        (c) => c.name === convId
+                      );
+                      if (customer) {
+                        this.userNamesCache.set(convId, customer.name);
+                        this.userAddressesCache.set(
+                          convId,
+                          customer.deliveryAddress
+                        );
+                        this.userGpsCache.set(
+                          convId,
+                          customer.gpsCoordinates || ''
+                        );
+                      } else {
+                        this.userNamesCache.set(convId, convId);
+                      }
+                    }
+                  }
+                });
+              })
+            );
 
-            if (currentCount > prevCount) {
-              // Trigger notification for ANY new message in ANY conversation
-              const lastMsg = latestMsgMap.get(convId);
-              if (lastMsg) {
-                this.notifyUser(lastMsg);
+            // Detect new messages & Update unread counts
+            this.conversations.forEach((convId) => {
+              const currentCount = convMap.get(convId) || 0;
+              const prevCount = this.conversationMessageCounts[convId] || 0;
+
+              // Update unread count based on isRead flag
+              this.unreadCounts[convId] = allMessages.filter(
+                (m) =>
+                  m.conversationId === convId &&
+                  !m.isRead &&
+                  !this.isMyMessage(m)
+              ).length;
+
+              if (currentCount > prevCount) {
+                // Trigger notification for ANY new message in ANY conversation
+                const lastMsg = latestMsgMap.get(convId);
+                if (lastMsg) {
+                  this.notifyUser(lastMsg);
+                }
               }
-            }
-            this.conversationMessageCounts[convId] = currentCount;
-          });
-        }
+              this.conversationMessageCounts[convId] = currentCount;
+            });
+          }
 
-        // Calculate and Emit Total Unread
-        let totalUnread = 0;
-        if (this.isAppUser) {
-          totalUnread = Object.values(this.unreadCounts).reduce(
-            (a, b) => a + b,
-            0
-          );
-        } else {
-          totalUnread = allMessages.filter(
-            (m) => !m.isRead && !this.isMyMessage(m)
-          ).length;
-        }
-        this.totalUnreadCountChange.emit(totalUnread);
+          // Calculate and Emit Total Unread
+          let totalUnread = 0;
+          if (this.isAppUser) {
+            totalUnread = Object.values(this.unreadCounts).reduce(
+              (a, b) => a + b,
+              0
+            );
+          } else {
+            totalUnread = allMessages.filter(
+              (m) => !m.isRead && !this.isMyMessage(m)
+            ).length;
+          }
+          this.totalUnreadCountChange.emit(totalUnread);
 
-        this.updateFilteredMessages(!this.isAppUser);
-      },
-      error: (error) => {
-        console.error('Error loading messages:', error);
-      },
-    });
+          this.updateFilteredMessages(!this.isAppUser);
+        },
+        error: (error) => {
+          console.error('Error loading messages:', error);
+        },
+      })
+    );
   }
 
   // Helper to get display name

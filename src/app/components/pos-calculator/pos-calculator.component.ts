@@ -1,10 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InventoryService } from '../../services/inventory.service';
 import { CustomerService } from '../../services/customer.service';
 import { Product, Customer, Sale } from '../../models/inventory.models';
 import { DialogService } from '../../services/dialog.service';
+import { Subscription } from 'rxjs';
 
 interface CartItem {
   product: Product;
@@ -21,11 +22,12 @@ interface CartItem {
   templateUrl: './pos-calculator.component.html',
   styleUrl: './pos-calculator.component.css',
 })
-export class PosCalculatorComponent implements OnInit {
+export class PosCalculatorComponent implements OnInit, OnDestroy {
   // Data collections
   products: Product[] = [];
   customers: Customer[] = [];
   pendingSales: Sale[] = [];
+  private subscriptions: Subscription = new Subscription();
 
   // Form state
   selectedProductId = '';
@@ -58,6 +60,7 @@ export class PosCalculatorComponent implements OnInit {
 
   // Alarm state
   private alarmInterval: any = null;
+  private checkInterval: any = null;
 
   constructor(
     private inventoryService: InventoryService,
@@ -73,22 +76,43 @@ export class PosCalculatorComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.inventoryService.getProducts().subscribe((products) => {
-      this.products = products.filter((p) => p.quantity > 0);
-    });
-    this.customerService.getCustomers().subscribe((customers) => {
-      this.customers = customers;
-    });
-    this.inventoryService.getSales().subscribe((sales) => {
-      this.pendingSales = sales.filter((s) => s.pending === true);
-      this.startAlarmChecks();
-    });
+    this.subscriptions.add(
+      this.inventoryService.getProducts().subscribe((products) => {
+        this.products = products.filter((p) => p.quantity > 0);
+      })
+    );
+    this.subscriptions.add(
+      this.customerService.getCustomers().subscribe((customers) => {
+        this.customers = customers;
+      })
+    );
+    this.subscriptions.add(
+      this.inventoryService.getSales().subscribe((sales) => {
+        this.pendingSales = sales.filter((s) => s.pending === true);
+        // Only start if not already started? or re-check. Logic is fine here.
+        if (!this.checkInterval) {
+          this.startAlarmChecks();
+        }
+      })
+    );
     this.discount = 0;
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
+    this.stopAlarm();
+    if (this.checkInterval) {
+      clearInterval(this.checkInterval);
+      this.checkInterval = null;
+    }
   }
 
   private startAlarmChecks(): void {
     // Check every hour
-    setInterval(() => this.checkPendingDeliveryAlarms(), 60 * 60 * 1000);
+    this.checkInterval = setInterval(
+      () => this.checkPendingDeliveryAlarms(),
+      60 * 60 * 1000
+    );
     // Also run immediately
     this.checkPendingDeliveryAlarms();
   }

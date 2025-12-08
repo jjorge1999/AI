@@ -38,11 +38,12 @@
             id="address"
             [(ngModel)]="customerInfo.address"
             name="address"
-            placeholder="Address will be detected automatically..."
+            placeholder="Address will be detected automatically or enter manually..."
             class="form-textarea"
             rows="3"
             required
             [readonly]="isLocationReadOnly"
+            (click)="isLocationReadOnly = false"
           ></textarea>
         </div>
 
@@ -55,7 +56,7 @@
                name="gpsCoordinates"
                placeholder="Lat, Lng (Auto-detected)"
                class="form-input"
-               [readonly]="isLocationReadOnly"
+               readonly
              />
              <button type="button" class="btn-location" (click)="getLocation()">📍</button>
           </div>

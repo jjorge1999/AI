@@ -1,10 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InventoryService } from '../../services/inventory.service';
 import { ReservationService } from '../../services/reservation.service';
 import { CustomerService } from '../../services/customer.service';
 import { Product } from '../../models/inventory.models';
+import { Subscription, firstValueFrom } from 'rxjs';
+import { take } from 'rxjs/operators';
 
 interface OrderItem {
   product: Product;
@@ -18,8 +20,9 @@ interface OrderItem {
   templateUrl: './reservation.component.html',
   styleUrl: './reservation.component.css',
 })
-export class ReservationComponent implements OnInit {
+export class ReservationComponent implements OnInit, OnDestroy {
   products: Product[] = [];
+  private subscriptions: Subscription = new Subscription();
 
   customerName = '';
   customerContact = '';
@@ -52,12 +55,18 @@ export class ReservationComponent implements OnInit {
     this.loadProducts();
   }
 
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
+  }
+
   tempQuantities: { [id: string]: number } = {};
 
   loadProducts() {
-    this.inventoryService.getProducts().subscribe((products) => {
-      this.products = products.filter((p) => p.quantity > 0); // Only show in-stock
-    });
+    this.subscriptions.add(
+      this.inventoryService.getProducts().subscribe((products) => {
+        this.products = products.filter((p) => p.quantity > 0); // Only show in-stock
+      })
+    );
   }
 
   getQty(product: Product): number {
@@ -158,15 +167,13 @@ export class ReservationComponent implements OnInit {
       }`;
 
       // 1. Check if customer already exists by phone number
-      let existingCustomer: any = null;
-      this.customerService.getCustomers().subscribe((customers) => {
-        existingCustomer = customers.find(
-          (c) => c.phoneNumber === this.customerContact
-        );
-      });
+      const customers = await firstValueFrom(
+        this.customerService.getCustomers().pipe(take(1))
+      );
 
-      // Wait a bit for the subscription to complete
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      const existingCustomer = customers.find(
+        (c) => c.phoneNumber === this.customerContact
+      );
 
       // Only create customer if they don't exist
       if (!existingCustomer) {

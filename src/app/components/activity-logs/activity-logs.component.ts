@@ -1,9 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LoggingService } from '../../services/logging.service';
 import { DialogService } from '../../services/dialog.service';
 import { ActivityLog } from '../../models/inventory.models';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-activity-logs',
@@ -12,9 +13,10 @@ import { ActivityLog } from '../../models/inventory.models';
   templateUrl: './activity-logs.component.html',
   styleUrl: './activity-logs.component.css',
 })
-export class ActivityLogsComponent implements OnInit {
+export class ActivityLogsComponent implements OnInit, OnDestroy {
   logs: ActivityLog[] = [];
   filteredLogs: ActivityLog[] = [];
+  private subscriptions: Subscription = new Subscription();
 
   // Filters
   selectedEntityType: string = 'all';
@@ -33,15 +35,21 @@ export class ActivityLogsComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loggingService.getLogs().subscribe((logs) => {
-      this.logs = logs.map((log) => ({
-        ...log,
-        timestamp: new Date(
-          (log.timestamp as any)?._seconds * 1000 || new Date()
-        ),
-      }));
-      this.applyFilters();
-    });
+    this.subscriptions.add(
+      this.loggingService.getLogs().subscribe((logs) => {
+        this.logs = logs.map((log) => ({
+          ...log,
+          timestamp: new Date(
+            (log.timestamp as any)?._seconds * 1000 || new Date()
+          ),
+        }));
+        this.applyFilters();
+      })
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
   }
 
   applyFilters(): void {
@@ -89,18 +97,20 @@ export class ActivityLogsComponent implements OnInit {
         'Cleanup Logs'
       )
     ) {
-      this.loggingService.cleanupOldLogs().subscribe({
-        next: async (result) => {
-          await this.dialogService.success(
-            `Cleanup completed! Deleted ${result.deletedCount} logs.`
-          );
-          this.refreshLogs();
-        },
-        error: async (err) => {
-          console.error('Cleanup error:', err);
-          await this.dialogService.error('Failed to cleanup logs');
-        },
-      });
+      this.subscriptions.add(
+        this.loggingService.cleanupOldLogs().subscribe({
+          next: async (result) => {
+            await this.dialogService.success(
+              `Cleanup completed! Deleted ${result.deletedCount} logs.`
+            );
+            this.refreshLogs();
+          },
+          error: async (err) => {
+            console.error('Cleanup error:', err);
+            await this.dialogService.error('Failed to cleanup logs');
+          },
+        })
+      );
     }
   }
 
