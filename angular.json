@@ -124,7 +124,8 @@
           "builder": "angular-cli-ghpages:deploy",
           "options": {
             "baseHref": "https://jjorge1999.github.io/AI/",
-            "name": "jjm-inventory"
+            "name": "jjm-inventory",
+            "dir": "dist/jjm-inventory/browser"
           }
         }
       }
