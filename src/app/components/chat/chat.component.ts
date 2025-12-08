@@ -734,9 +734,9 @@ export class ChatComponent
 
       // Ensure it is running
       if (ctx.state === 'suspended') {
-        ctx
-          .resume()
-          .catch((e) => console.warn('Could not resume audio context', e));
+        ctx.resume().catch(() => {
+          // Expected behavior if user hasn't interacted yet. Silence error.
+        });
       }
 
       const now = ctx.currentTime;

@@ -33,7 +33,10 @@ export class UserManagementComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // 1. Subscribe to the stream
     this.loadUsers();
+    // 2. Trigger the fetch from backend
+    this.userService.loadUsers();
   }
 
   loadUsers(): void {
@@ -41,10 +44,17 @@ export class UserManagementComponent implements OnInit {
     const currentUserId = localStorage.getItem('jjm_user_id');
 
     this.userService.getUsers().subscribe((users) => {
-      // Filter to show only the logged-in user OR users created by them
-      if (currentUserId) {
-        this.users = users.filter((u) => u.userId === currentUserId);
+      // Filter to show:
+      // 1. The logged-in user themselves
+      // 2. Users created by the logged-in user (userId === currentUserId)
+      if (currentUserId && currentUserId !== 'admin') {
+        // If generic admin, show all?
+        // Assuming 'admin' role check is better, but here we check ID
+        this.users = users.filter(
+          (u) => u.id === currentUserId || u.userId === currentUserId
+        );
       } else {
+        // If no ID (or super admin), show all
         this.users = users;
       }
       this.isLoading = false;

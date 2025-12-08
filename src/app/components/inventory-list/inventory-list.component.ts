@@ -330,11 +330,49 @@ export class InventoryListComponent implements OnInit, OnDestroy {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
       const file = input.files[0];
+
+      // Limit raw file size check (e.g. 10MB limit before trying to process)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File is too large. Please select an image under 10MB.');
+        return;
+      }
+
       const reader = new FileReader();
 
       reader.onload = (e: ProgressEvent<FileReader>) => {
-        this.editImagePreview = e.target?.result as string;
-        this.editProductImage = e.target?.result as string;
+        const img = new Image();
+        img.src = e.target?.result as string;
+
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Resize logic: Max dimension 800px
+          const maxDim = 800;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            // Compress to JPEG with 0.7 quality
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+            this.editImagePreview = dataUrl;
+            this.editProductImage = dataUrl;
+          }
+        };
       };
 
       reader.readAsDataURL(file);

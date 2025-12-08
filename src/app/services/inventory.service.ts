@@ -4,6 +4,27 @@ import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { Product, Sale, Expense } from '../models/inventory.models';
 import { environment } from '../../environments/environment';
 import { LoggingService } from './logging.service';
+import { initializeApp } from 'firebase/app';
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  onSnapshot,
+  Unsubscribe,
+  Timestamp,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  setDoc,
+} from 'firebase/firestore';
+import {
+  getAuth,
+  signInAnonymously,
+  onAuthStateChanged,
+  User,
+} from 'firebase/auth';
 
 @Injectable({
   providedIn: 'root',
@@ -19,6 +40,13 @@ export class InventoryService {
   public sales$ = this.salesSubject.asObservable();
   public expenses$ = this.expensesSubject.asObservable();
 
+  private app = initializeApp(environment.firebaseConfig);
+  private db = getFirestore(this.app);
+  private auth = getAuth(this.app);
+  private firebaseUser: User | null = null;
+  private unsubscribes: Unsubscribe[] = [];
+  private pollingInterval: any = null;
+
   constructor(
     private http: HttpClient,
     private loggingService: LoggingService
@@ -30,14 +58,236 @@ export class InventoryService {
     return localStorage.getItem('jjm_user_id') || 'guest';
   }
 
-  public reloadData(): void {
-    this.loadInitialData();
+  private getFirestoreUserId(): string {
+    if (this.firebaseUser) return this.firebaseUser.uid;
+
+    // If we consciously disabled auth (Public Mode), this is expected.
+    if (localStorage.getItem('firebase_auth_disabled') === 'true') {
+      return this.getCurrentUser();
+    }
+
+    console.warn(
+      'Firestore User ID requested but not authenticated. Using legacy fallback.'
+    );
+    return this.getCurrentUser();
   }
 
-  private loadInitialData(): void {
+  public reloadData(): void {
+    this.startRealtimeListeners();
+  }
+
+  public stopRealtimeListeners(): void {
+    this.unsubscribes.forEach((unsub) => unsub());
+    this.unsubscribes = [];
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
+  }
+
+  private startRealtimeListeners(): void {
+    this.stopRealtimeListeners(); // Cleanup first
+
+    const legacyUserId = this.getCurrentUser();
+    if (!legacyUserId || legacyUserId === 'guest') return;
+
+    // 0. Check for cached failure to avoid console noise
+    const isAuthDisabled =
+      localStorage.getItem('firebase_auth_disabled') === 'true';
+    if (isAuthDisabled) {
+      console.log('Auth previously failed. Skipping to Public/Fallback Mode.');
+      this.setupFirestoreListeners(legacyUserId, legacyUserId);
+      return;
+    }
+
+    // 1. Check if we already have a user
+    const currentUser = this.auth.currentUser;
+    if (currentUser) {
+      console.log('Already Authenticated. Starting Secure Listeners.');
+      this.firebaseUser = currentUser;
+      this.setupFirestoreListeners(currentUser.uid, legacyUserId);
+      return;
+    }
+
+    // 2. Try to Sign In
+    signInAnonymously(this.auth)
+      .then((cred) => {
+        console.log('Signed In Anonymously. Starting Secure Listeners.');
+        this.firebaseUser = cred.user;
+        this.setupFirestoreListeners(cred.user.uid, legacyUserId);
+      })
+      .catch((err) => {
+        console.warn(
+          'Anonymous Auth unavailable. Attempting Public Realtime Mode with Legacy ID.'
+        );
+        // Cache the failure so we don't spam 400 errors on reload
+        localStorage.setItem('firebase_auth_disabled', 'true');
+
+        // 3. Fallback to Public Mode (using Legacy ID as Firestore ID)
+        this.setupFirestoreListeners(legacyUserId, legacyUserId);
+      });
+  }
+
+  private setupFirestoreListeners(firestoreId: string, legacyId: string): void {
+    console.log(
+      `Starting Firestore Listeners. FirestoreID: ${firestoreId}, LegacyID: ${legacyId}`
+    );
+
+    // Products
+    const productsQuery = query(
+      collection(this.db, 'products'),
+      where('userId', '==', firestoreId)
+    );
+    this.unsubscribes.push(
+      onSnapshot(
+        productsQuery,
+        (snapshot) => {
+          console.log('Products Snapshot:', snapshot.docs.length);
+          const products = snapshot.docs.map(
+            (doc) =>
+              ({
+                id: doc.id,
+                ...(doc.data() as any),
+              } as Product)
+          );
+          this.productsSubject.next(products);
+          if (products.length === 0) {
+            this.migrateProducts(legacyId, firestoreId);
+          }
+        },
+        (err) => {
+          console.error('Products Listener Error:', err);
+          if (err.code === 'permission-denied') {
+            console.warn('Permission Denied. Falling back to Legacy Polling.');
+            this.fallbackToLegacyPolling();
+          }
+        }
+      )
+    );
+
+    // Sales
+    const salesQuery = query(
+      collection(this.db, 'sales'),
+      where('userId', '==', firestoreId)
+    );
+    this.unsubscribes.push(
+      onSnapshot(
+        salesQuery,
+        (snapshot) => {
+          console.log('Sales Snapshot:', snapshot.docs.length);
+          const sales = snapshot.docs.map((doc) =>
+            this.transformSale({ id: doc.id, ...doc.data() })
+          );
+          this.salesSubject.next(sales);
+          if (sales.length === 0) {
+            this.migrateSales(legacyId, firestoreId);
+          }
+        },
+        (err) => console.error('Sales Listener Error:', err)
+      )
+    );
+
+    // Expenses
+    const expensesQuery = query(
+      collection(this.db, 'expenses'),
+      where('userId', '==', firestoreId)
+    );
+    this.unsubscribes.push(
+      onSnapshot(
+        expensesQuery,
+        (snapshot) => {
+          console.log('Expenses Snapshot:', snapshot.docs.length);
+          const expenses = snapshot.docs.map(
+            (doc) =>
+              ({
+                id: doc.id,
+                ...(doc.data() as any),
+              } as Expense)
+          );
+          this.expensesSubject.next(expenses);
+          if (expenses.length === 0) {
+            this.migrateExpenses(legacyId, firestoreId);
+          }
+        },
+        (err) => console.error('Expenses Listener Error:', err)
+      )
+    );
+  }
+
+  private fallbackToLegacyPolling(): void {
+    if (this.pollingInterval) return; // Already polling
+    console.log('Starting Legacy Polling (Fallback Mode)...');
+
+    this.fetchAllLegacyData();
+    this.pollingInterval = setInterval(
+      () => this.fetchAllLegacyData(),
+      10000 // Poll every 10 seconds
+    );
+  }
+
+  private fetchAllLegacyData(): void {
     this.fetchProducts();
     this.fetchSales();
     this.fetchExpenses();
+  }
+
+  private migrateProducts(legacyId: string, firestoreId: string): void {
+    this.http
+      .get<Product[]>(`${this.apiUrl}/products?userId=${legacyId}`)
+      .subscribe((products) => {
+        products.forEach(async (p) => {
+          try {
+            await setDoc(doc(this.db, 'products', p.id), {
+              ...p,
+              userId: firestoreId,
+            });
+          } catch (e) {
+            console.error('Error migrating product:', e);
+          }
+        });
+      });
+  }
+
+  private migrateSales(legacyId: string, firestoreId: string): void {
+    this.http
+      .get<any[]>(`${this.apiUrl}/sales?userId=${legacyId}`)
+      .subscribe((sales) => {
+        sales.forEach(async (s) => {
+          try {
+            const data = {
+              ...s,
+              pending: s.pending === true || s.pending === 'true',
+              timestamp: this.parseDate(s.timestamp),
+              deliveryDate: s.deliveryDate
+                ? this.parseDate(s.deliveryDate)
+                : null,
+              userId: firestoreId,
+            };
+            await setDoc(doc(this.db, 'sales', s.id), data);
+          } catch (e) {
+            console.error('Error migrating sale:', e);
+          }
+        });
+      });
+  }
+
+  private migrateExpenses(legacyId: string, firestoreId: string): void {
+    this.http
+      .get<Expense[]>(`${this.apiUrl}/expenses?userId=${legacyId}`)
+      .subscribe((expenses) => {
+        expenses.forEach(async (e) => {
+          try {
+            const data = {
+              ...e,
+              timestamp: this.parseDate(e.timestamp),
+              userId: firestoreId,
+            };
+            await setDoc(doc(this.db, 'expenses', e.id), data);
+          } catch (err) {
+            console.error('Error migrating expense:', err);
+          }
+        });
+      });
   }
 
   public loadProducts(): void {
@@ -98,53 +348,100 @@ export class InventoryService {
     return this.expenses$;
   }
 
-  addExpense(expense: Omit<Expense, 'id' | 'timestamp'>): void {
-    const expenseWithUser = {
+  async addExpense(expense: Omit<Expense, 'id' | 'timestamp'>): Promise<void> {
+    const baseData = {
       ...expense,
-      userId: this.getCurrentUser(),
+      timestamp: new Date(),
     };
-    this.http
-      .post<Expense>(`${this.apiUrl}/expenses`, expenseWithUser)
-      .subscribe({
-        next: (newExpense) => {
-          const current = this.expensesSubject.value;
+
+    // 1. Try Firestore (Best Effort)
+    let firestoreId: string | undefined;
+    try {
+      const firestoreData = { ...baseData, userId: this.getFirestoreUserId() };
+      const docRef = await addDoc(
+        collection(this.db, 'expenses'),
+        firestoreData
+      );
+      firestoreId = docRef.id;
+    } catch (e) {
+      console.warn('Firestore write failed (proceeding with Legacy):', e);
+    }
+
+    // 2. Legacy Backend (Direct)
+    // If Firestore failed, we rely on JSON-Server to generate ID (or we mock it?)
+    // JSON-Server generates ID if not provided.
+    // If we passed `id: firestoreId`, it uses it.
+    // If firestoreId is undefined, JSON-server makes one.
+    // BUT! Listener logic expects Firestore ID if syncing.
+    // If we are in Polling Mode, we read from HTTP.
+    // If we are in Realtime Mode, we read from Firestore.
+    // So if Firestore Write fails, we likely ARE in Polling Mode (or read-only).
+
+    const legacyData = { ...baseData, userId: this.getCurrentUser() };
+    if (firestoreId) {
+      Object.assign(legacyData, { id: firestoreId });
+    }
+
+    this.http.post<Expense>(`${this.apiUrl}/expenses`, legacyData).subscribe({
+      next: (newExpense) => {
+        // Update subject if listener didn't catch it
+        const current = this.expensesSubject.value;
+        // Avoid dupe if listener caught it
+        if (!current.find((e) => e.id === newExpense.id)) {
           this.expensesSubject.next([...current, newExpense]);
+        }
 
-          this.loggingService.logActivity(
-            'create',
-            'expense',
-            newExpense.id,
-            newExpense.productName,
-            `$${newExpense.price.toFixed(2)}`
-          );
-        },
-        error: (err) => console.error('Error adding expense:', err),
-      });
+        this.loggingService.logActivity(
+          'create',
+          'expense',
+          newExpense.id,
+          newExpense.productName,
+          `$${newExpense.price.toFixed(2)}`
+        );
+      },
+      error: (err) => console.error('Error adding expense:', err),
+    });
   }
 
-  addProduct(product: Omit<Product, 'id' | 'createdAt'>): void {
-    const productWithUser = {
+  async addProduct(product: Omit<Product, 'id' | 'createdAt'>): Promise<void> {
+    const baseData = {
       ...product,
-      userId: this.getCurrentUser(),
+      createdAt: new Date(),
     };
-    this.http
-      .post<Product>(`${this.apiUrl}/products`, productWithUser)
-      .subscribe({
-        next: (newProduct) => {
-          const current = this.productsSubject.value;
+
+    let firestoreId: string | undefined;
+    try {
+      const firestoreData = { ...baseData, userId: this.getFirestoreUserId() };
+      const docRef = await addDoc(
+        collection(this.db, 'products'),
+        firestoreData
+      );
+      firestoreId = docRef.id;
+    } catch (e) {
+      console.warn('Firestore write failed:', e);
+    }
+
+    const legacyData = { ...baseData, userId: this.getCurrentUser() };
+    if (firestoreId) Object.assign(legacyData, { id: firestoreId });
+
+    this.http.post<Product>(`${this.apiUrl}/products`, legacyData).subscribe({
+      next: (newProduct) => {
+        const current = this.productsSubject.value;
+        if (!current.find((p) => p.id === newProduct.id)) {
           this.productsSubject.next([...current, newProduct]);
-          this.loggingService.logActivity(
-            'create',
-            'product',
-            newProduct.id,
-            newProduct.name
-          );
-        },
-        error: (err) => console.error('Error adding product:', err),
-      });
+        }
+        this.loggingService.logActivity(
+          'create',
+          'product',
+          newProduct.id,
+          newProduct.name
+        );
+      },
+      error: (err) => console.error('Error adding product:', err),
+    });
   }
 
-  recordSale(
+  async recordSale(
     productId: string,
     quantitySold: number,
     cashReceived: number,
@@ -154,7 +451,7 @@ export class InventoryService {
     discount: number = 0,
     discountType: 'amount' | 'percent' = 'amount',
     orderId?: string
-  ): void {
+  ): Promise<void> {
     const products = this.productsSubject.value;
     const product = products.find((p) => p.id === productId);
 
@@ -186,7 +483,7 @@ export class InventoryService {
       throw new Error('Insufficient cash');
     }
 
-    const saleData = {
+    const baseData = {
       productId: product.id,
       productName: product.name,
       category: product.category,
@@ -201,24 +498,34 @@ export class InventoryService {
       pending: true,
       discount,
       discountType,
-      userId: this.getCurrentUser(),
       orderId,
+      timestamp: new Date(),
     };
 
-    this.http.post<Sale>(`${this.apiUrl}/sales`, saleData).subscribe({
+    // Firestore Dual Write (Best Effort)
+    let firestoreId: string | undefined;
+    try {
+      const firestoreData = { ...baseData, userId: this.getFirestoreUserId() };
+      // Must use Timestamp logic if needed, but Date works for now
+      const docRef = await addDoc(collection(this.db, 'sales'), firestoreData);
+      firestoreId = docRef.id;
+    } catch (e) {
+      console.warn('Firestore Sale Write Failed:', e);
+    }
+
+    const legacyData = { ...baseData, userId: this.getCurrentUser() };
+    if (firestoreId) Object.assign(legacyData, { id: firestoreId });
+
+    this.http.post<Sale>(`${this.apiUrl}/sales`, legacyData).subscribe({
       next: (newSale) => {
         // Update local sales state
         const currentSales = this.salesSubject.value;
-        this.salesSubject.next([...currentSales, this.transformSale(newSale)]);
-
-        // Inventory is NOT deducted here. It is deducted upon delivery.
-        /* 
-        const updatedProduct = {
-          ...product,
-          quantity: product.quantity - quantitySold,
-        };
-        this.updateProduct(updatedProduct);
-        */
+        if (!currentSales.find((s) => s.id === newSale.id)) {
+          this.salesSubject.next([
+            ...currentSales,
+            this.transformSale(newSale),
+          ]);
+        }
 
         this.loggingService.logActivity(
           'create',
@@ -345,11 +652,20 @@ export class InventoryService {
   private parseDate(date: any): Date {
     if (!date) return new Date();
     if (date instanceof Date) return date;
-    if (typeof date === 'string') return new Date(date);
-    // Handle Firestore Timestamp or similar objects
-    if (typeof date === 'object' && date._seconds !== undefined) {
-      return new Date(date._seconds * 1000);
+
+    // Handle Firestore Timestamp object (with toDate method)
+    if (date && typeof date.toDate === 'function') {
+      return date.toDate();
     }
+
+    // Handle serialized Timestamp (JSON) or internal representation
+    if (date && (date.seconds !== undefined || date._seconds !== undefined)) {
+      const seconds = date.seconds ?? date._seconds;
+      return new Date(seconds * 1000);
+    }
+
+    if (typeof date === 'string') return new Date(date);
+
     return new Date(date);
   }
 
@@ -392,7 +708,22 @@ export class InventoryService {
     });
   }
 
-  updateProduct(product: Product): void {
+  async updateProduct(product: Product): Promise<void> {
+    // 1. Dual Write to Firestore (Best Effort)
+    try {
+      const firestoreData = { ...product, userId: this.getFirestoreUserId() };
+      // Remove ID from data if needed, but setDoc handles it.
+      // Actually updateDoc is better for existing.
+      // If it doesn't exist (Legacy only item?), updateDoc fails.
+      // setDoc with merge: true is safest.
+      await setDoc(doc(this.db, 'products', product.id), firestoreData, {
+        merge: true,
+      });
+    } catch (e) {
+      console.warn('Firestore update failed (proceeding with Legacy):', e);
+    }
+
+    // 2. Legacy Backend
     this.http
       .put<Product>(`${this.apiUrl}/products/${product.id}`, product)
       .subscribe({
