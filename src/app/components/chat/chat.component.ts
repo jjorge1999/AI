@@ -76,6 +76,7 @@ export class ChatComponent
   private logoutSubscription?: Subscription;
   private incomingCallSubscription?: Subscription;
   private callStatusSubscription?: Subscription;
+  private callErrorSubscription?: Subscription;
 
   callStatus = 'idle'; // idle, calling, connected, incoming
   incomingCall: WebRTCCall | null = null;
@@ -281,6 +282,13 @@ export class ChatComponent
         }, 100);
       }
     });
+
+    // Listen for Call Errors
+    this.callErrorSubscription = this.callService.error$.subscribe((err) => {
+      alert('Call Failed: ' + err);
+      this.callStatus = 'idle';
+      this.stopRinging();
+    });
   }
 
   private performForceLogout(): void {
@@ -404,6 +412,9 @@ export class ChatComponent
     }
     if (this.callStatusSubscription) {
       this.callStatusSubscription.unsubscribe();
+    }
+    if (this.callErrorSubscription) {
+      this.callErrorSubscription.unsubscribe();
     }
     if (this.incomingCallListener) {
       this.incomingCallListener();

@@ -39,6 +39,7 @@ export class CallService {
   public incomingCall$ = new Subject<WebRTCCall | null>();
   public callStatus$ = new BehaviorSubject<string>('idle'); // idle, calling, connected, incoming
   public remoteStream$ = new BehaviorSubject<MediaStream | null>(null);
+  public error$ = new Subject<string>();
 
   private currentCallId: string | null = null;
   private candidateQueue: RTCIceCandidate[] = [];
@@ -60,163 +61,179 @@ export class CallService {
   constructor() {}
 
   async initializeCall(conversationId: string, callerName: string) {
-    this.currentCallId = null;
-    this.callStatus$.next('calling');
+    try {
+      this.currentCallId = null;
+      this.callStatus$.next('calling');
 
-    // 1. Create Call Doc
-    const callDocRef = doc(collection(this.db, 'calls'));
-    this.currentCallId = callDocRef.id;
+      // 1. Create Call Doc
+      const callDocRef = doc(collection(this.db, 'calls'));
+      this.currentCallId = callDocRef.id;
 
-    // 2. Get Local Stream
-    await this.setupLocalMedia();
+      // 2. Get Local Stream
+      await this.setupLocalMedia();
 
-    // 3. Create Peer Connection
-    this.setupPeerConnection(this.currentCallId);
+      // 3. Create Peer Connection
+      this.setupPeerConnection(this.currentCallId);
 
-    // 4. Add Local Tracks to PC
-    if (this.localStream) {
-      this.localStream.getTracks().forEach((track) => {
-        if (this.peerConnection && this.localStream) {
-          this.peerConnection.addTrack(track, this.localStream);
-        }
-      });
-    }
-
-    // 5. Create Offer
-    const offerDescription = await this.peerConnection!.createOffer({
-      offerToReceiveAudio: true,
-      offerToReceiveVideo: false,
-    });
-    await this.peerConnection!.setLocalDescription(offerDescription);
-
-    const callData: any = {
-      id: this.currentCallId,
-      conversationId,
-      callerName,
-      status: 'offering',
-      offer: {
-        type: offerDescription.type,
-        sdp: offerDescription.sdp,
-      },
-      timestamp: new Date(),
-    };
-
-    await setDoc(callDocRef, callData);
-
-    // 6. Listen for Answer
-    this.callDocSubscription = onSnapshot(callDocRef, async (snapshot) => {
-      const data = snapshot.data();
-      if (!this.peerConnection || !data) return;
-
-      if (
-        this.peerConnection.signalingState === 'have-local-offer' &&
-        data['answer']
-      ) {
-        const answerDescription = new RTCSessionDescription(data['answer']);
-        await this.peerConnection.setRemoteDescription(answerDescription);
-        this.callStatus$.next('connected');
-
-        // Flush candidate buffer
-        this.candidateQueue.forEach((c) => {
-          this.peerConnection
-            ?.addIceCandidate(c)
-            .catch((e) => console.error('Error adding buffered candidate', e));
-        });
-        this.candidateQueue = []; // clear
-      }
-
-      // Handle rejection/end
-      if (data['status'] === 'ended' || data['status'] === 'rejected') {
-        this.endCallInternal();
-      }
-    });
-
-    // 7. Listen for Remote ICE Candidates (Answer Candidates)
-    const answerCandidatesRef = collection(callDocRef, 'answerCandidates');
-    this.answerCandidatesSubscription = onSnapshot(
-      answerCandidatesRef,
-      (snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === 'added') {
-            const candidateData = change.doc.data();
-            const candidate = new RTCIceCandidate(candidateData);
-
-            if (this.peerConnection?.remoteDescription) {
-              this.peerConnection
-                .addIceCandidate(candidate)
-                .catch((e) => console.error('Error adding candidate', e));
-            } else {
-              console.log('Buffering candidate...');
-              this.candidateQueue.push(candidate);
-            }
+      // 4. Add Local Tracks to PC
+      if (this.localStream) {
+        this.localStream.getTracks().forEach((track) => {
+          if (this.peerConnection && this.localStream) {
+            this.peerConnection.addTrack(track, this.localStream);
           }
         });
       }
-    );
+
+      // 5. Create Offer
+      const offerDescription = await this.peerConnection!.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: false,
+      });
+      await this.peerConnection!.setLocalDescription(offerDescription);
+
+      const callData: any = {
+        id: this.currentCallId,
+        conversationId,
+        callerName,
+        status: 'offering',
+        offer: {
+          type: offerDescription.type,
+          sdp: offerDescription.sdp,
+        },
+        timestamp: new Date(),
+      };
+
+      await setDoc(callDocRef, callData);
+
+      // 6. Listen for Answer
+      this.callDocSubscription = onSnapshot(callDocRef, async (snapshot) => {
+        const data = snapshot.data();
+        if (!this.peerConnection || !data) return;
+
+        if (
+          this.peerConnection.signalingState === 'have-local-offer' &&
+          data['answer']
+        ) {
+          const answerDescription = new RTCSessionDescription(data['answer']);
+          await this.peerConnection.setRemoteDescription(answerDescription);
+          this.callStatus$.next('connected');
+
+          // Flush candidate buffer
+          this.candidateQueue.forEach((c) => {
+            this.peerConnection
+              ?.addIceCandidate(c)
+              .catch((e) =>
+                console.error('Error adding buffered candidate', e)
+              );
+          });
+          this.candidateQueue = []; // clear
+        }
+
+        // Handle rejection/end
+        if (data['status'] === 'ended' || data['status'] === 'rejected') {
+          this.endCallInternal();
+        }
+      });
+
+      // 7. Listen for Remote ICE Candidates (Answer Candidates)
+      const answerCandidatesRef = collection(callDocRef, 'answerCandidates');
+      this.answerCandidatesSubscription = onSnapshot(
+        answerCandidatesRef,
+        (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+              const candidateData = change.doc.data();
+              const candidate = new RTCIceCandidate(candidateData);
+
+              if (this.peerConnection?.remoteDescription) {
+                this.peerConnection
+                  .addIceCandidate(candidate)
+                  .catch((e) => console.error('Error adding candidate', e));
+              } else {
+                console.log('Buffering candidate...');
+                this.candidateQueue.push(candidate);
+              }
+            }
+          });
+        }
+      );
+    } catch (e: any) {
+      console.error('Call Initialization Failed:', e);
+      this.error$.next('Failed to start call: ' + (e.message || e));
+      this.endCallInternal();
+    }
   }
 
   async answerCall(call: WebRTCCall) {
-    this.currentCallId = call.id;
-    this.callStatus$.next('connected');
+    try {
+      this.currentCallId = call.id;
+      this.callStatus$.next('connected');
 
-    const callDocRef = doc(this.db, 'calls', call.id);
+      const callDocRef = doc(this.db, 'calls', call.id);
 
-    // 1. Get Local Stream
-    await this.setupLocalMedia();
+      // 1. Get Local Stream
+      await this.setupLocalMedia();
 
-    // 2. Create Peer Connection
-    this.setupPeerConnection(call.id);
+      // 2. Create Peer Connection
+      this.setupPeerConnection(call.id);
 
-    // 3. Add Local Tracks
-    this.localStream!.getTracks().forEach((track) => {
-      this.peerConnection!.addTrack(track, this.localStream!);
-    });
+      // 3. Add Local Tracks
+      this.localStream!.getTracks().forEach((track) => {
+        this.peerConnection!.addTrack(track, this.localStream!);
+      });
 
-    // 4. Set Remote Description (Offer)
-    const offerDescription = call.offer;
-    await this.peerConnection!.setRemoteDescription(
-      new RTCSessionDescription(offerDescription)
-    );
+      // 4. Set Remote Description (Offer)
+      const offerDescription = call.offer;
+      await this.peerConnection!.setRemoteDescription(
+        new RTCSessionDescription(offerDescription)
+      );
 
-    // 5. Create Answer
-    const answerDescription = await this.peerConnection!.createAnswer();
-    await this.peerConnection!.setLocalDescription(answerDescription);
+      // 5. Create Answer
+      const answerDescription = await this.peerConnection!.createAnswer();
+      await this.peerConnection!.setLocalDescription(answerDescription);
 
-    const answer = {
-      type: answerDescription.type,
-      sdp: answerDescription.sdp,
-    };
+      const answer = {
+        type: answerDescription.type,
+        sdp: answerDescription.sdp,
+      };
 
-    await updateDoc(callDocRef, { answer, status: 'answered' });
+      await updateDoc(callDocRef, { answer, status: 'answered' });
 
-    // 6. Listen for Remote ICE Candidates (Offer Candidates)
-    const offerCandidatesRef = collection(callDocRef, 'offerCandidates');
-    this.offerCandidatesSubscription = onSnapshot(
-      offerCandidatesRef,
-      (snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === 'added') {
-            const candidateData = change.doc.data();
-            const candidate = new RTCIceCandidate(candidateData);
+      // 6. Listen for Remote ICE Candidates (Offer Candidates)
+      const offerCandidatesRef = collection(callDocRef, 'offerCandidates');
+      this.offerCandidatesSubscription = onSnapshot(
+        offerCandidatesRef,
+        (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+              const candidateData = change.doc.data();
+              const candidate = new RTCIceCandidate(candidateData);
 
-            // For Answerer, remote description should be set by steps 4 above.
-            if (this.peerConnection?.remoteDescription) {
-              this.peerConnection
-                .addIceCandidate(candidate)
-                .catch((e) => console.error('Error adding offer candidate', e));
+              // For Answerer, remote description should be set by steps 4 above.
+              if (this.peerConnection?.remoteDescription) {
+                this.peerConnection
+                  .addIceCandidate(candidate)
+                  .catch((e) =>
+                    console.error('Error adding offer candidate', e)
+                  );
+              }
             }
-          }
-        });
-      }
-    );
+          });
+        }
+      );
 
-    // 7. Listen for Call End
-    this.callDocSubscription = onSnapshot(callDocRef, (snapshot) => {
-      const data = snapshot.data();
-      if (data && data['status'] === 'ended') {
-        this.endCallInternal();
-      }
-    });
+      // 7. Listen for Call End
+      this.callDocSubscription = onSnapshot(callDocRef, (snapshot) => {
+        const data = snapshot.data();
+        if (data && data['status'] === 'ended') {
+          this.endCallInternal();
+        }
+      });
+    } catch (e: any) {
+      console.error('Error answering call:', e);
+      this.error$.next('Failed to answer call: ' + (e.message || e));
+      this.endCallInternal();
+    }
   }
 
   async endCall() {
