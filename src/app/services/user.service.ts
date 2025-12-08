@@ -14,7 +14,7 @@ export class UserService {
   public users$ = this.usersSubject.asObservable();
 
   constructor(private http: HttpClient) {
-    this.loadUsers();
+    // Removed automatic loading of all users on startup for security
   }
 
   // Hash Helper
@@ -27,7 +27,7 @@ export class UserService {
       .join('');
   }
 
-  private loadUsers(): void {
+  public loadUsers(): void {
     this.http.get<User[]>(`${this.apiUrl}/users`).subscribe({
       next: (users) => {
         const parsedUsers = users.map((user) => this.transformUser(user));
@@ -147,15 +147,18 @@ export class UserService {
   ): Observable<User | null> {
     return from(this.hashPassword(password)).pipe(
       switchMap((hashedInput) =>
-        this.users$.pipe(
-          take(1),
-          map((users) => {
-            const user = users.find(
-              (u) => u.username === username && u.password === hashedInput
-            );
-            return user || null;
-          })
-        )
+        this.http
+          .get<User[]>(
+            `${this.apiUrl}/users?username=${encodeURIComponent(username)}`
+          )
+          .pipe(
+            map((users) => {
+              if (users.length === 0) return null;
+              // Check password match (since username match is guaranteed by query)
+              const user = users.find((u) => u.password === hashedInput);
+              return user || null;
+            })
+          )
       )
     );
   }

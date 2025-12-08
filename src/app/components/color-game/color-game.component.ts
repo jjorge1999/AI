@@ -37,7 +37,8 @@ export class ColorGameComponent implements OnInit {
   verificationError = '';
   isLoadingCustomers = false;
   currentCustomerId = '';
-  private allCustomers: Customer[] = [];
+  currentCustomer: Customer | null = null;
+  // private allCustomers: Customer[] = []; // Removed for security
 
   /* Dynamic Keys based on User */
   private get storageKeyCredits(): string {
@@ -66,22 +67,8 @@ export class ColorGameComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // Note: Removed loadGameData() from here. We only load data AFTER verification of user.
-
-    // Load customers first for verification
-    this.isLoadingCustomers = true;
-    this.customerService.getCustomers().subscribe({
-      next: (customers) => {
-        this.allCustomers = customers;
-        this.isLoadingCustomers = false;
-        this.checkAutoVerification();
-      },
-      error: (err) => {
-        console.error('Failed to load customers', err);
-        this.isLoadingCustomers = false;
-        this.verificationError = 'Unable to connect to customer database.';
-      },
-    });
+    // Only check auto-verif, do not load all customers
+    this.checkAutoVerification();
   }
 
   checkAutoVerification() {
@@ -105,40 +92,52 @@ export class ColorGameComponent implements OnInit {
       return;
     }
 
-    const found = this.allCustomers.find(
-      (c) => c.name.toLowerCase() === this.verificationName.trim().toLowerCase()
-    );
+    this.isLoadingCustomers = true;
+    this.verificationError = '';
+    const nameToVerify = this.verificationName.trim();
 
-    if (found) {
-      this.isVerified = true;
-      this.currentCustomerId = found.id;
-      this.verificationError = '';
+    // Verify specifically by name on server to avoid exposing full DB
+    this.customerService.getCustomerByName(nameToVerify).subscribe({
+      next: (customers) => {
+        this.isLoadingCustomers = false;
+        // Strict case-insensitive match on returned results
+        const found = customers.find(
+          (c) => c.name.toLowerCase() === nameToVerify.toLowerCase()
+        );
 
-      // Load THIS specific user's data
-      this.loadGameData();
-      this.checkDailyBonus();
-    } else {
-      this.isVerified = false;
-      this.verificationError =
-        'Access Denied: You must be a registered customer.';
-    }
+        if (found) {
+          this.isVerified = true;
+          this.currentCustomerId = found.id;
+          this.currentCustomer = found;
+          this.verificationError = '';
+
+          this.loadGameData();
+          this.checkDailyBonus();
+        } else {
+          this.isVerified = false;
+          this.verificationError =
+            'Access Denied: Customer not found. Please check your spelling.';
+        }
+      },
+      error: (err) => {
+        console.error('Verification failed', err);
+        this.isLoadingCustomers = false;
+        this.verificationError = 'Verification service unavailable.';
+      },
+    });
   }
 
   loadGameData() {
     if (!this.isVerified) return;
 
     // Priority: Database > LocalStorage
-    // We check the 'found' customer object from memory which was just loaded from DB
-    const customer = this.allCustomers.find(
-      (c) => c.id === this.currentCustomerId
-    );
-
+    // Use the loaded customer object
     if (
-      customer &&
-      customer.credits !== undefined &&
-      customer.credits !== null
+      this.currentCustomer &&
+      this.currentCustomer.credits !== undefined &&
+      this.currentCustomer.credits !== null
     ) {
-      this.credits = customer.credits;
+      this.credits = this.currentCustomer.credits;
       // Sync local storage to match DB
       localStorage.setItem(this.storageKeyCredits, this.credits.toString());
     } else {

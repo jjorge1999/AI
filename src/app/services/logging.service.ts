@@ -13,7 +13,7 @@ export class LoggingService {
   public logs$ = this.logsSubject.asObservable();
 
   constructor(private http: HttpClient) {
-    this.fetchLogs();
+    // Removed automatic fetch on instantiation
   }
 
   private getCurrentUserId(): string {
@@ -22,6 +22,10 @@ export class LoggingService {
 
   private fetchLogs(): void {
     const userId = this.getCurrentUserId();
+
+    // Security: Do not fetch for unauthenticated users
+    if (!userId || userId === 'guest') return;
+
     this.http
       .get<ActivityLog[]>(`${this.apiUrl}/logs?limit=200&userId=${userId}`)
       .subscribe({

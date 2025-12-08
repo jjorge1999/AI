@@ -68,6 +68,9 @@ export class AppComponent {
   ) {
     // Check login status
     this.isLoggedIn = localStorage.getItem('jjm_logged_in') === 'true';
+    if (this.isLoggedIn) {
+      this.inventoryService.reloadData();
+    }
     this.userRole = localStorage.getItem('jjm_role') || 'user';
 
     // Load theme preference from localStorage

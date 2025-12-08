@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { Customer } from '../models/inventory.models';
 import { environment } from '../../environments/environment';
 
@@ -30,6 +31,12 @@ export class CustomerService {
 
   private fetchCustomers(): void {
     const userId = this.getCurrentUser();
+
+    // Security: Do not fetch customers for unauthenticated users
+    if (!userId || userId === 'guest') {
+      return;
+    }
+
     this.http
       .get<Customer[]>(`${this.apiUrl}/customers?userId=${userId}`)
       .subscribe({
@@ -40,6 +47,29 @@ export class CustomerService {
 
   getCustomers(): Observable<Customer[]> {
     return this.customers$;
+  }
+
+  /**
+   * Fetches specific customer by name for verification.
+   * Uses server-side filtering to prevent exposing the entire database.
+   */
+  getCustomerByName(name: string): Observable<Customer[]> {
+    return this.http
+      .get<Customer[]>(
+        `${this.apiUrl}/customers?name=${encodeURIComponent(name)}`
+      )
+      .pipe(
+        map((customers) =>
+          customers.map((c) => ({
+            ...c,
+            // Explicitly mask sensitive data
+            phoneNumber: '***',
+            deliveryAddress: '***',
+            gpsCoordinates: '***',
+            userId: '***', // Hide linked user ID if any
+          }))
+        )
+      );
   }
 
   addCustomer(customer: Omit<Customer, 'id' | 'createdAt'>): void {

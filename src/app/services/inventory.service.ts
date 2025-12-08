@@ -23,7 +23,7 @@ export class InventoryService {
     private http: HttpClient,
     private loggingService: LoggingService
   ) {
-    this.loadInitialData();
+    // Manual loading only (via AppComponent or specific components)
   }
 
   private getCurrentUser(): string {
@@ -40,8 +40,16 @@ export class InventoryService {
     this.fetchExpenses();
   }
 
+  public loadProducts(): void {
+    this.fetchProducts();
+  }
+
   private fetchProducts(): void {
     const userId = this.getCurrentUser();
+
+    // Note: Guard removed to allow public access to products (for Reservation).
+    // This is safe because it is not called automatically in constructor.
+
     let url = `${this.apiUrl}/products`;
     if (userId && userId !== 'guest') {
       url += `?userId=${userId}`;
@@ -55,6 +63,8 @@ export class InventoryService {
 
   private fetchSales(): void {
     const userId = this.getCurrentUser();
+    if (!userId || userId === 'guest') return;
+
     this.http.get<Sale[]>(`${this.apiUrl}/sales?userId=${userId}`).subscribe({
       next: (sales) => {
         const parsedSales = sales.map((sale) => this.transformSale(sale));
@@ -66,6 +76,8 @@ export class InventoryService {
 
   private fetchExpenses(): void {
     const userId = this.getCurrentUser();
+    if (!userId || userId === 'guest') return;
+
     this.http
       .get<Expense[]>(`${this.apiUrl}/expenses?userId=${userId}`)
       .subscribe({

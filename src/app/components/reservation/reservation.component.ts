@@ -62,6 +62,9 @@ export class ReservationComponent implements OnInit, OnDestroy {
   tempQuantities: { [id: string]: number } = {};
 
   loadProducts() {
+    // Trigger fetch (needed for guests since auto-fetch is disabled)
+    this.inventoryService.loadProducts();
+
     this.subscriptions.add(
       this.inventoryService.getProducts().subscribe((products) => {
         this.products = products.filter((p) => p.quantity > 0); // Only show in-stock
