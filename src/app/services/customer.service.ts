@@ -14,7 +14,11 @@ export class CustomerService {
   public customers$ = this.customersSubject.asObservable();
 
   constructor(private http: HttpClient) {
-    this.loadInitialData();
+    // Manual loading only
+  }
+
+  public loadCustomers(): void {
+    this.fetchCustomers();
   }
 
   private loadInitialData(): void {

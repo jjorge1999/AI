@@ -3,10 +3,34 @@ import { db } from '@/lib/firebase';
 
 const COLLECTION_NAME = 'users';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const snapshot = await db.collection(COLLECTION_NAME).get();
-    const users = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const { searchParams } = new URL(request.url);
+    const username = searchParams.get('username');
+    const userId = searchParams.get('userId');
+
+    let query: FirebaseFirestore.Query = db.collection(COLLECTION_NAME);
+
+    if (username) {
+      query = query.where('username', '==', username);
+    }
+
+    if (userId) {
+      query = query.where('id', '==', userId);
+    }
+
+    const snapshot = await query.get();
+    const users = snapshot.docs.map((doc) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = doc.data() as any;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { password, ...safeData } = data;
+      return {
+        id: doc.id,
+        ...safeData,
+      };
+    });
+
     return NextResponse.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);

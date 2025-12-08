@@ -117,6 +117,9 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Load customers for selection and name resolution
+    this.customerService.loadCustomers();
+
     this.subscriptions.add(
       this.inventoryService.getProducts().subscribe((products) => {
         this.products = products.filter((p) => p.quantity > 0);

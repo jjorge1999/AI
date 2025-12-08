@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, from, of } from 'rxjs';
-import { map, switchMap, take } from 'rxjs/operators';
+import { map, switchMap, take, catchError } from 'rxjs/operators';
 import { User } from '../models/inventory.models';
 import { environment } from '../../environments/environment';
 
@@ -148,15 +148,19 @@ export class UserService {
     return from(this.hashPassword(password)).pipe(
       switchMap((hashedInput) =>
         this.http
-          .get<User[]>(
-            `${this.apiUrl}/users?username=${encodeURIComponent(username)}`
-          )
+          .post<User>(`${this.apiUrl}/login`, {
+            username,
+            password: hashedInput,
+          })
           .pipe(
-            map((users) => {
-              if (users.length === 0) return null;
-              // Check password match (since username match is guaranteed by query)
-              const user = users.find((u) => u.password === hashedInput);
-              return user || null;
+            map((user) => {
+              if (!user) return null;
+              return this.transformUser(user);
+            }),
+            // Catch 401 (Unauthorized) or other errors and return null
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            catchError((err) => {
+              return of(null);
             })
           )
       )

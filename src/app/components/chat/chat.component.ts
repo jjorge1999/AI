@@ -186,20 +186,8 @@ export class ChatComponent
   }
 
   ngOnInit(): void {
-    // Load customers list first for validation
-    this.subscriptions.add(
-      this.customerService.getCustomers().subscribe({
-        next: (customers) => {
-          this.allCustomers = customers;
-          this.checkLoginAndStatus();
-        },
-        error: (err) => {
-          console.error('Failed to load customers', err);
-          // Fallback: try to login anyway without customer lookup
-          this.checkLoginAndStatus();
-        },
-      })
-    );
+    // Check login immediately
+    this.checkLoginAndStatus();
 
     // Listen for logout events from the app
     this.subscriptions.add(
@@ -337,6 +325,16 @@ export class ChatComponent
       // Load messages immediately
       this.loadMessages();
 
+      // For Admin, we need the customer list to resolve names
+      if (this.allCustomers.length === 0) {
+        this.customerService.loadCustomers();
+        this.subscriptions.add(
+          this.customerService.getCustomers().subscribe((customers) => {
+            this.allCustomers = customers;
+          })
+        );
+      }
+
       // Start global listener for Admin to hear all incoming calls
       if (this.incomingCallListener) this.incomingCallListener();
       this.incomingCallListener = this.callService.listenForAllIncomingCalls();
@@ -458,34 +456,39 @@ export class ChatComponent
 
     // CRITICAL: Verify against customer database
     // validation only if database is reachable/populated
-    if (this.allCustomers.length > 0) {
-      const foundCustomer = this.allCustomers.find(
-        (c) =>
-          c.name.toLowerCase() === this.customerInfo.name.trim().toLowerCase()
-      );
-
-      if (!foundCustomer) {
-        alert(
-          'Access Denied: You must be a registered customer to use the chat.'
+    // Verify against database securely
+    this.customerService.getCustomerByName(this.customerInfo.name).subscribe({
+      next: (matches) => {
+        const foundCustomer = matches.find(
+          (c) =>
+            c.name.toLowerCase() === this.customerInfo.name.trim().toLowerCase()
         );
-        return;
-      }
-    } else {
-      console.warn(
-        'Customer verification skipped: Customer list is empty or failed to load.'
-      );
-    }
 
-    // Save info and proceed
-    localStorage.setItem('chatCustomerInfo', JSON.stringify(this.customerInfo));
-    localStorage.setItem('chatUserName', this.customerInfo.name);
-    this.senderName = this.customerInfo.name;
-    this.isRegistered = true;
+        if (!foundCustomer) {
+          alert(
+            'Access Denied: You must be a registered customer to use the chat.'
+          );
+          return;
+        }
 
-    this.isRegistered = true;
+        // Save info and proceed
+        localStorage.setItem(
+          'chatCustomerInfo',
+          JSON.stringify(this.customerInfo)
+        );
+        localStorage.setItem('chatUserName', this.customerInfo.name);
+        this.senderName = this.customerInfo.name;
+        this.isRegistered = true;
+        this.errorMessage = '';
 
-    this.loadMessages();
-    this.callService.listenForIncomingCalls(this.senderName);
+        this.loadMessages();
+        this.callService.listenForIncomingCalls(this.senderName);
+      },
+      error: (err) => {
+        console.error('Verification failed', err);
+        alert('Verification error. Please try again.');
+      },
+    });
   }
 
   private allMessagesCached: Message[] = [];

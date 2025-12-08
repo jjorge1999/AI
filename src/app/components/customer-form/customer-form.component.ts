@@ -33,6 +33,7 @@ export class CustomerFormComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.customerService.loadCustomers();
     this.customerService.getCustomers().subscribe((customers) => {
       this.customers = customers;
     });

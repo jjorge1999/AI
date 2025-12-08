@@ -6,8 +6,43 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
+    const name = searchParams.get('name');
 
     let query: FirebaseFirestore.Query = db.collection(COLLECTION_NAME);
+
+    // If 'name' is provided, we assume this is a public verification request
+    // We should mask sensitive data and return only matches
+    if (name) {
+      // Fetch all to filter by name (Firestore partial search limitation)
+      // Note: Ideally we'd use a search service, but for limited dataset this is fine.
+      const snapshot = await db.collection(COLLECTION_NAME).get();
+      const allCustomers = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...(doc.data() as any),
+      }));
+
+      const filtered = allCustomers.filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (c: any) => c.name && c.name.toLowerCase().includes(name.toLowerCase())
+      );
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const masked = filtered.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        // Sensitive Data Masked
+        phoneNumber: '***',
+        deliveryAddress: '***',
+        gpsCoordinates: '***',
+        userId: '***',
+        // Public/Required Data
+        credits: c.credits || 0,
+        createdAt: c.createdAt,
+      }));
+
+      return NextResponse.json(masked);
+    }
 
     if (userId) {
       query = query.where('userId', '==', userId);

@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InventoryService } from '../../services/inventory.service';
+import { CustomerService } from '../../services/customer.service';
 import { Product, Sale } from '../../models/inventory.models';
 import { Subscription } from 'rxjs';
 
@@ -56,9 +57,15 @@ export class InventoryListComponent implements OnInit, OnDestroy {
   editProductImage: string = '';
   editImagePreview: string | null = null;
 
-  constructor(private inventoryService: InventoryService) {}
+  constructor(
+    private inventoryService: InventoryService,
+    private customerService: CustomerService
+  ) {}
 
   ngOnInit(): void {
+    // Load customers for credit calculation on sale completion
+    this.customerService.loadCustomers();
+
     this.subscriptions.add(
       this.inventoryService.getProducts().subscribe((products) => {
         this.products = products;
