@@ -17,10 +17,10 @@
                 <div 
                   class="bar-fill" 
                   [style.width.%]="(item.total / totalSalesValue * 100)"
-                  [title]="'$' + item.total.toFixed(2)"
+                  [title]="'₱' + (item.total | number:'1.2-2')"
                 ></div>
               </div>
-              <div class="bar-value">${{ item.total.toFixed(2) }} ({{ item.count }})</div>
+              <div class="bar-value">₱{{ item.total | number:'1.2-2' }} ({{ item.count }})</div>
             </div>
             <div class="empty-chart" *ngIf="salesByCategory.length === 0">
               No sales data yet
@@ -36,7 +36,7 @@
         <div class="stat-icon">💰</div>
         <div class="stat-info">
           <div class="stat-label">Total Inventory Value</div>
-          <div class="stat-value">${{ totalInventoryValue.toFixed(2) }}</div>
+          <div class="stat-value">₱{{ totalInventoryValue | number:'1.2-2' }}</div>
         </div>
       </div>
 
@@ -44,7 +44,7 @@
         <div class="stat-icon">📊</div>
         <div class="stat-info">
           <div class="stat-label">Total Sales</div>
-          <div class="stat-value">${{ totalSalesValue.toFixed(2) }}</div>
+          <div class="stat-value">₱{{ totalSalesValue | number:'1.2-2' }}</div>
         </div>
       </div>
     </div>
@@ -76,7 +76,7 @@
               <div class="product-category">{{ product.category }}</div>
             </div>
             <div class="product-details">
-              <div class="product-price">${{ product.price.toFixed(2) }}</div>
+              <div class="product-price">₱{{ product.price | number:'1.2-2' }}</div>
               <div class="product-stock">Stock: {{ product.quantity }}</div>
               <button class="btn-edit-sm" (click)="openEditModal(product)">
                 ✏️ Edit
@@ -154,7 +154,7 @@
               </div>
               
               <div class="sale-details-text" *ngIf="!group.isGroup">
-                 {{ group.items[0].quantitySold }} × ${{ group.items[0].price.toFixed(2) }}
+                 {{ group.items[0].quantitySold }} × ₱{{ group.items[0].price | number:'1.2-2' }}
               </div>
                <div class="sale-details-text" *ngIf="group.isGroup">
                  <div *ngFor="let item of group.items" style="font-size:0.9em; margin-bottom:2px">
@@ -167,7 +167,7 @@
               </div>
             </div>
             <div class="sale-amount">
-              <div class="sale-total">${{ group.total.toFixed(2) }}</div>
+              <div class="sale-total">₱{{ group.total | number:'1.2-2' }}</div>
               <div class="sale-date">{{ group.timestamp | date:'short' }}</div>
             </div>
           </div>
@@ -201,14 +201,14 @@
             <div class="sale-info">
               <div class="sale-name">{{ sale.productName }}</div>
               <div class="sale-details-text">
-                {{ sale.quantitySold }} × ${{ sale.price.toFixed(2) }}
+                {{ sale.quantitySold }} × ₱{{ sale.price | number:'1.2-2' }}
               </div>
               <div class="delivery-badge" *ngIf="sale.deliveryDate">
                 🚚 {{ sale.deliveryDate | date:'MMM d, y' }}
               </div>
             </div>
             <div class="sale-amount">
-              <div class="sale-total">${{ sale.total.toFixed(2) }}</div>
+              <div class="sale-total">₱{{ sale.total | number:'1.2-2' }}</div>
               <div class="sale-date">{{ sale.timestamp | date:'short' }}</div>
             </div>
           </div>
@@ -292,7 +292,7 @@
             <div class="product-category">{{ product.category }}</div>
           </div>
           <div class="product-details">
-            <div class="product-price">${{ product.price.toFixed(2) }}</div>
+            <div class="product-price">₱{{ product.price | number:'1.2-2' }}</div>
             <div class="product-stock out">Out of Stock</div>
             <div class="product-actions">
               <!-- <button class="btn-edit-sm" (click)="openEditModal(product)">

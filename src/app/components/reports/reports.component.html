@@ -5,7 +5,7 @@
       <div class="card-icon">💰</div>
       <div class="card-content">
         <div class="card-label">Total Income</div>
-        <div class="card-value">${{ totalIncome | number:'1.2-2' }}</div>
+        <div class="card-value">₱{{ totalIncome | number:'1.2-2' }}</div>
       </div>
     </div>
 
@@ -13,7 +13,7 @@
       <div class="card-icon">💸</div>
       <div class="card-content">
         <div class="card-label">Total Expenses</div>
-        <div class="card-value">${{ totalExpenses | number:'1.2-2' }}</div>
+        <div class="card-value">₱{{ totalExpenses | number:'1.2-2' }}</div>
       </div>
     </div>
 
@@ -21,7 +21,7 @@
       <div class="card-icon">{{ netProfit >= 0 ? '📈' : '📉' }}</div>
       <div class="card-content">
         <div class="card-label">Net Profit</div>
-        <div class="card-value">${{ netProfit | number:'1.2-2' }}</div>
+        <div class="card-value">₱{{ netProfit | number:'1.2-2' }}</div>
       </div>
     </div>
 
@@ -48,10 +48,10 @@
           <div 
             class="chart-bar income-bar" 
             [style.width.%]="incomePercentage"
-            [title]="'$' + (totalIncome | number:'1.2-2')"
+            [title]="'₱' + (totalIncome | number:'1.2-2')"
           ></div>
         </div>
-        <div class="chart-value">${{ totalIncome | number:'1.2-2' }}</div>
+        <div class="chart-value">₱{{ totalIncome | number:'1.2-2' }}</div>
       </div>
 
       <div class="chart-row">
@@ -60,10 +60,10 @@
           <div 
             class="chart-bar expense-bar" 
             [style.width.%]="expensePercentage"
-            [title]="'$' + (totalExpenses | number:'1.2-2')"
+            [title]="'₱' + (totalExpenses | number:'1.2-2')"
           ></div>
         </div>
-        <div class="chart-value">${{ totalExpenses | number:'1.2-2' }}</div>
+        <div class="chart-value">₱{{ totalExpenses | number:'1.2-2' }}</div>
       </div>
     </div>
 
@@ -97,7 +97,7 @@
         </div>
         <div class="stat-row">
           <span class="stat-label">Average Sale:</span>
-          <span class="stat-value">${{ averageSale | number:'1.2-2' }}</span>
+          <span class="stat-value">₱{{ averageSale | number:'1.2-2' }}</span>
         </div>
       </div>
     </div>
@@ -114,7 +114,7 @@
         </div>
         <div class="stat-row">
           <span class="stat-label">Average Expense:</span>
-          <span class="stat-value">${{ expenses.length > 0 ? (totalExpenses / expenses.length) : 0 | number:'1.2-2' }}</span>
+          <span class="stat-value">₱{{ expenses.length > 0 ? (totalExpenses / expenses.length) : 0 | number:'1.2-2' }}</span>
         </div>
         <div class="stat-row">
           <span class="stat-label">Expense Ratio:</span>

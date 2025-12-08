@@ -58,7 +58,7 @@
         <span class="badge">{{ expenses.length }}</span>
       </h3>
       <div class="total-badge">
-        Total: ${{ totalExpenses.toFixed(2) }}
+        Total: ₱{{ totalExpenses | number:'1.2-2' }}
       </div>
     </div>
 
@@ -70,7 +70,7 @@
           <div class="expense-date">{{ expense.timestamp | date:'medium' }}</div>
         </div>
         <div class="expense-amount">
-          <div class="expense-price">${{ expense.price.toFixed(2) }}</div>
+          <div class="expense-price">₱{{ expense.price | number:'1.2-2' }}</div>
         </div>
       </div>
     </div>

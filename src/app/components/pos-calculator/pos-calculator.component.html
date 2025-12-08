@@ -19,7 +19,7 @@
           <select id="product" [(ngModel)]="selectedProductId" (change)="onProductChange()">
             <option value="">-- Choose a product --</option>
             <option *ngFor="let product of products" [value]="product.id">
-              {{ product.name }} - ${{ product.price | number:'1.2-2' }} (Stock: {{ product.quantity }})
+              {{ product.name }} - ₱{{ product.price | number:'1.2-2' }} (Stock: {{ product.quantity }})
             </option>
           </select>
         </div>
@@ -35,7 +35,7 @@
           <div class="discount-row">
             <input type="number" [(ngModel)]="discount" placeholder="0" class="small-input">
             <select [(ngModel)]="discountType" class="small-select">
-              <option value="amount">$</option>
+              <option value="amount">₱</option>
               <option value="percent">%</option>
             </select>
           </div>
@@ -68,12 +68,12 @@
             <td>
                <div class="cart-prod-name">{{ item.product.name }}</div>
                <div class="cart-prod-disc" *ngIf="item.discount > 0">
-                 Disc: -{{ item.discountType === 'percent' ? item.discount + '%' : '$' + item.discount }}
+                 Disc: -{{ item.discountType === 'percent' ? item.discount + '%' : '₱' + item.discount }}
                </div>
             </td>
-            <td class="text-right">${{ item.product.price | number:'1.2-2' }}</td>
+            <td class="text-right">₱{{ item.product.price | number:'1.2-2' }}</td>
             <td class="text-center">{{ item.quantity }}</td>
-            <td class="text-right font-bold">${{ item.total | number:'1.2-2' }}</td>
+            <td class="text-right font-bold">₱{{ item.total | number:'1.2-2' }}</td>
             <td class="text-center">
               <button class="btn-remove-sm" (click)="removeFromCart(i)" title="Remove">✕</button>
             </td>
@@ -108,17 +108,17 @@
          <h4>💰 Payment</h4>
          <div class="summary-line total-line">
            <span>Total Due:</span>
-           <span>${{ total | number:'1.2-2' }}</span>
+           <span>₱{{ total | number:'1.2-2' }}</span>
          </div>
          
          <div class="form-group cash-group">
-           <label>Cash Received ($)</label>
+           <label>Cash Received (₱)</label>
            <input type="number" [(ngModel)]="cashReceived" class="cash-input" placeholder="0.00">
          </div>
          
          <div class="summary-line change-line" [class.negative]="change < 0">
            <span>Change:</span>
-           <span>${{ change | number:'1.2-2' }}</span>
+           <span>₱{{ change | number:'1.2-2' }}</span>
          </div>
 
          <button class="btn-checkout" (click)="checkout()" [disabled]="!isValid()">
@@ -169,7 +169,7 @@
         <div class="pending-info">
           <span *ngIf="!group.isGroup">Qty: {{ group.quantityTotal }}</span>
           <span *ngIf="group.isGroup">Total Qty: {{ group.quantityTotal }}</span>
-          <span class="total-price">Due: ${{ group.total | number:'1.2-2' }}</span>
+          <span class="total-price">Due: ₱{{ group.total | number:'1.2-2' }}</span>
         </div>
 
         <div class="customer-details" *ngIf="group.customer">
