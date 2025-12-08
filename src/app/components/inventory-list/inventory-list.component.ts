@@ -43,6 +43,10 @@ export class InventoryListComponent implements OnInit, OnDestroy {
   outOfStockPage = 1;
   outOfStockPageSize = 10;
 
+  // Pagination for Pending Deliveries (New)
+  pendingPage = 1;
+  pendingPageSize = 10;
+
   // Edit Modal State
   isEditModalOpen = false;
   editingProduct: Product | null = null;
@@ -274,6 +278,37 @@ export class InventoryListComponent implements OnInit, OnDestroy {
 
   goToOutOfStockPage(page: number): void {
     this.outOfStockPage = page;
+  }
+
+  // Pagination getters & methods for Pending Sales
+  get paginatedPendingSales(): any[] {
+    const start = (this.pendingPage - 1) * this.pendingPageSize;
+    const end = start + this.pendingPageSize;
+    return this.groupedPendingSales.slice(start, end);
+  }
+
+  get pendingTotalPages(): number {
+    return Math.ceil(this.groupedPendingSales.length / this.pendingPageSize);
+  }
+
+  nextPendingPage(): void {
+    if (this.pendingPage < this.pendingTotalPages) {
+      this.pendingPage++;
+    }
+  }
+
+  prevPendingPage(): void {
+    if (this.pendingPage > 1) {
+      this.pendingPage--;
+    }
+  }
+
+  goToPendingPage(page: number): void {
+    this.pendingPage = page;
+  }
+
+  onPendingPageSizeChange(): void {
+    this.pendingPage = 1;
   }
 
   // Page size change handlers

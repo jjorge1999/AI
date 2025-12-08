@@ -25,6 +25,7 @@ export class ActivityLogsComponent implements OnInit, OnDestroy {
   // Pagination
   currentPage = 1;
   pageSize = 20;
+  pageSizeOptions = [10, 20, 50, 100];
 
   entityTypes = ['all', 'product', 'sale', 'expense', 'customer'];
   actions = ['all', 'create', 'update', 'delete', 'restock', 'complete'];
@@ -84,6 +85,16 @@ export class ActivityLogsComponent implements OnInit, OnDestroy {
     if (this.currentPage > 1) {
       this.currentPage--;
     }
+  }
+
+  goToPage(page: number): void {
+    this.currentPage = page;
+  }
+
+  getPageNumbers(): number[] {
+    return Array(this.totalPages)
+      .fill(0)
+      .map((x, i) => i + 1);
   }
 
   refreshLogs(): void {

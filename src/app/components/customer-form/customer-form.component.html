@@ -67,7 +67,7 @@
     <div class="customer-list" *ngIf="customers.length > 0; else noCustomers">
       <div
         class="customer-item"
-        *ngFor="let cust of customers"
+        *ngFor="let cust of paginatedCustomers"
         [class.editing]="cust.id === editingId"
       >
         <div class="customer-info">
@@ -99,6 +99,51 @@
             🗑️
           </button>
         </div>
+      </div>
+    </div>
+    
+    <!-- Pagination Controls -->
+    <div class="pagination" *ngIf="totalPages > 1 || customers.length > 5">
+      <div class="pagination-size">
+        <label for="pageSize">Show:</label>
+        <select 
+          id="pageSize"
+          [(ngModel)]="pageSize"
+          (change)="currentPage = 1"
+          class="page-size-select"
+        >
+          <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+        </select>
+        <span>per page</span>
+      </div>
+
+      <div class="pagination-controls" *ngIf="totalPages > 1">
+        <button 
+          class="pagination-btn" 
+          [disabled]="currentPage === 1"
+          (click)="prevPage()"
+        >
+          ← Prev
+        </button>
+        
+        <div class="pagination-pages">
+          <button 
+            *ngFor="let page of getPageNumbers()"
+            class="pagination-page"
+            [class.active]="page === currentPage"
+            (click)="goToPage(page)"
+          >
+            {{ page }}
+          </button>
+        </div>
+
+        <button 
+          class="pagination-btn" 
+          [disabled]="currentPage === totalPages"
+          (click)="nextPage()"
+        >
+          Next →
+        </button>
       </div>
     </div>
 

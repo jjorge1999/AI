@@ -146,7 +146,7 @@
         </h3>
 
         <div class="sales-list">
-          <div class="sale-item" *ngFor="let group of groupedPendingSales">
+          <div class="sale-item" *ngFor="let group of paginatedPendingSales">
             <div class="sale-info">
               <div class="sale-name">
                  {{ group.productName }}
@@ -170,6 +170,51 @@
               <div class="sale-total">₱{{ group.total | number:'1.2-2' }}</div>
               <div class="sale-date">{{ group.timestamp | date:'short' }}</div>
             </div>
+          </div>
+        </div>
+
+        <!-- Pagination for Pending Deliveries -->
+        <div class="pagination" *ngIf="pendingTotalPages > 1 || groupedPendingSales.length > 10">
+          <div class="pagination-size">
+            <label for="pendingPageSize">Show:</label>
+            <select 
+              id="pendingPageSize"
+              [(ngModel)]="pendingPageSize"
+              (change)="onPendingPageSizeChange()"
+              class="page-size-select"
+            >
+              <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+            </select>
+            <span>per page</span>
+          </div>
+
+          <div class="pagination-controls" *ngIf="pendingTotalPages > 1">
+            <button 
+              class="pagination-btn" 
+              [disabled]="pendingPage === 1"
+              (click)="prevPendingPage()"
+            >
+              ← Prev
+            </button>
+            
+            <div class="pagination-pages">
+              <button 
+                *ngFor="let page of getPageNumbers(pendingTotalPages)"
+                class="pagination-page"
+                [class.active]="page === pendingPage"
+                (click)="goToPendingPage(page)"
+              >
+                {{ page }}
+              </button>
+            </div>
+
+            <button 
+              class="pagination-btn" 
+              [disabled]="pendingPage === pendingTotalPages"
+              (click)="nextPendingPage()"
+            >
+              Next →
+            </button>
           </div>
         </div>
       </div>

@@ -16,6 +16,11 @@ export class CustomerFormComponent implements OnInit {
   customers: Customer[] = [];
   editingId: string | null = null;
 
+  // Pagination
+  currentPage = 1;
+  pageSize = 10;
+  pageSizeOptions = [5, 10, 20, 50];
+
   customer = {
     name: '',
     phoneNumber: '',
@@ -97,5 +102,36 @@ export class CustomerFormComponent implements OnInit {
       this.customer.phoneNumber &&
       this.customer.deliveryAddress
     );
+  }
+
+  get paginatedCustomers(): Customer[] {
+    const startIndex = (this.currentPage - 1) * this.pageSize;
+    return this.customers.slice(startIndex, startIndex + this.pageSize);
+  }
+
+  get totalPages(): number {
+    return Math.ceil(this.customers.length / this.pageSize);
+  }
+
+  nextPage(): void {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+    }
+  }
+
+  prevPage(): void {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+    }
+  }
+
+  goToPage(page: number): void {
+    this.currentPage = page;
+  }
+
+  getPageNumbers(): number[] {
+    return Array(this.totalPages)
+      .fill(0)
+      .map((x, i) => i + 1);
   }
 }

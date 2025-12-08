@@ -4,7 +4,8 @@
   <div class="pos-layout">
     <!-- Selection Panel -->
     <div class="selection-panel">
-      <div class="form-row">
+      <!-- Row 1: Customer Context -->
+      <div class="form-row full-width">
         <div class="form-group">
           <label for="customer">Select Customer</label>
           <select id="customer" [(ngModel)]="selectedCustomerId">
@@ -14,7 +15,12 @@
             </option>
           </select>
         </div>
-        <div class="form-group flex-grow">
+      </div>
+
+      <!-- Row 2: Product Action Line -->
+      <div class="multi-item-row">
+        <!-- Product -->
+        <div class="form-group product-select-group">
           <label for="product">Select Product</label>
           <select id="product" [(ngModel)]="selectedProductId" (change)="onProductChange()">
             <option value="">-- Choose a product --</option>
@@ -23,13 +29,14 @@
             </option>
           </select>
         </div>
-      </div>
 
-      <div class="form-row align-end">
-        <div class="form-group small-width">
-          <label for="qty">Quantity</label>
+        <!-- Quantity -->
+        <div class="form-group tiny-width">
+          <label for="qty">Qty</label>
           <input type="number" id="qty" [(ngModel)]="quantity" [min]="1" [max]="maxQuantity" />
         </div>
+
+        <!-- Discount -->
         <div class="form-group">
           <label>Discount</label>
           <div class="discount-row">
@@ -40,9 +47,11 @@
             </select>
           </div>
         </div>
+
+        <!-- Add Button -->
         <div class="form-group">
            <button class="btn-primary btn-add" (click)="addToCart()" [disabled]="!selectedProductId">
-             ➕ Add to Cart
+             ➕ Add
            </button>
         </div>
       </div>
@@ -113,7 +122,16 @@
          
          <div class="form-group cash-group">
            <label>Cash Received (₱)</label>
-           <input type="number" [(ngModel)]="cashReceived" class="cash-input" placeholder="0.00">
+           <!-- Formatting: Type text to handle raw/formatted switch -->
+           <input 
+             type="text" 
+             [ngModel]="cashDisplayValue"
+             (ngModelChange)="onCashInput($event)"
+             (blur)="formatCashOnBlur()"
+             (focus)="unformatCashOnFocus()"
+             class="cash-input" 
+             placeholder="0.00"
+           >
          </div>
          
          <div class="summary-line change-line" [class.negative]="change < 0">
@@ -148,7 +166,7 @@
     </div>
   </div>
   <div class="pending-list">
-    <div class="pending-item" *ngFor="let group of groupedPendingSales">
+    <div class="pending-item" *ngFor="let group of paginatedGroupedPendingSales">
       <div class="pending-details">
         <div class="pending-header">
            <div class="header-left">
@@ -214,6 +232,51 @@
           🚚 Mark Delivered
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- Pagination Controls for Pending Deliveries -->
+  <div class="pagination" *ngIf="pendingTotalPages > 1 || groupedPendingSales.length > 5">
+    <div class="pagination-size">
+      <label for="pendingPageSize">Show:</label>
+      <select 
+        id="pendingPageSize"
+        [(ngModel)]="pendingPageSize"
+        (change)="pendingPage = 1"
+        class="page-size-select"
+      >
+        <option *ngFor="let size of pendingPageSizeOptions" [value]="size">{{ size }}</option>
+      </select>
+      <span>per page</span>
+    </div>
+
+    <div class="pagination-controls" *ngIf="pendingTotalPages > 1">
+      <button 
+        class="pagination-btn" 
+        [disabled]="pendingPage === 1"
+        (click)="prevPendingPage()"
+      >
+        ← Prev
+      </button>
+      
+      <div class="pagination-pages">
+        <button 
+          *ngFor="let page of getPendingPageNumbers()"
+          class="pagination-page"
+          [class.active]="page === pendingPage"
+          (click)="goToPendingPage(page)"
+        >
+          {{ page }}
+        </button>
+      </div>
+
+      <button 
+        class="pagination-btn" 
+        [disabled]="pendingPage === pendingTotalPages"
+        (click)="nextPendingPage()"
+      >
+        Next →
+      </button>
     </div>
   </div>
 </div>

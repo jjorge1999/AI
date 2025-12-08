@@ -63,7 +63,7 @@
     </div>
 
     <div class="expenses-list" *ngIf="expenses.length > 0; else noExpenses">
-      <div class="expense-item" *ngFor="let expense of expenses">
+      <div class="expense-item" *ngFor="let expense of paginatedExpenses">
         <div class="expense-info">
           <div class="expense-name">{{ expense.productName }}</div>
           <div class="expense-notes" *ngIf="expense.notes">{{ expense.notes }}</div>
@@ -72,6 +72,51 @@
         <div class="expense-amount">
           <div class="expense-price">₱{{ expense.price | number:'1.2-2' }}</div>
         </div>
+      </div>
+    </div>
+
+    <!-- Pagination Controls -->
+    <div class="pagination" *ngIf="totalPages > 1 || expenses.length > 5">
+      <div class="pagination-size">
+        <label for="pageSize">Show:</label>
+        <select 
+          id="pageSize"
+          [(ngModel)]="pageSize"
+          (change)="currentPage = 1"
+          class="page-size-select"
+        >
+          <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+        </select>
+        <span>per page</span>
+      </div>
+
+      <div class="pagination-controls" *ngIf="totalPages > 1">
+        <button 
+          class="pagination-btn" 
+          [disabled]="currentPage === 1"
+          (click)="prevPage()"
+        >
+          ← Prev
+        </button>
+        
+        <div class="pagination-pages">
+          <button 
+            *ngFor="let page of getPageNumbers()"
+            class="pagination-page"
+            [class.active]="page === currentPage"
+            (click)="goToPage(page)"
+          >
+            {{ page }}
+          </button>
+        </div>
+
+        <button 
+          class="pagination-btn" 
+          [disabled]="currentPage === totalPages"
+          (click)="nextPage()"
+        >
+          Next →
+        </button>
       </div>
     </div>
 

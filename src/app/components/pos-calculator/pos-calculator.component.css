@@ -23,6 +23,26 @@
   gap: var(--space-lg);
 }
 
+.form-row.full-width {
+  grid-template-columns: 1fr;
+}
+
+.multi-item-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.tiny-width {
+  width: 80px;
+}
+
+.product-select-group {
+  flex: 1;
+  min-width: 250px;
+}
+
 /* Delivery Section */
 .delivery-section {
   background: var(--color-bg);
@@ -686,8 +706,8 @@
   border-bottom: none;
 }
 
-.text-right { text-align: right; }
-.text-center { text-align: center; }
+.cart-table th.text-right, .cart-table td.text-right { text-align: right; }
+.cart-table th.text-center, .cart-table td.text-center { text-align: center; }
 .font-bold { font-weight: 600; }
 
 .cart-prod-name {
@@ -820,4 +840,66 @@
   background: var(--color-border);
   cursor: not-allowed;
   opacity: 0.7;
+}
+
+/* POS Pagination Styles */
+.pagination {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.pagination-size {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 0.875rem;
+  color: var(--color-text);
+}
+
+.page-size-select {
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.pagination-pages {
+  display: flex;
+  gap: 4px;
+}
+
+.pagination-btn, .pagination-page {
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  cursor: pointer;
+  min-width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination-page.active, .pagination-btn:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

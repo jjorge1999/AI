@@ -58,9 +58,49 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
   editDeliveryTime: string = '';
   editDeliveryNotes: string = '';
 
+  // Pagination for Pending Deliveries
+  pendingPage: number = 1;
+  pendingPageSize: number = 5;
+  pendingPageSizeOptions: number[] = [5, 10, 20, 50];
+
   // Alarm state
   private alarmInterval: any = null;
   private checkInterval: any = null;
+
+  // Cash Formatting
+  cashDisplayValue: string = '';
+
+  onCashInput(value: string): void {
+    // Save current display value (user typing)
+    this.cashDisplayValue = value;
+
+    // Parse for logic (remove commas, spaces, '₱')
+    const raw = value.replace(/[^0-9.]/g, '');
+    this.cashReceived = parseFloat(raw);
+
+    if (isNaN(this.cashReceived)) {
+      this.cashReceived = 0;
+    }
+  }
+
+  formatCashOnBlur(): void {
+    if (this.cashReceived !== 0) {
+      this.cashDisplayValue = this.cashReceived.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    } else {
+      this.cashDisplayValue = '';
+    }
+  }
+
+  unformatCashOnFocus(): void {
+    if (this.cashReceived !== 0) {
+      this.cashDisplayValue = this.cashReceived.toString();
+    } else {
+      this.cashDisplayValue = '';
+    }
+  }
 
   constructor(
     private inventoryService: InventoryService,
@@ -73,6 +113,7 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     const day = String(today.getDate()).padStart(2, '0');
     this.minDate = `${year}-${month}-${day}`;
     this.deliveryDate = this.minDate;
+    this.deliveryTime = '10:00'; // Default to 10:00 AM
   }
 
   ngOnInit(): void {
@@ -400,6 +441,46 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
         : Infinity;
       return aTime - bTime;
     });
+  }
+
+  get paginatedGroupedPendingSales(): any[] {
+    const startIndex = (this.pendingPage - 1) * this.pendingPageSize;
+    return this.groupedPendingSales.slice(
+      startIndex,
+      startIndex + this.pendingPageSize
+    );
+  }
+
+  get pendingTotalPages(): number {
+    return Math.ceil(this.groupedPendingSales.length / this.pendingPageSize);
+  }
+
+  nextPendingPage(): void {
+    if (this.pendingPage < this.pendingTotalPages) {
+      this.pendingPage++;
+    }
+  }
+
+  prevPendingPage(): void {
+    if (this.pendingPage > 1) {
+      this.pendingPage--;
+    }
+  }
+
+  goToPendingPage(page: number): void {
+    this.pendingPage = page;
+  }
+
+  getPendingPageNumbers(): number[] {
+    return Array(this.pendingTotalPages)
+      .fill(0)
+      .map((x, i) => i + 1);
+  }
+
+  clearFilter(): void {
+    this.deliveryFilterDate = '';
+    this.statusFilter = 'all';
+    this.pendingPage = 1; // Reset to page 1
   }
 
   checkout(): void {

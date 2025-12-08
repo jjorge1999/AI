@@ -80,26 +80,48 @@
     </ng-template>
 
     <!-- Pagination -->
-    <div class="pagination" *ngIf="totalPages > 1">
-      <button 
-        class="pagination-btn" 
-        [disabled]="currentPage === 1"
-        (click)="prevPage()"
-      >
-        ← Prev
-      </button>
-      
-      <span class="page-info">
-        Page {{ currentPage }} of {{ totalPages }}
-      </span>
-      
-      <button 
-        class="pagination-btn" 
-        [disabled]="currentPage === totalPages"
-        (click)="nextPage()"
-      >
-        Next →
-      </button>
+    <div class="pagination" *ngIf="totalPages > 1 || filteredLogs.length > 20">
+      <div class="pagination-size">
+        <label for="pageSize">Show:</label>
+        <select 
+          id="pageSize"
+          [(ngModel)]="pageSize"
+          (change)="currentPage = 1"
+          class="page-size-select"
+        >
+          <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+        </select>
+        <span>per page</span>
+      </div>
+
+      <div class="pagination-controls" *ngIf="totalPages > 1">
+        <button 
+          class="pagination-btn" 
+          [disabled]="currentPage === 1"
+          (click)="prevPage()"
+        >
+          ← Prev
+        </button>
+        
+        <div class="pagination-pages">
+          <button 
+            *ngFor="let page of getPageNumbers()"
+            class="pagination-page"
+            [class.active]="page === currentPage"
+            (click)="goToPage(page)"
+          >
+            {{ page }}
+          </button>
+        </div>
+
+        <button 
+          class="pagination-btn" 
+          [disabled]="currentPage === totalPages"
+          (click)="nextPage()"
+        >
+          Next →
+        </button>
+      </div>
     </div>
   </div>
 </div>
