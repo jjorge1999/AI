@@ -192,7 +192,10 @@ export class ChatComponent
     // Listen for logout events from the app
     this.subscriptions.add(
       this.chatService.logout$.subscribe(() => {
-        this.performForceLogout();
+        const isLoggedIn = localStorage.getItem('jjm_logged_in') === 'true';
+        if (!isLoggedIn) {
+          this.performForceLogout();
+        }
       })
     );
 
@@ -319,13 +322,14 @@ export class ChatComponent
       this.isRegistered = true; // Auto-register immediately for UI
       this.errorMessage = '';
 
-      // Default name to username found in storage
-      this.senderName = appUsername || 'User';
+      // Use stored full name from localStorage (set during login)
+      const appFullName = localStorage.getItem('jjm_fullname');
+      this.senderName = appFullName || appUsername || 'User';
 
       // Load messages immediately
       this.loadMessages();
 
-      // For Admin, we need the customer list to resolve names
+      // For Admin, load both customers and users for conversation resolution
       if (this.allCustomers.length === 0) {
         this.customerService.loadCustomers();
         this.subscriptions.add(
@@ -335,28 +339,13 @@ export class ChatComponent
         );
       }
 
+      // Load users to resolve conversation names/addresses/GPS
+      this.userService.loadUsers();
+
       // Start global listener for Admin to hear all incoming calls
       if (this.incomingCallListener) this.incomingCallListener();
       this.incomingCallListener = this.callService.listenForAllIncomingCalls();
 
-      // Refine name with full profile if ID exists
-      if (appUserId) {
-        // Try sync fetch
-        const user = this.userService.getUserById(appUserId);
-        if (user) {
-          this.senderName = user.fullName || user.username;
-        } else {
-          // Async fetch
-          this.subscriptions.add(
-            this.userService.users$.pipe(take(1)).subscribe((users) => {
-              const u = users.find((x) => x.id === appUserId);
-              if (u) {
-                this.senderName = u.fullName || u.username;
-              }
-            })
-          );
-        }
-      }
       return;
     }
 

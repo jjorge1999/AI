@@ -85,6 +85,10 @@ export class LoginComponent implements OnInit, OnDestroy {
             localStorage.setItem('jjm_username', this.username);
             localStorage.setItem('jjm_user_id', user.id); // Save User ID
             localStorage.setItem('jjm_role', user.role); // Save role
+            localStorage.setItem(
+              'jjm_fullname',
+              user.fullName || this.username
+            ); // Save full name for chat
             window.location.reload();
           } else {
             this.errorMessage = 'Invalid username or password';

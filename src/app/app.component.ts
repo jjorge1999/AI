@@ -122,6 +122,7 @@ export class AppComponent {
     localStorage.removeItem('jjm_username');
     localStorage.removeItem('jjm_user_id');
     localStorage.removeItem('jjm_role');
+    localStorage.removeItem('jjm_fullname');
     localStorage.removeItem('chatCustomerInfo');
     localStorage.removeItem('chatUserName');
     this.isLoggedIn = false;
