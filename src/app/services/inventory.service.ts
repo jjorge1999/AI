@@ -396,6 +396,33 @@ export class InventoryService {
     });
   }
 
+  async deleteExpense(expenseId: string): Promise<void> {
+    // 1. Try Firestore (Best Effort)
+    try {
+      await deleteDoc(doc(this.db, 'expenses', expenseId));
+    } catch (e) {
+      console.warn('Firestore delete failed (proceeding with Legacy):', e);
+    }
+
+    // 2. Legacy Backend (Direct)
+    this.http.delete(`${this.apiUrl}/expenses/${expenseId}`).subscribe({
+      next: () => {
+        // Update subject
+        const current = this.expensesSubject.value;
+        this.expensesSubject.next(current.filter((e) => e.id !== expenseId));
+
+        this.loggingService.logActivity(
+          'delete',
+          'expense',
+          expenseId,
+          'Expense',
+          'Deleted'
+        );
+      },
+      error: (err) => console.error('Error deleting expense:', err),
+    });
+  }
+
   async addProduct(product: Omit<Product, 'id' | 'createdAt'>): Promise<void> {
     const baseData = {
       ...product,

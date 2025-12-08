@@ -63,16 +63,34 @@
     </div>
 
     <div class="expenses-list" *ngIf="expenses.length > 0; else noExpenses">
-      <div class="expense-item" *ngFor="let expense of paginatedExpenses">
-        <div class="expense-info">
-          <div class="expense-name">{{ expense.productName }}</div>
-          <div class="expense-notes" *ngIf="expense.notes">{{ expense.notes }}</div>
-          <div class="expense-date">{{ expense.timestamp | date:'medium' }}</div>
-        </div>
-        <div class="expense-amount">
-          <div class="expense-price">₱{{ expense.price | number:'1.2-2' }}</div>
-        </div>
-      </div>
+      <table class="expenses-table">
+        <thead>
+          <tr>
+            <th>Product/Item</th>
+            <th>Notes</th>
+            <th>Date</th>
+            <th class="text-right">Amount</th>
+            <th class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let expense of paginatedExpenses">
+            <td class="expense-name">{{ expense.productName }}</td>
+            <td class="expense-notes">{{ expense.notes || '—' }}</td>
+            <td class="expense-date">{{ expense.timestamp | date:'short' }}</td>
+            <td class="expense-price text-right">₱{{ expense.price | number:'1.2-2' }}</td>
+            <td class="text-center">
+              <button 
+                class="btn-delete" 
+                (click)="deleteExpense(expense)"
+                title="Delete expense"
+              >
+                🗑️
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <!-- Pagination Controls -->

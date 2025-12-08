@@ -84,34 +84,50 @@
 }
 
 .expenses-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
+  overflow-x: auto;
 }
 
-.expense-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-md);
-  background: var(--color-bg);
-  border-radius: var(--radius-md);
-  transition: all var(--transition-base);
-  border: 1px solid var(--color-border);
+.expenses-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
 }
 
-.expense-item:hover {
-  background: #fee;
-  transform: translateX(4px);
-  border-color: var(--color-danger);
+.expenses-table thead {
+  background: var(--color-primary);
+  color: white;
 }
 
-.expense-info {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  flex: 1;
+.expenses-table th {
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.expenses-table th.text-right {
+  text-align: right;
+}
+
+.expenses-table th.text-center {
+  text-align: center;
+}
+
+.expenses-table tbody tr {
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color var(--transition-base);
+}
+
+.expenses-table tbody tr:hover {
+  background-color: var(--color-bg);
+}
+
+.expenses-table td {
+  padding: var(--space-sm) var(--space-md);
+  vertical-align: middle;
 }
 
 .expense-name {
@@ -123,30 +139,56 @@
   font-size: 0.875rem;
   color: var(--color-text-muted);
   font-style: italic;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .expense-date {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--color-text-muted);
-}
-
-.expense-amount {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-xs);
+  white-space: nowrap;
 }
 
 .expense-price {
-  font-weight: 600;
-  font-size: 1.125rem;
+  font-weight: 700;
+  font-size: 1rem;
   color: var(--color-danger);
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-center {
+  text-align: center;
 }
 
 .empty-state {
   text-align: center;
   padding: var(--space-2xl);
   color: var(--color-text-muted);
+}
+
+.btn-delete {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all var(--transition-base);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-delete:hover {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
 }
 
 @media (max-width: 640px) {

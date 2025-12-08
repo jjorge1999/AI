@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InventoryService } from '../../services/inventory.service';
+import { DialogService } from '../../services/dialog.service';
 import { Expense } from '../../models/inventory.models';
 
 @Component({
@@ -24,7 +25,10 @@ export class ExpensesComponent implements OnInit {
   pageSize = 10;
   pageSizeOptions = [5, 10, 20, 50];
 
-  constructor(private inventoryService: InventoryService) {}
+  constructor(
+    private inventoryService: InventoryService,
+    private dialogService: DialogService
+  ) {}
 
   ngOnInit(): void {
     this.inventoryService.getExpenses().subscribe((expenses) => {
@@ -81,5 +85,20 @@ export class ExpensesComponent implements OnInit {
       this.price = null;
       this.notes = '';
     }
+  }
+
+  deleteExpense(expense: Expense): void {
+    this.dialogService
+      .confirm(
+        `Are you sure you want to delete the expense "${
+          expense.productName
+        }" (₱${expense.price.toFixed(2)})?`,
+        'Delete Expense'
+      )
+      .then((confirmed) => {
+        if (confirmed) {
+          this.inventoryService.deleteExpense(expense.id);
+        }
+      });
   }
 }
