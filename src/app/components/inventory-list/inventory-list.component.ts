@@ -47,6 +47,8 @@ export class InventoryListComponent implements OnInit {
   editProductName: string = '';
   editProductQuantity: number = 0;
   editProductPrice: number = 0;
+  editProductImage: string = '';
+  editImagePreview: string | null = null;
 
   constructor(private inventoryService: InventoryService) {}
 
@@ -299,6 +301,8 @@ export class InventoryListComponent implements OnInit {
     this.editProductName = product.name;
     this.editProductQuantity = product.quantity;
     this.editProductPrice = product.price;
+    this.editProductImage = product.imageUrl || '';
+    this.editImagePreview = product.imageUrl || null;
     this.isEditModalOpen = true;
   }
 
@@ -308,6 +312,28 @@ export class InventoryListComponent implements OnInit {
     this.editProductName = '';
     this.editProductQuantity = 0;
     this.editProductPrice = 0;
+    this.editProductImage = '';
+    this.editImagePreview = null;
+  }
+
+  onEditImageChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      const reader = new FileReader();
+
+      reader.onload = (e: ProgressEvent<FileReader>) => {
+        this.editImagePreview = e.target?.result as string;
+        this.editProductImage = e.target?.result as string;
+      };
+
+      reader.readAsDataURL(file);
+    }
+  }
+
+  removeEditImage(): void {
+    this.editImagePreview = null;
+    this.editProductImage = '';
   }
 
   saveProductEdit(): void {
@@ -333,6 +359,7 @@ export class InventoryListComponent implements OnInit {
       name: this.editProductName,
       quantity: this.editProductQuantity,
       price: this.editProductPrice,
+      imageUrl: this.editProductImage,
     };
 
     this.inventoryService.updateProduct(updatedProduct);

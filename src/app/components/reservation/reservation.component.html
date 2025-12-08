@@ -178,6 +178,20 @@
             </div>
           </div>
         </div>
+        
+        <!-- Price Breakdown Preview -->
+        <div class="price-breakdown">
+          <div class="breakdown-row">
+            <span class="breakdown-label">Net Subtotal</span>
+            <span class="breakdown-value">₱{{ subTotal | number : "1.2-2" }}</span>
+          </div>
+          <div class="breakdown-row">
+             <span class="breakdown-label">VAT (12% Inclusive)</span>
+             <span class="breakdown-value">₱{{ taxAmount | number : "1.2-2" }}</span>
+          </div>
+          <div class="breakdown-divider"></div>
+        </div>
+
         <div class="order-total">
           <span>Total Amount:</span>
           <span class="total-price">₱{{ totalAmount | number : "1.2-2" }}</span>

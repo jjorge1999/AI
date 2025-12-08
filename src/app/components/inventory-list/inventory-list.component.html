@@ -363,6 +363,35 @@
     </div>
     
     <div class="modal-body">
+      <!-- Edit Image Section -->
+      <div class="edit-image-section">
+        <label class="edit-label">Product Image</label>
+        
+        <div class="edit-image-preview-container" *ngIf="editImagePreview">
+          <img 
+            [src]="editImagePreview" 
+            alt="Product preview" 
+            class="edit-image-preview"
+          />
+          <button type="button" class="remove-edit-image-btn" (click)="removeEditImage()">
+            Remove Image
+          </button>
+        </div>
+
+        <div class="edit-image-upload" *ngIf="!editImagePreview">
+          <input 
+            type="file" 
+            id="editProductImage" 
+            accept="image/*"
+            (change)="onEditImageChange($event)"
+            class="file-input"
+          />
+          <label for="editProductImage" class="btn-upload">
+            📷 Upload Image
+          </label>
+        </div>
+      </div>
+
       <div class="form-group">
         <label for="editName">Product Name</label>
         <input 

@@ -416,3 +416,38 @@
     margin-bottom: 0;
   }
 }
+
+/* Price Breakdown */
+.price-breakdown {
+  margin-bottom: var(--space-md);
+  padding: var(--space-md) 0;
+}
+
+.breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+}
+
+.breakdown-label {
+  font-weight: 500;
+}
+
+.breakdown-value {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.breakdown-divider {
+  height: 1px;
+  background-color: var(--color-border);
+  margin-top: var(--space-md);
+}
+
+.order-total {
+  /* Existing style override if needed, otherwise it cascades */
+  border-top: none; /* Remove previous border since we have divider now */
+  padding-top: 0;
+}

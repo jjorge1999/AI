@@ -124,6 +124,14 @@ export class ReservationComponent implements OnInit {
     );
   }
 
+  get subTotal(): number {
+    return this.totalAmount / 1.12; // Net of Tax (assuming 12% VAT inclusive)
+  }
+
+  get taxAmount(): number {
+    return this.totalAmount - this.subTotal;
+  }
+
   async submitReservation() {
     if (
       this.orderItems.length === 0 ||
