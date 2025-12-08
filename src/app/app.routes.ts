@@ -43,6 +43,13 @@ export const routes: Routes = [
         (m) => m.ReservationComponent
       ),
   },
+  {
+    path: 'play',
+    loadComponent: () =>
+      import('./components/color-game/color-game.component').then(
+        (m) => m.ColorGameComponent
+      ),
+  },
 
   // Protected routes (require login)
   {

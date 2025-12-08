@@ -1,0 +1,105 @@
+<div class="game-container">
+  <div class="header">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button class="btn img-btn" (click)="goBack()" title="Back to Login">↩️</button>
+      <h1>🎲 Color Game</h1>
+    </div>
+    <div class="credits-box" *ngIf="isVerified">
+      <span class="label">Credits</span>
+      <span class="value">{{ credits }}</span>
+    </div>
+  </div>
+
+  <!-- Verification Section -->
+  <div *ngIf="!isVerified" class="verification-container">
+    <div class="verification-card">
+      <h2>🔒 Customer Verification</h2>
+      <p>Only registered customers can play.</p>
+      
+      <div class="form-group">
+        <label>Enter your Full Name</label>
+        <input 
+          type="text" 
+          [(ngModel)]="verificationName" 
+          (keyup.enter)="verifyCustomer()"
+          placeholder="e.g. John Doe"
+          class="verify-input"
+          [disabled]="isLoadingCustomers"
+        />
+      </div>
+
+      <div *ngIf="verificationError" class="error-msg">
+        {{ verificationError }}
+      </div>
+
+      <button class="btn-verify" (click)="verifyCustomer()" [disabled]="isLoadingCustomers">
+        {{ isLoadingCustomers ? 'Checking...' : 'Verify & Play' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Game Area -->
+  <div *ngIf="isVerified">
+    <div *ngIf="dailyBonusMessage" class="daily-bonus-alert">
+      {{ dailyBonusMessage }}
+    </div>
+
+    <div class="game-area">
+      <!-- Dice Result Area -->
+      <div class="dice-container" [class.shaking]="isRolling">
+        <div 
+          *ngFor="let res of result; let i = index" 
+          class="die" 
+          [style.background-color]="getColorHex(res)"
+          [style.color]="res === 'white' || res === 'yellow' ? 'black' : 'white'"
+        >
+          <!-- Simple Dice Face (optional dot later, just color for now) -->
+        </div>
+      </div>
+
+      <div class="message-area" [class.win]="message.includes('won')">
+        {{ message || (isRolling ? 'Rolling...' : 'Place your bets!') }}
+      </div>
+
+      <!-- Betting Board -->
+      <div class="betting-board" [class.disabled]="isRolling">
+        <div 
+          *ngFor="let color of colors" 
+          class="bet-tile" 
+          [style.background-color]="getColorHex(color)"
+          [style.border-color]="getColorHex(color)"
+          (click)="placeBet(color, 10)"
+        >
+          <div class="bet-overlay" [style.color]="color === 'white' || color === 'yellow' ? 'black' : 'white'">
+            <span class="bet-name">{{ color | titlecase }}</span>
+            <span class="bet-amount" *ngIf="bets[color] > 0">{{ bets[color] }}</span>
+          </div>
+          <div class="click-hint">Tap to Bet +10</div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <div class="bet-summary">
+          Total Bet: <strong>{{ totalBet }}</strong>
+        </div>
+        <div class="buttons">
+          <button class="btn btn-clear" (click)="clearBets()" [disabled]="isRolling || totalBet === 0">Clear Bets</button>
+          <button class="btn btn-roll" (click)="rollDice()" [disabled]="isRolling || totalBet === 0">ROLL!</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="instructions">
+      <h3>How to Play</h3>
+      <p>1. You get <strong>100 Free Credits</strong> every day!</p>
+      <p>2. Tap a color to bet 10 credits.</p>
+      <p>3. If your color appears on the dice:</p>
+      <ul>
+        <li>1 Match = Win 1x (+Stake)</li>
+        <li>2 Matches = Win 2x (+Stake)</li>
+        <li>3 Matches = Win 3x (+Stake)</li>
+      </ul>
+    </div>
+  </div>
+</div>

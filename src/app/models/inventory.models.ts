@@ -39,6 +39,7 @@ export interface Customer {
   gpsCoordinates?: string;
   createdAt: Date;
   userId?: string;
+  credits?: number; // Added for Color Game
 }
 
 export interface Expense {
