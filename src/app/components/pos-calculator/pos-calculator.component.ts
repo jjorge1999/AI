@@ -327,14 +327,11 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
 
       const ctx = this.audioCtx;
 
-      // If suspended (common on iOS before interaction), try to resume
+      // If suspended (common on autorefresh), wait for interaction.
+      // Do not force resume as it triggers warnings.
+      // @HostListener will handle unlocking.
       if (ctx.state === 'suspended') {
-        ctx.resume().catch(() => {});
-      }
-
-      if (!this.audioUnlocked) {
-        // Try to unlock naturally
-        this.unlockAudioContext();
+        return;
       }
 
       // Create two oscillators for a pleasant harmony
