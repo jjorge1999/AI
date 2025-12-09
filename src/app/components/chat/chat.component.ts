@@ -508,7 +508,7 @@ export class ChatComponent
     ) {
       new Notification('New Message', {
         body: message.text || 'You received a new audio message',
-        icon: '/assets/icons/icon-72x72.png',
+        icon: '/assets/logo.png',
       });
       document.title = `New Message from ${message.senderName}`;
     }
@@ -691,7 +691,7 @@ export class ChatComponent
         ) {
           new Notification('New Message', {
             body: lastMsg.text || 'You received a new audio message',
-            icon: '/assets/icons/icon-72x72.png', // Ensure this exists or use default
+            icon: '/assets/logo.png', // Ensure this exists or use default
           });
           document.title = `(${
             newCount - previousCount
@@ -726,9 +726,7 @@ export class ChatComponent
 
       // Ensure it is running
       if (ctx.state === 'suspended') {
-        ctx.resume().catch(() => {
-          // Expected behavior if user hasn't interacted yet. Silence error.
-        });
+        return;
       }
 
       const now = ctx.currentTime;
