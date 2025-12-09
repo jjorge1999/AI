@@ -278,8 +278,7 @@
 }
 
 .chat-header {
-  padding: var(--space-lg);
-  padding-bottom: 2rem; /* Add space for subtitle at bottom */
+  padding: 0.75rem 1rem;
   background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   border-bottom: 2px solid var(--color-border);
   position: relative;
@@ -295,9 +294,15 @@
   color: inherit; /* Explicitly inherit white from chat-header */
 }
 
+.header-left-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 .chat-header h2 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.1rem; /* Compact size */
   font-weight: 600;
 }
 
@@ -407,14 +412,13 @@
 }
 
 .header-details-subtitle {
-  position: absolute;
-  top: 70%;
-  left: 20px; /* Align with header start or title */
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.95);
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-direction: row; /* Horizontal for compact */
+  gap: 12px;
+  margin-top: 2px;
+  align-items: center;
 }
 
 .btn-location {
@@ -645,26 +649,45 @@ textarea[readonly], input[readonly] {
   }
 
   .chat-header {
-    padding: var(--space-md);
-    padding-right: 60px; /* Make space for the absolute close button on mobile */
+    padding: 0.75rem;
+    padding-right: 4px;
+  }
+
+  .header-content {
+    flex-direction: row; 
+    align-items: center;
+    gap: 8px;
+  }
+
+  .header-left-col {
+    flex: 1;
+    min-width: 0; /* Crucial for text truncation in flex items */
+    margin-right: 4px;
   }
 
   .chat-header h2 {
-    font-size: 1.1rem;
-    max-width: 60%;
+    font-size: 1rem;
+    max-width: 100%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .header-content {
-    /* Keep row on mobile but allow wrapping if absolutely needed, though we restrict H2 width instead */
-    flex-direction: row; 
-    align-items: center;
+  /* Ensure subtitle also truncates */
+  .header-details-subtitle {
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .user-info {
     font-size: 0.8rem;
+    flex-shrink: 0; /* Prevent shrinking of buttons */
+  }
+
+  .user-info .user-name {
+    display: none; /* Hide name on mobile to save space */
   }
 
   .btn-edit, .btn-logout {

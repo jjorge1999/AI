@@ -103,21 +103,23 @@
     <div class="chat-main-area">
       <div class="chat-header">
         <div class="header-content">
-          <h2>
-            💬 {{ isAppUser && currentConversationId ? 'Chat with ' + getDisplayName(currentConversationId) : 'Customer Support Chat' }}
-            <span *ngIf="!isAppUser && isSupportOnline()" style="font-size: 0.8rem; background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; vertical-align: middle; margin-left: 8px; text-shadow: none; font-weight: normal;">Online</span>
-          </h2>
-          <!-- Show Address/GPS in Header for Admin -->
-          <div *ngIf="isAppUser && currentConversationId" class="header-details-subtitle">
-            <div *ngIf="getUserAddress(currentConversationId)">📍 {{ getUserAddress(currentConversationId) }}</div>
-            <a 
-              *ngIf="getUserGps(currentConversationId)" 
-              [href]="'https://www.google.com/maps/search/?api=1&query=' + getUserGps(currentConversationId)"
-              target="_blank"
-              style="color: inherit; text-decoration: none; display: flex; align-items: center; gap: 4px;"
-            >
-              🌍 {{ getUserGps(currentConversationId) }}
-            </a>
+          <div class="header-left-col">
+            <h2>
+              💬 {{ isAppUser && currentConversationId ? 'Chat with ' + getDisplayName(currentConversationId) : 'Customer Support Chat' }}
+              <span *ngIf="(!isAppUser && isSupportOnline()) || (isAppUser && currentConversationId && isUserOnline(currentConversationId))" style="font-size: 0.8rem; background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; vertical-align: middle; margin-left: 8px; text-shadow: none; font-weight: normal;">Online</span>
+            </h2>
+            <!-- Show Address/GPS in Header for Admin -->
+            <div *ngIf="isAppUser && currentConversationId" class="header-details-subtitle">
+              <div *ngIf="getUserAddress(currentConversationId)">📍 {{ getUserAddress(currentConversationId) }}</div>
+              <a 
+                *ngIf="getUserGps(currentConversationId)" 
+                [href]="'https://www.google.com/maps/search/?api=1&query=' + getUserGps(currentConversationId)"
+                target="_blank"
+                style="color: inherit; text-decoration: none; display: flex; align-items: center; gap: 4px;"
+              >
+                🌍 {{ getUserGps(currentConversationId) }}
+              </a>
+            </div>
           </div>
           
           <div class="user-info">
