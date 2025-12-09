@@ -903,3 +903,119 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Safari/iOS Compatibility Fixes for POS Buttons */
+.btn-deliver,
+.btn-edit,
+.btn-confirm,
+.btn-delete,
+.btn-add,
+.btn-remove-sm,
+.btn-checkout,
+.btn-cancel,
+.btn-save,
+.btn-clear,
+.close-btn,
+.pagination-btn,
+.pagination-page {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+  position: relative;
+  z-index: 1; /* Ensure buttons are above other content */
+}
+
+/* Ensure button text doesn't interfere with clicks */
+.btn-deliver *,
+.btn-edit *,
+.btn-confirm *,
+.btn-delete *,
+.btn-add *,
+.btn-checkout *,
+.btn-save * {
+  pointer-events: none; /* Text and icons don't block button clicks */
+}
+
+/* Filter controls - ensure interactive elements work on Safari */
+.filter-row {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.filter-group label {
+  font-weight: 500;
+  color: var(--color-text);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.filter-group input[type="date"],
+.filter-group select {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.btn-clear {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  line-height: 1;
+}
+
+.btn-clear:hover {
+  transform: scale(1.2);
+  opacity: 0.7;
+}
+
+.status-select {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Ensure modal buttons are always clickable */
+.modal-overlay {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.modal-content {
+  position: relative;
+  z-index: 1001; /* Above overlay */
+}
+
+/* Radio group Safari fixes */
+.radio-label {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}

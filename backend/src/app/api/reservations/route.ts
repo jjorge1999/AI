@@ -10,6 +10,7 @@ export async function POST(request: Request) {
       'RES-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
     const batch = db.batch();
     const salesCollection = db.collection('sales');
+    const productsCollection = db.collection('products');
     const timestamp = new Date();
     const deliveryDate = reservation.pickupDate
       ? new Date(reservation.pickupDate)
@@ -25,6 +26,20 @@ export async function POST(request: Request) {
     for (const item of reservation.items) {
       const saleRef = salesCollection.doc();
 
+      // Fetch the product to get its userId (owner)
+      let productUserId = 'guest'; // Default fallback
+      try {
+        const productDoc = await productsCollection.doc(item.productId).get();
+        if (productDoc.exists) {
+          const productData = productDoc.data();
+          if (productData && productData.userId) {
+            productUserId = productData.userId;
+          }
+        }
+      } catch (e) {
+        console.warn(`Could not fetch product ${item.productId}:`, e);
+      }
+
       const saleData = {
         productId: item.productId,
         productName: item.productName,
@@ -37,10 +52,10 @@ export async function POST(request: Request) {
         timestamp: timestamp,
         deliveryDate: deliveryDate,
         deliveryNotes: deliveryNotes,
-        customerId: '', // Or simple-search if needed, but keeping consistent with existing logic
+        customerId: '',
         pending: true,
         reservationStatus: 'pending_confirmation',
-        userId: 'guest',
+        userId: productUserId, // Use product owner's userId
         orderId: orderId,
       };
 

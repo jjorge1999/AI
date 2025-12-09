@@ -45,6 +45,7 @@
     rgba(255, 255, 255, 0.4), 
     transparent);
   border-radius: 50%;
+  pointer-events: none; /* Fix Safari clickability issue */
 }
 
 @keyframes float {
