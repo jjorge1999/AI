@@ -7,7 +7,7 @@ import { LoggingService } from './logging.service';
 import { CustomerService } from './customer.service';
 import { initializeApp } from 'firebase/app';
 import {
-  getFirestore,
+  initializeFirestore,
   collection,
   query,
   where,
@@ -42,7 +42,9 @@ export class InventoryService {
   public expenses$ = this.expensesSubject.asObservable();
 
   private app = initializeApp(environment.firebaseConfig);
-  private db = getFirestore(this.app);
+  private db = initializeFirestore(this.app, {
+    experimentalForceLongPolling: true,
+  });
   private auth = getAuth(this.app);
   private firebaseUser: User | null = null;
   private unsubscribes: Unsubscribe[] = [];

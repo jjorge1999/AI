@@ -248,6 +248,12 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     }
 
     this.playLoopingAlarm();
+
+    // Auto-stop alarm after 20 seconds to prevent endless loops
+    setTimeout(() => {
+      this.stopAlarm();
+    }, 20000);
+
     this.dialogService
       .alert(message, 'Delivery Reminder', 'warning')
       .then(() => {

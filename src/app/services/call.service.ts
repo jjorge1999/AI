@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { initializeApp } from 'firebase/app';
 import {
+  initializeFirestore,
   getFirestore,
   collection,
   doc,
@@ -26,7 +27,9 @@ import { WebRTCCall } from '../models/inventory.models';
 })
 export class CallService {
   private app = initializeApp(environment.firebaseConfig);
-  private db = getFirestore(this.app);
+  private db = initializeFirestore(this.app, {
+    experimentalForceLongPolling: true,
+  });
 
   private peerConnection: RTCPeerConnection | null = null;
   private localStream: MediaStream | null = null;
