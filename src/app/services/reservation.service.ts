@@ -2,7 +2,8 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { Reservation, Sale } from '../models/inventory.models';
-import { firstValueFrom } from 'rxjs';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 @Injectable({
   providedIn: 'root',
@@ -12,13 +13,11 @@ export class ReservationService {
 
   constructor(private http: HttpClient) {}
 
-  async addReservation(reservation: Omit<Reservation, 'id'>): Promise<string> {
+  addReservation(reservation: Omit<Reservation, 'id'>): Observable<string> {
     // Send the entire reservation object to the backend.
     // The backend will handle batching items into sales records.
-    await firstValueFrom(
-      this.http.post(`${this.apiUrl}/reservations`, reservation)
-    );
-
-    return 'reservation-submitted';
+    return this.http
+      .post(`${this.apiUrl}/reservations`, reservation)
+      .pipe(map(() => 'reservation-submitted'));
   }
 }

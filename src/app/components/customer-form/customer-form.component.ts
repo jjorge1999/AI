@@ -42,22 +42,27 @@ export class CustomerFormComponent implements OnInit {
   onSubmit(): void {
     if (this.isValid()) {
       if (this.editingId) {
-        this.customerService.updateCustomer(this.editingId, {
-          name: this.customer.name,
-          phoneNumber: this.customer.phoneNumber,
-          deliveryAddress: this.customer.deliveryAddress,
-        });
-        this.editingId = null;
+        this.customerService
+          .updateCustomer(this.editingId, {
+            name: this.customer.name,
+            phoneNumber: this.customer.phoneNumber,
+            deliveryAddress: this.customer.deliveryAddress,
+          })
+          .subscribe(() => {
+            this.editingId = null;
+            this.resetForm();
+          });
       } else {
-        this.customerService.addCustomer({
-          name: this.customer.name,
-          phoneNumber: this.customer.phoneNumber,
-          deliveryAddress: this.customer.deliveryAddress,
-        });
+        this.customerService
+          .addCustomer({
+            name: this.customer.name,
+            phoneNumber: this.customer.phoneNumber,
+            deliveryAddress: this.customer.deliveryAddress,
+          })
+          .subscribe(() => {
+            this.resetForm();
+          });
       }
-
-      // Reset form
-      this.resetForm();
     }
   }
 
@@ -91,10 +96,11 @@ export class CustomerFormComponent implements OnInit {
       )
       .subscribe((confirmed) => {
         if (confirmed) {
-          this.customerService.deleteCustomer(id);
-          if (this.editingId === id) {
-            this.cancelEdit();
-          }
+          this.customerService.deleteCustomer(id).subscribe(() => {
+            if (this.editingId === id) {
+              this.cancelEdit();
+            }
+          });
         }
       });
   }

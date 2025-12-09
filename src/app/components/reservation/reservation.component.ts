@@ -210,32 +210,36 @@ export class ReservationComponent implements OnInit, OnDestroy {
       if (!existingCustomer) {
         const targetUserId = this.orderItems[0]?.product?.userId;
 
-        this.customerService.addCustomer({
-          name: this.customerName,
-          phoneNumber: this.customerContact,
-          deliveryAddress: this.customerAddress,
-          gpsCoordinates: this.gpsCoordinates,
-          ...(targetUserId ? { userId: targetUserId } : {}),
-        });
+        this.customerService
+          .addCustomer({
+            name: this.customerName,
+            phoneNumber: this.customerContact,
+            deliveryAddress: this.customerAddress,
+            gpsCoordinates: this.gpsCoordinates,
+            ...(targetUserId ? { userId: targetUserId } : {}),
+          })
+          .subscribe();
       }
 
       // 2. Submit reservation
-      await this.reservationService.addReservation({
-        customerName: this.customerName,
-        customerContact: this.customerContact,
-        customerAddress: this.customerAddress,
-        reservationDate: new Date(),
-        pickupDate: fullDate,
-        status: 'pending',
-        items: this.orderItems.map((i) => ({
-          productId: i.product.id,
-          productName: i.product.name,
-          quantity: i.quantity,
-          price: i.product.price,
-        })),
-        totalAmount: this.totalAmount,
-        notes: fullNotes,
-      });
+      await firstValueFrom(
+        this.reservationService.addReservation({
+          customerName: this.customerName,
+          customerContact: this.customerContact,
+          customerAddress: this.customerAddress,
+          reservationDate: new Date(),
+          pickupDate: fullDate,
+          status: 'pending',
+          items: this.orderItems.map((i) => ({
+            productId: i.product.id,
+            productName: i.product.name,
+            quantity: i.quantity,
+            price: i.product.price,
+          })),
+          totalAmount: this.totalAmount,
+          notes: fullNotes,
+        })
+      );
 
       // 3. Auto-login to chat by storing customer info with 2-hour expiration
       const chatCustomerInfo = {

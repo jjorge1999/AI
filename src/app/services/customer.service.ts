@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { map, tap } from 'rxjs/operators';
 import { Customer } from '../models/inventory.models';
 import { environment } from '../../environments/environment';
 
@@ -76,46 +76,54 @@ export class CustomerService {
       );
   }
 
-  addCustomer(customer: Omit<Customer, 'id' | 'createdAt'>): void {
+  addCustomer(
+    customer: Omit<Customer, 'id' | 'createdAt'>
+  ): Observable<Customer> {
     const customerWithUser = {
       userId: this.getCurrentUser(),
       ...customer,
     };
-    this.http
+    return this.http
       .post<Customer>(`${this.apiUrl}/customers`, customerWithUser)
-      .subscribe({
-        next: (newCustomer) => {
-          const current = this.customersSubject.value;
-          this.customersSubject.next([...current, newCustomer]);
-        },
-        error: (err) => console.error('Error adding customer:', err),
-      });
+      .pipe(
+        tap({
+          next: (newCustomer) => {
+            const current = this.customersSubject.value;
+            this.customersSubject.next([...current, newCustomer]);
+          },
+          error: (err) => console.error('Error adding customer:', err),
+        })
+      );
   }
 
-  updateCustomer(id: string, updates: Partial<Customer>): void {
-    this.http
+  updateCustomer(id: string, updates: Partial<Customer>): Observable<Customer> {
+    return this.http
       .put<Customer>(`${this.apiUrl}/customers/${id}`, updates)
-      .subscribe({
+      .pipe(
+        tap({
+          next: () => {
+            const current = this.customersSubject.value;
+            const updated = current.map((c) =>
+              c.id === id ? { ...c, ...updates } : c
+            );
+            this.customersSubject.next(updated);
+          },
+          error: (err) => console.error('Error updating customer:', err),
+        })
+      );
+  }
+
+  deleteCustomer(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/customers/${id}`).pipe(
+      tap({
         next: () => {
           const current = this.customersSubject.value;
-          const updated = current.map((c) =>
-            c.id === id ? { ...c, ...updates } : c
-          );
-          this.customersSubject.next(updated);
+          const filtered = current.filter((c) => c.id !== id);
+          this.customersSubject.next(filtered);
         },
-        error: (err) => console.error('Error updating customer:', err),
-      });
-  }
-
-  deleteCustomer(id: string): void {
-    this.http.delete(`${this.apiUrl}/customers/${id}`).subscribe({
-      next: () => {
-        const current = this.customersSubject.value;
-        const filtered = current.filter((c) => c.id !== id);
-        this.customersSubject.next(filtered);
-      },
-      error: (err) => console.error('Error deleting customer:', err),
-    });
+        error: (err) => console.error('Error deleting customer:', err),
+      })
+    );
   }
 
   getCustomerById(id: string): Customer | undefined {
