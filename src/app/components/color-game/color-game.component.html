@@ -28,6 +28,18 @@
         />
       </div>
 
+      <div class="form-group">
+        <label>Enter Phone Number</label>
+        <input 
+          type="tel" 
+          [(ngModel)]="verificationPhone" 
+          (keyup.enter)="verifyCustomer()"
+          placeholder="e.g. 09171234567"
+          class="verify-input"
+          [disabled]="isLoadingCustomers"
+        />
+      </div>
+
       <div *ngIf="verificationError" class="error-msg">
         {{ verificationError }}
       </div>

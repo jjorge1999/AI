@@ -34,6 +34,7 @@ export class ColorGameComponent implements OnInit {
   // Verification
   isVerified = false;
   verificationName = '';
+  verificationPhone = '';
   verificationError = '';
   isLoadingCustomers = false;
   currentCustomerId = '';
@@ -91,6 +92,10 @@ export class ColorGameComponent implements OnInit {
       this.verificationError = 'Please enter your name.';
       return;
     }
+    if (!this.verificationPhone.trim()) {
+      this.verificationError = 'Please enter your phone number.';
+      return;
+    }
 
     this.isLoadingCustomers = true;
     this.verificationError = '';
@@ -106,13 +111,29 @@ export class ColorGameComponent implements OnInit {
         );
 
         if (found) {
+          // Verify Phone Number (Last 8 Digits)
+          const inputLast8 = this.verificationPhone
+            .replace(/\D/g, '')
+            .slice(-8);
+          // Backend now returns last 8 digits or full phone. We sanitize just in case.
+          const targetLast8 = (found.phoneNumber || '')
+            .replace(/\D/g, '')
+            .slice(-8);
+
+          if (inputLast8 !== targetLast8) {
+            this.isVerified = false;
+            this.verificationError =
+              'Verification failed: Phone number mismatch.';
+            return;
+          }
+
           this.isVerified = true;
           this.currentCustomerId = found.id;
           this.currentCustomer = found;
           this.verificationError = '';
 
           this.loadGameData();
-          this.checkDailyBonus();
+          // this.checkDailyBonus(); // Removed: One-time bonus only
         } else {
           this.isVerified = false;
           this.verificationError =
@@ -130,20 +151,21 @@ export class ColorGameComponent implements OnInit {
   loadGameData() {
     if (!this.isVerified) return;
 
-    // Priority: Database > LocalStorage
-    // Use the loaded customer object
+    // Priority: Database
     if (
       this.currentCustomer &&
       this.currentCustomer.credits !== undefined &&
       this.currentCustomer.credits !== null
     ) {
+      // Existing User: Load from DB
       this.credits = this.currentCustomer.credits;
-      // Sync local storage to match DB
       localStorage.setItem(this.storageKeyCredits, this.credits.toString());
     } else {
-      // Fallback to local storage (e.g. first time syncing or field missing)
-      const savedCredits = localStorage.getItem(this.storageKeyCredits);
-      this.credits = savedCredits ? parseInt(savedCredits, 10) : 0;
+      // New User (No credits in DB): Give One-Time Welcome Bonus
+      console.log('New player detected, giving 100 welcome credits');
+      this.credits = 100;
+      this.message = 'Welcome! You received 100 Free Credits!';
+      this.saveGameData(); // Initialize in DB
     }
   }
 
