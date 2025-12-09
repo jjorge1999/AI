@@ -16,6 +16,9 @@
         </div>
       </div>
       <div class="header-actions">
+        <button class="theme-toggle" (click)="toggleVisionAid()" [title]="isVisionAid ? 'Disable Vision Aid' : 'Enable Vision Aid'" style="margin-right: 8px;">
+          <span class="theme-icon">👁️</span>
+        </button>
         <button class="theme-toggle" (click)="toggleTheme()" [title]="isDarkTheme ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
           <span class="theme-icon">{{ isDarkTheme ? '☀️' : '🌙' }}</span>
         </button>

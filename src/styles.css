@@ -450,3 +450,58 @@ button:disabled:hover::before {
   cursor: not-allowed;
   transform: none;
 }
+
+/* Vision Aid / Accessibility Mode */
+body.vision-aid {
+  /* High Contrast Light */
+  --color-text: #000000;
+  --color-bg: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-border: #000000;
+  --color-primary: #0000AA; /* High contrast blue */
+  --color-text-muted: #333333;
+
+  /* Enhance visibility */
+  font-size: 115%; /* 15% bigger text */
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Ensure strong borders */
+body.vision-aid .card,
+body.vision-aid button,
+body.vision-aid input,
+body.vision-aid select,
+body.vision-aid textarea, 
+body.vision-aid .tab-button {
+  border-width: 2px !important;
+  border-color: #000000 !important;
+}
+
+/* High Contrast Dark Mode overrides */
+body.vision-aid.dark-theme {
+    --color-text: #FFFFFF;
+    --color-bg: #000000;
+    --color-surface: #000000;
+    --color-border: #FFFFFF;
+    --color-primary: #FFFF00; /* Yellow on Black */
+    --color-text-muted: #DDDDDD;
+    --color-primary-dark: #CCCC00;
+}
+
+body.vision-aid.dark-theme .card,
+body.vision-aid.dark-theme button,
+body.vision-aid.dark-theme input {
+  border-color: #FFFFFF !important;
+}
+
+body.vision-aid button {
+  font-weight: 700 !important;
+}
+
+body.vision-aid h1,
+body.vision-aid h2,
+body.vision-aid h3 {
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}

@@ -162,8 +162,22 @@ export class ReservationComponent implements OnInit, OnDestroy {
         }
       );
 
-      this.gpsCoordinates = `${position.coords.latitude},${position.coords.longitude}`;
-      // Optional: Reverse geocode here if you want to fill address, but for now just store coordinates
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      this.gpsCoordinates = `${lat},${lon}`;
+
+      // Reverse Geocode to get address
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+        );
+        const data = await response.json();
+        if (data && data.display_name) {
+          this.customerAddress = data.display_name;
+        }
+      } catch (geoError) {
+        console.warn('Reverse geocoding failed', geoError);
+      }
     } catch (error) {
       console.error('Error getting location', error);
       alert('Unable to retrieve your location');

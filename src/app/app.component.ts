@@ -61,6 +61,7 @@ export class AppComponent {
   isChatOpen = false;
   totalUnreadMessages = 0;
   showReservation = false;
+  isVisionAid = false;
 
   constructor(
     private inventoryService: InventoryService,
@@ -77,6 +78,11 @@ export class AppComponent {
     const savedTheme = localStorage.getItem('jjm_theme');
     this.isDarkTheme = savedTheme === 'dark';
     this.applyTheme();
+
+    // Load vision aid preference
+    const savedVision = localStorage.getItem('jjm_vision_aid');
+    this.isVisionAid = savedVision === 'true';
+    this.applyVisionAid();
 
     // Expose service for migration
     (window as any).inventoryService = this.inventoryService;
@@ -114,6 +120,20 @@ export class AppComponent {
     this.isDarkTheme = !this.isDarkTheme;
     this.applyTheme();
     localStorage.setItem('jjm_theme', this.isDarkTheme ? 'dark' : 'light');
+  }
+
+  toggleVisionAid(): void {
+    this.isVisionAid = !this.isVisionAid;
+    this.applyVisionAid();
+    localStorage.setItem('jjm_vision_aid', String(this.isVisionAid));
+  }
+
+  private applyVisionAid(): void {
+    if (this.isVisionAid) {
+      document.body.classList.add('vision-aid');
+    } else {
+      document.body.classList.remove('vision-aid');
+    }
   }
 
   logout(): void {
