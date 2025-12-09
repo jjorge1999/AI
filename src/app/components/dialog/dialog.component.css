@@ -11,6 +11,9 @@
   justify-content: center;
   z-index: 10000;
   animation: fadeIn 0.2s ease-out;
+  /* iOS/Safari touch compatibility */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 @keyframes fadeIn {
@@ -113,6 +116,19 @@
   transition: all 0.2s;
   border: none;
   min-width: 100px;
+  /* iOS/Safari touch compatibility */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+  position: relative;
+  z-index: 1;
+}
+
+/* Ensure text/icons don't block clicks on iOS */
+.dialog-btn * {
+  pointer-events: none;
 }
 
 .dialog-btn-cancel {

@@ -3,8 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"next dev\" \"npm run websocket\"",
-    "websocket": "tsx src/websocket-server.ts",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

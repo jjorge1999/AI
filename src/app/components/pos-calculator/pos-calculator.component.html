@@ -205,11 +205,16 @@
       </div>
       
       <div class="pending-actions">
-        <button class="btn-edit" (click)="openEditModal(group.sales[0])">✏️ Edit</button>
+        <button 
+          class="btn-edit" 
+          type="button"
+          (click)="openEditModal(group.sales[0])"
+        >✏️ Edit</button>
         
         <button 
           *ngIf="group.status === 'pending_confirmation'" 
           class="btn-confirm" 
+          type="button"
           (click)="confirmGroupReservation(group.sales)"
           title="Confirm Reservation"
         >
@@ -218,6 +223,7 @@
 
         <button 
           class="btn-delete" 
+          type="button"
           (click)="cancelGroupOrder(group.sales)"
           title="Cancel Order"
         >
@@ -227,6 +233,7 @@
         <button 
           *ngIf="group.status !== 'pending_confirmation'"
           class="btn-deliver" 
+          type="button"
           (click)="markGroupAsDelivered(group.sales)"
         >
           🚚 Mark Delivered
@@ -286,7 +293,11 @@
   <div class="modal-content" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h3>Edit Delivery Details</h3>
-      <button class="close-btn" (click)="closeEditModal()">×</button>
+      <button 
+        class="close-btn" 
+        type="button"
+        (click)="closeEditModal()"
+      >×</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -303,8 +314,17 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn-cancel" (click)="closeEditModal()">Cancel</button>
-      <button class="btn-save" (click)="saveEdit()">Save Changes</button>
+      <button 
+        class="btn-cancel" 
+        type="button"
+        (click)="closeEditModal()"
+      >Cancel</button>
+      <button 
+        class="btn-save" 
+        type="button"
+        (click)="saveEdit()"
+      >Save Changes</button>
     </div>
   </div>
 </div>
+

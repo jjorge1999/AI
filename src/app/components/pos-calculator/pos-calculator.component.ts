@@ -203,25 +203,50 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
 
   private checkPendingDeliveryAlarms(): void {
     const now = new Date();
+    const dueSales: { sale: Sale; days: number }[] = [];
+
     this.pendingSales.forEach((sale) => {
       if (!sale.deliveryDate) return;
       const delivery = new Date(sale.deliveryDate);
       const diffMs = delivery.getTime() - now.getTime();
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      if (diffDays === 1 || diffDays === 2 || diffDays < 0) {
-        this.triggerAlarm(sale, diffDays);
+
+      // Check for approaching (1 or 2 days) or overdue/today (< 1)
+      if (diffDays === 1 || diffDays === 2 || diffDays < 1) {
+        dueSales.push({ sale, days: diffDays });
       }
     });
+
+    if (dueSales.length > 0) {
+      this.triggerBatchAlarm(dueSales);
+    }
   }
 
-  private triggerAlarm(sale: Sale, daysAhead: number): void {
-    const deliveryDate = new Date(sale.deliveryDate as any);
-    const dateStr = deliveryDate.toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-    const message = `⚠️ Delivery for "${sale.productName}" is due in ${daysAhead} day(s) (${dateStr}).`;
+  private triggerBatchAlarm(dueItems: { sale: Sale; days: number }[]): void {
+    // Prevent multiple alarms if one is already active
+    if (this.alarmInterval) return;
+
+    let message = '';
+    if (dueItems.length === 1) {
+      const item = dueItems[0];
+      const deliveryDate = new Date(item.sale.deliveryDate as any);
+      const dateStr = deliveryDate.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+
+      if (item.days < 0) {
+        message = `⚠️ OVERDUE: Delivery for "${item.sale.productName}" was due on ${dateStr}.`;
+      } else if (item.days === 0) {
+        message = `⚠️ TODAY: Delivery for "${item.sale.productName}" is due today!`;
+      } else {
+        message = `⚠️ UPCOMING: Delivery for "${item.sale.productName}" is due in ${item.days} day(s) (${dateStr}).`;
+      }
+    } else {
+      message = `⚠️ There are ${dueItems.length} deliveries due soon or overdue. Please check the Pending Deliveries list.`;
+    }
+
     this.playLoopingAlarm();
     this.dialogService
       .alert(message, 'Delivery Reminder', 'warning')
@@ -250,10 +275,21 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     }
   }
 
+  private audioCtx: any = null;
+
   private playBeep(): void {
     try {
-      const ctx = new (window.AudioContext ||
-        (window as any).webkitAudioContext)();
+      if (!this.audioCtx) {
+        this.audioCtx = new (window.AudioContext ||
+          (window as any).webkitAudioContext)();
+      }
+
+      const ctx = this.audioCtx;
+
+      // If suspended (common on iOS before interaction), try to resume
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
 
       // Create two oscillators for a pleasant harmony
       const osc1 = ctx.createOscillator();
@@ -548,25 +584,42 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
   }
 
   markAsDelivered(saleId: string): void {
-    if (confirm('Are you sure you want to mark this item as delivered?')) {
-      this.inventoryService.completePendingSale(saleId);
-    }
+    this.dialogService
+      .confirm(
+        'Are you sure you want to mark this item as delivered?',
+        'Mark as Delivered'
+      )
+      .then((confirmed) => {
+        if (confirmed) {
+          this.inventoryService.completePendingSale(saleId);
+        }
+      });
   }
 
   confirmReservation(sale: Sale): void {
-    if (
-      confirm(
-        'Confirming this reservation will deduct items from inventory. Continue?'
+    this.dialogService
+      .confirm(
+        'Confirming this reservation will deduct items from inventory. Continue?',
+        'Confirm Reservation'
       )
-    ) {
-      this.inventoryService.confirmReservation(sale);
-    }
+      .then((confirmed) => {
+        if (confirmed) {
+          this.inventoryService.confirmReservation(sale);
+        }
+      });
   }
 
   deleteReservation(sale: Sale): void {
-    if (confirm('Are you sure you want to remove this reservation?')) {
-      this.inventoryService.deleteSale(sale.id);
-    }
+    this.dialogService
+      .confirm(
+        'Are you sure you want to remove this reservation?',
+        'Remove Reservation'
+      )
+      .then((confirmed) => {
+        if (confirmed) {
+          this.inventoryService.deleteSale(sale.id);
+        }
+      });
   }
 
   openEditModal(sale: Sale): void {
@@ -634,30 +687,41 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
   }
 
   markGroupAsDelivered(sales: Sale[]): void {
-    if (
-      confirm(
-        `Mark ${sales.length} items as delivered?\nThis will deduct stock and complete the order.`
+    this.dialogService
+      .confirm(
+        `Mark ${sales.length} items as delivered? This will deduct stock and complete the order.`,
+        'Mark Group as Delivered'
       )
-    ) {
-      sales.forEach((s) => this.inventoryService.completePendingSale(s.id));
-    }
+      .then((confirmed) => {
+        if (confirmed) {
+          sales.forEach((s) => this.inventoryService.completePendingSale(s.id));
+        }
+      });
   }
 
   confirmGroupReservation(sales: Sale[]): void {
-    if (
-      confirm(
-        `Confirm reservation for ${sales.length} items? This will deduct stock upon delivery.`
+    this.dialogService
+      .confirm(
+        `Confirm reservation for ${sales.length} items? This will deduct stock upon delivery.`,
+        'Confirm Group Reservation'
       )
-    ) {
-      sales.forEach((s) => this.inventoryService.confirmReservation(s));
-    }
+      .then((confirmed) => {
+        if (confirmed) {
+          sales.forEach((s) => this.inventoryService.confirmReservation(s));
+        }
+      });
   }
 
   cancelGroupOrder(sales: Sale[]): void {
-    if (
-      confirm(`Cancel order for ${sales.length} items? This cannot be undone.`)
-    ) {
-      sales.forEach((s) => this.inventoryService.deleteSale(s.id));
-    }
+    this.dialogService
+      .confirm(
+        `Cancel order for ${sales.length} items? This cannot be undone.`,
+        'Cancel Order'
+      )
+      .then((confirmed) => {
+        if (confirmed) {
+          sales.forEach((s) => this.inventoryService.deleteSale(s.id));
+        }
+      });
   }
 }

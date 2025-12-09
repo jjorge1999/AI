@@ -1,5 +1,5 @@
 <div class="dialog-overlay" *ngIf="dialogState.isOpen" (click)="onBackdropClick($event)">
-  <div class="dialog-container" [@dialogAnimation]>
+  <div class="dialog-container" [@dialogAnimation] (click)="$event.stopPropagation()">
     <div class="dialog-header" [class]="'dialog-header-' + dialogState.config?.type">
       <div class="dialog-icon">{{ getIcon() }}</div>
       <h2 class="dialog-title">{{ dialogState.config?.title }}</h2>
@@ -13,6 +13,7 @@
       <button 
         *ngIf="dialogState.config?.showCancel" 
         class="dialog-btn dialog-btn-cancel"
+        type="button"
         (click)="onCancel()"
       >
         {{ dialogState.config?.cancelText || 'Cancel' }}
@@ -20,6 +21,7 @@
       <button 
         class="dialog-btn dialog-btn-confirm"
         [class]="'dialog-btn-' + dialogState.config?.type"
+        type="button"
         (click)="onConfirm()"
       >
         {{ dialogState.config?.confirmText || 'OK' }}
@@ -27,3 +29,4 @@
     </div>
   </div>
 </div>
+

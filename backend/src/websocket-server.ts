@@ -10,7 +10,7 @@ app.use(express.json());
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:4200', // Angular app
+    origin: '*', // Allow connection from any IP (e.g. mobile testing)
     methods: ['GET', 'POST'],
   },
 });

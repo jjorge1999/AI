@@ -56,7 +56,7 @@ export class DialogComponent implements OnInit, OnDestroy {
     this.dialogService.close(false);
   }
 
-  onBackdropClick(event: MouseEvent): void {
+  onBackdropClick(event: MouseEvent | TouchEvent): void {
     if (event.target === event.currentTarget) {
       this.onCancel();
     }
