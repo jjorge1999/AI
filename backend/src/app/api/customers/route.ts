@@ -39,7 +39,7 @@ export async function GET(request: Request) {
         gpsCoordinates: '***',
         userId: '***',
         // Public/Required Data
-        credits: c.credits || 0,
+        credits: c.credits, // Allow undefined to detect new game users
         createdAt: c.createdAt,
       }));
 
