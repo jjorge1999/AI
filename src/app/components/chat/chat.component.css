@@ -932,5 +932,27 @@ audio {
 .btn-round.active {
   background: var(--color-surface);
   color: var(--color-primary);
+  color: var(--color-primary);
   border-color: var(--color-primary);
+}
+
+/* Status Badges */
+.status-badge {
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  vertical-align: middle;
+  margin-left: 8px;
+  text-shadow: none;
+  font-weight: normal;
+  color: white;
+  display: inline-block;
+}
+
+.status-online {
+  background: #10b981;
+}
+
+.status-offline {
+  background: #9ca3af;
 }
