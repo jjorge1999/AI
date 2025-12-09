@@ -149,7 +149,11 @@
 
 <!-- Pending Deliveries -->
 <div class="card pending-deliveries">
-  <h3>🚚 Pending Deliveries</h3>
+  <h3 (click)="togglePending()" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none;" title="Click to toggle visibility">
+    <span>🚚 Pending Deliveries</span>
+    <span style="font-size: 0.8rem; background: var(--color-bg); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--color-border);">{{ isPendingCollapsed ? 'Show' : 'Hide' }} {{ isPendingCollapsed ? '▼' : '▲' }}</span>
+  </h3>
+  <div class="pending-content-wrapper" *ngIf="!isPendingCollapsed">
   <div class="filter-row">
     <div class="filter-group">
       <label for="deliveryFilter">Date:</label>
@@ -285,6 +289,7 @@
         Next →
       </button>
     </div>
+  </div>
   </div>
 </div>
 

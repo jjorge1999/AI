@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InventoryService } from '../../services/inventory.service';
@@ -43,7 +44,8 @@ export class ReservationComponent implements OnInit, OnDestroy {
   constructor(
     private inventoryService: InventoryService,
     private reservationService: ReservationService,
-    private customerService: CustomerService
+    private customerService: CustomerService,
+    private router: Router
   ) {}
 
   ngOnInit(): void {
@@ -290,5 +292,22 @@ export class ReservationComponent implements OnInit, OnDestroy {
     this.selectedProduct = null;
     this.pickupTime = '';
     // Keep pickup date
+  }
+
+  makeNewReservation(): void {
+    this.successMessage = '';
+    this.resetForm();
+  }
+
+  goBack(): void {
+    this.router.navigate(['/']);
+    // Also clear hash if present
+    if (window.location.hash.includes('reservation')) {
+      history.pushState(
+        '',
+        document.title,
+        window.location.pathname + window.location.search
+      );
+    }
   }
 }

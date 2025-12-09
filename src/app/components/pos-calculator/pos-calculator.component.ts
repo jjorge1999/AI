@@ -28,6 +28,12 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
   customers: Customer[] = [];
   pendingSales: Sale[] = [];
   allGroupedSales: any[] = [];
+  isPendingCollapsed = false;
+
+  togglePending(): void {
+    this.isPendingCollapsed = !this.isPendingCollapsed;
+  }
+
   private subscriptions: Subscription = new Subscription();
 
   // Form state

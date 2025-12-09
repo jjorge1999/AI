@@ -1,14 +1,21 @@
 <div class="reservation-page">
   <div class="reservation-container">
     <div class="reservation-header">
+      <button class="btn-back-header" (click)="goBack()" style="background:none; border:none; cursor:pointer; font-size:1.1rem; color:var(--color-primary); margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem;">
+         ← Back to Home
+      </button>
       <h2>📅 Make a Reservation</h2>
       <p>Reserve items for pickup or delivery.</p>
     </div>
 
     <!-- Success Message -->
-    <div *ngIf="successMessage" class="success-alert">
+    <div *ngIf="successMessage" class="success-alert" style="text-align: center; padding: 2rem;">
       <div class="success-icon">✅</div>
-      <p>{{ successMessage }}</p>
+      <p style="margin: 1rem 0; font-size: 1.1rem;">{{ successMessage }}</p>
+      <div class="success-actions" style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+         <button class="btn-secondary" (click)="goBack()" style="padding: 10px 20px;">🏠 Back to Home</button>
+         <button class="btn-submit" (click)="makeNewReservation()" style="margin:0; width:auto;">📅 Make Another Reservation</button>
+      </div>
     </div>
 
     <!-- Reservation Form -->
@@ -171,15 +178,15 @@
             *ngFor="let item of orderItems; let i = index"
           >
             <div class="item-info">
-              <span class="item-name">{{ item.product?.name }}</span>
+              <span class="item-name">{{ item.product.name }}</span>
               <span class="item-details"
                 >{{ item.quantity }} x ₱{{
-                  item.product?.price | number : "1.2-2"
+                  item.product.price | number : "1.2-2"
                 }}</span
               >
             </div>
             <div class="item-total">
-              ₱{{ (item.product?.price || 0) * item.quantity | number : "1.2-2" }}
+              ₱{{ item.product.price * item.quantity | number : "1.2-2" }}
               <button
                 class="btn-remove"
                 (click)="removeFromOrder(i)"
