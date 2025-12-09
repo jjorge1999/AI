@@ -171,15 +171,15 @@
             *ngFor="let item of orderItems; let i = index"
           >
             <div class="item-info">
-              <span class="item-name">{{ item.product.name }}</span>
+              <span class="item-name">{{ item.product?.name }}</span>
               <span class="item-details"
                 >{{ item.quantity }} x ₱{{
-                  item.product.price | number : "1.2-2"
+                  item.product?.price | number : "1.2-2"
                 }}</span
               >
             </div>
             <div class="item-total">
-              ₱{{ item.product.price * item.quantity | number : "1.2-2" }}
+              ₱{{ (item.product?.price || 0) * item.quantity | number : "1.2-2" }}
               <button
                 class="btn-remove"
                 (click)="removeFromOrder(i)"

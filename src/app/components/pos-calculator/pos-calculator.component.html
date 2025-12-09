@@ -153,25 +153,25 @@
   <div class="filter-row">
     <div class="filter-group">
       <label for="deliveryFilter">Date:</label>
-      <input type="date" id="deliveryFilter" [(ngModel)]="deliveryFilterDate" name="deliveryFilter" />
+      <input type="date" id="deliveryFilter" [(ngModel)]="deliveryFilterDate" (ngModelChange)="updateGroupedSales()" name="deliveryFilter" />
       <button class="btn-clear" (click)="deliveryFilterDate = ''" *ngIf="deliveryFilterDate" title="Clear Date">❌</button>
     </div>
     
     <div class="filter-group">
        <label for="statusFilter">Show:</label>
-       <select id="statusFilter" [(ngModel)]="statusFilter" class="status-select">
+       <select id="statusFilter" [(ngModel)]="statusFilter" (ngModelChange)="updateGroupedSales()" class="status-select">
          <option value="all">All Deliveries</option>
          <option value="reservation">⚠️ Reservations</option>
        </select>
     </div>
   </div>
   <div class="pending-list">
-    <div class="pending-item" *ngFor="let group of paginatedGroupedPendingSales">
+     <div class="pending-item" *ngFor="let group of paginatedGroupedPendingSales">
       <div class="pending-details">
         <div class="pending-header">
            <div class="header-left">
-              <span class="product-name" *ngIf="!group.isGroup">{{ group.sales[0].productName }}</span>
-              <span class="product-name" *ngIf="group.isGroup">Order #{{ group.orderId | slice:4:12 }}... ({{ group.sales.length }} items)</span>
+              <span class="product-name" *ngIf="!group.isGroup">{{ group.sales?.[0]?.productName }}</span>
+              <span class="product-name" *ngIf="group.isGroup">Order #{{ group.orderId | slice:4:12 }}... ({{ group.sales?.length }} items)</span>
            </div>
           <span class="status-badge warning" *ngIf="group.status === 'pending_confirmation'">⚠️ RESERVATION</span>
           <span class="status-badge success" *ngIf="group.status === 'confirmed'">✅ CONFIRMED</span>
@@ -192,9 +192,9 @@
 
         <div class="customer-details" *ngIf="group.customer">
           <div class="customer-header">👤 Customer Details</div>
-          <div class="customer-row"><span class="customer-label">Name:</span> <span class="customer-value">{{ group.customer.name }}</span></div>
-          <div class="customer-row"><span class="customer-label">Phone:</span> <span class="customer-value">{{ group.customer.phoneNumber }}</span></div>
-          <div class="customer-row"><span class="customer-label">Address:</span> <span class="customer-value">{{ group.customer.deliveryAddress }}</span></div>
+          <div class="customer-row"><span class="customer-label">Name:</span> <span class="customer-value">{{ group.customer?.name }}</span></div>
+          <div class="customer-row"><span class="customer-label">Phone:</span> <span class="customer-value">{{ group.customer?.phoneNumber }}</span></div>
+          <div class="customer-row"><span class="customer-label">Address:</span> <span class="customer-value">{{ group.customer?.deliveryAddress }}</span></div>
         </div>
         
         <div class="delivery-info" *ngIf="group.deliveryDate">
@@ -208,14 +208,14 @@
         <button 
           class="btn-edit" 
           type="button"
-          (click)="openEditModal(group.sales[0])"
+          (click)="openEditModal(group?.sales[0])"
         >✏️ Edit</button>
         
         <button 
           *ngIf="group.status === 'pending_confirmation'" 
           class="btn-confirm" 
           type="button"
-          (click)="confirmGroupReservation(group.sales)"
+          (click)="confirmGroupReservation(group?.sales)"
           title="Confirm Reservation"
         >
           📝 Confirm
@@ -224,7 +224,7 @@
         <button 
           class="btn-delete" 
           type="button"
-          (click)="cancelGroupOrder(group.sales)"
+          (click)="cancelGroupOrder(group?.sales)"
           title="Cancel Order"
         >
           🗑️ Cancel
@@ -234,7 +234,7 @@
           *ngIf="group.status !== 'pending_confirmation'"
           class="btn-deliver" 
           type="button"
-          (click)="markGroupAsDelivered(group.sales)"
+          (click)="markGroupAsDelivered(group?.sales)"
         >
           🚚 Mark Delivered
         </button>
@@ -243,7 +243,7 @@
   </div>
 
   <!-- Pagination Controls for Pending Deliveries -->
-  <div class="pagination" *ngIf="pendingTotalPages > 1 || groupedPendingSales.length > 5">
+  <div class="pagination" *ngIf="pendingTotalPages > 1 || allGroupedSales.length > 5">
     <div class="pagination-size">
       <label for="pendingPageSize">Show:</label>
       <select 

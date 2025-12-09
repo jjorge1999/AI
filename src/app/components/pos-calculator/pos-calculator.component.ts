@@ -27,6 +27,7 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
   products: Product[] = [];
   customers: Customer[] = [];
   pendingSales: Sale[] = [];
+  allGroupedSales: any[] = [];
   private subscriptions: Subscription = new Subscription();
 
   // Form state
@@ -137,6 +138,7 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     this.subscriptions.add(
       this.inventoryService.getSales().subscribe((sales) => {
         this.pendingSales = sales.filter((s) => s.pending === true);
+        this.updateGroupedSales();
         // Only start if not already started? or re-check. Logic is fine here.
         if (!this.checkInterval) {
           this.startAlarmChecks();
@@ -459,7 +461,7 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     return this.cart.length > 0 && this.cashReceived >= this.total;
   }
 
-  get groupedPendingSales(): any[] {
+  updateGroupedSales(): void {
     const groups = new Map<string, Sale[]>();
     const singles: Sale[] = [];
 
@@ -514,7 +516,7 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     });
 
     // Sort by Date/Status priority same as before
-    return result.sort((a, b) => {
+    this.allGroupedSales = result.sort((a, b) => {
       const aReserved = a.status === 'pending_confirmation';
       const bReserved = b.status === 'pending_confirmation';
 
@@ -529,18 +531,23 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
         : Infinity;
       return aTime - bTime;
     });
+
+    // Ensure page is valid
+    if (this.pendingPage > this.pendingTotalPages && this.pendingPage > 1) {
+      this.pendingPage = 1;
+    }
   }
 
   get paginatedGroupedPendingSales(): any[] {
     const startIndex = (this.pendingPage - 1) * this.pendingPageSize;
-    return this.groupedPendingSales.slice(
+    return this.allGroupedSales.slice(
       startIndex,
       startIndex + this.pendingPageSize
     );
   }
 
   get pendingTotalPages(): number {
-    return Math.ceil(this.groupedPendingSales.length / this.pendingPageSize);
+    return Math.ceil(this.allGroupedSales.length / this.pendingPageSize);
   }
 
   nextPendingPage(): void {
@@ -569,6 +576,7 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     this.deliveryFilterDate = '';
     this.statusFilter = 'all';
     this.pendingPage = 1; // Reset to page 1
+    this.updateGroupedSales();
   }
 
   checkout(): void {
@@ -671,7 +679,8 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
       });
   }
 
-  openEditModal(sale: Sale): void {
+  openEditModal(sale: Sale | undefined): void {
+    if (!sale) return;
     this.editingSale = sale;
     this.isEditModalOpen = true;
     if (sale.deliveryDate) {
@@ -735,7 +744,8 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     this.closeEditModal();
   }
 
-  markGroupAsDelivered(sales: Sale[]): void {
+  markGroupAsDelivered(sales: Sale[] | undefined): void {
+    if (!sales || sales.length === 0) return;
     this.dialogService
       .confirm(
         `Mark ${sales.length} items as delivered? This will deduct stock and complete the order.`,
@@ -748,7 +758,8 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
       });
   }
 
-  confirmGroupReservation(sales: Sale[]): void {
+  confirmGroupReservation(sales: Sale[] | undefined): void {
+    if (!sales || sales.length === 0) return;
     this.dialogService
       .confirm(
         `Confirm reservation for ${sales.length} items? This will deduct stock upon delivery.`,
@@ -761,7 +772,8 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
       });
   }
 
-  cancelGroupOrder(sales: Sale[]): void {
+  cancelGroupOrder(sales: Sale[] | undefined): void {
+    if (!sales || sales.length === 0) return;
     this.dialogService
       .confirm(
         `Cancel order for ${sales.length} items? This cannot be undone.`,

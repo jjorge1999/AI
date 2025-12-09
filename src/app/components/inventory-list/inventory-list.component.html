@@ -154,7 +154,7 @@
               </div>
               
               <div class="sale-details-text" *ngIf="!group.isGroup">
-                 {{ group.items[0].quantitySold }} × ₱{{ group.items[0].price | number:'1.2-2' }}
+                 {{ group.items?.[0]?.quantitySold }} × ₱{{ group.items?.[0]?.price | number:'1.2-2' }}
               </div>
                <div class="sale-details-text" *ngIf="group.isGroup">
                  <div *ngFor="let item of group.items" style="font-size:0.9em; margin-bottom:2px">
