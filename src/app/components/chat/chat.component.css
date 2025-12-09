@@ -208,6 +208,7 @@
 }
 
 .conv-avatar {
+  position: relative;
   width: 42px;
   height: 42px;
   border-radius: 50%;
@@ -221,6 +222,19 @@
   flex-shrink: 0;
   box-shadow: 0 2px 5px rgba(0,0,0,0.1);
   transition: all 0.2s;
+}
+
+.online-status {
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
+  width: 12px;
+  height: 12px;
+  background-color: #10b981; /* Green */
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  z-index: 5;
 }
 
 .conversation-item.active .conv-avatar {

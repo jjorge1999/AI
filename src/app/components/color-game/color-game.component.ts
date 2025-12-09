@@ -155,9 +155,14 @@ export class ColorGameComponent implements OnInit {
 
     // 2. Save to Database (Background sync)
     if (this.currentCustomerId) {
-      this.customerService.updateCustomer(this.currentCustomerId, {
-        credits: this.credits,
-      });
+      this.customerService
+        .updateCustomer(this.currentCustomerId, {
+          credits: this.credits,
+        })
+        .subscribe({
+          error: (err) =>
+            console.error('Failed to sync credits to database:', err),
+        });
     }
   }
 

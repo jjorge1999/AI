@@ -11,10 +11,13 @@ import {
   SimpleChanges,
   Output,
   EventEmitter,
+  signal,
+  computed,
+  WritableSignal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ChatService } from '../../services/chat.service';
+import { ChatService, UserStatus } from '../../services/chat.service';
 import { CustomerService } from '../../services/customer.service';
 import { UserService } from '../../services/user.service';
 import { CallService } from '../../services/call.service';
@@ -82,6 +85,20 @@ export class ChatComponent
 
   private notificationAudioContext: AudioContext | null = null;
   private audioUnlocked = false;
+
+  // Online Status - Signals
+  onlineUsers = signal<UserStatus[]>([]);
+  currentTime = signal(Date.now());
+
+  // Computed Support Status
+  isSupportOnline = computed(() => {
+    const cutoff = this.currentTime() - 2 * 60 * 1000;
+    return this.onlineUsers().some(
+      (u) => u.role === 'admin' && u.lastSeen.getTime() > cutoff
+    );
+  });
+
+  private heartbeatInterval: any = null;
 
   constructor(
     private chatService: ChatService,
@@ -188,6 +205,19 @@ export class ChatComponent
   ngOnInit(): void {
     // Check login immediately
     this.checkLoginAndStatus();
+
+    // Subscribe to online users
+    this.subscriptions.add(
+      this.chatService.getOnlineUsers().subscribe((users) => {
+        console.log('Online Users Signal Update:', users.length);
+        this.onlineUsers.set(users);
+      })
+    );
+
+    // Update time signal every 15s
+    setInterval(() => {
+      this.currentTime.set(Date.now());
+    }, 15000);
 
     // Listen for logout events from the app
     this.subscriptions.add(
@@ -309,6 +339,50 @@ export class ChatComponent
       gpsCoordinates: 'N/A',
     };
     this.messages = [];
+    this.stopHeartbeat();
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat(); // Clear existing
+    if (!this.senderName) return;
+
+    const id = this.isAppUser
+      ? localStorage.getItem('jjm_user_id') || this.senderName
+      : this.senderName;
+    const role = this.isAppUser ? 'admin' : 'customer';
+
+    // Initial update
+    this.chatService.updatePresence(id, this.senderName, role);
+
+    // Periodically update
+    this.heartbeatInterval = setInterval(() => {
+      if (this.senderName) {
+        const uid = this.isAppUser
+          ? localStorage.getItem('jjm_user_id') || this.senderName
+          : this.senderName;
+        this.chatService.updatePresence(uid, this.senderName, role);
+      }
+    }, 30000); // 30 seconds
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+  }
+
+  // isSupportOnline is now a signal property
+
+  isUserOnline(nameOrId: string): boolean {
+    if (!nameOrId) return false;
+    const cutoff = this.currentTime() - 2 * 60 * 1000;
+    // Check by ID or Name
+    return this.onlineUsers().some(
+      (u) =>
+        (u.id === nameOrId || u.name === nameOrId) &&
+        u.lastSeen.getTime() > cutoff
+    );
   }
 
   private checkLoginAndStatus(): void {
@@ -346,6 +420,7 @@ export class ChatComponent
       if (this.incomingCallListener) this.incomingCallListener();
       this.incomingCallListener = this.callService.listenForAllIncomingCalls();
 
+      this.startHeartbeat();
       return;
     }
 
@@ -378,6 +453,8 @@ export class ChatComponent
         this.senderName
       );
 
+      this.startHeartbeat();
+
       // Optional: Verify against customer list in background (non-blocking)
       const foundCustomer = this.allCustomers.find(
         (c) => c.phoneNumber === parsedInfo.phoneNumber
@@ -403,6 +480,7 @@ export class ChatComponent
   ngOnDestroy(): void {
     // Stop any active ringing
     this.stopRinging();
+    this.stopHeartbeat();
 
     // Clean up visualization audio context
     this.cleanupAudioVisualizer();

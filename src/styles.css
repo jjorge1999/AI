@@ -462,9 +462,10 @@ body.vision-aid {
   --color-text-muted: #333333;
 
   /* Enhance visibility */
-  font-size: 115%; /* 15% bigger text */
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  font-size: 140%; /* Significantly bigger text */
+  line-height: 1.7;
+  font-weight: 600;
+  letter-spacing: 0.03em;
 }
 
 /* Ensure strong borders */

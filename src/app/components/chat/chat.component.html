@@ -83,7 +83,10 @@
           [class.active]="currentConversationId === conv"
           (click)="selectConversation(conv)"
         >
-          <div class="conv-avatar">{{ getDisplayName(conv).charAt(0).toUpperCase() }}</div>
+          <div class="conv-avatar">
+            {{ getDisplayName(conv).charAt(0).toUpperCase() }}
+            <span class="online-status" *ngIf="isUserOnline(conv)" title="Online"></span>
+          </div>
           <div class="conv-info">
             <span class="conversation-name">{{ getDisplayName(conv) }}</span>
             <span class="conversation-preview">Click to view chat</span>
@@ -102,6 +105,7 @@
         <div class="header-content">
           <h2>
             💬 {{ isAppUser && currentConversationId ? 'Chat with ' + getDisplayName(currentConversationId) : 'Customer Support Chat' }}
+            <span *ngIf="!isAppUser && isSupportOnline()" style="font-size: 0.8rem; background: #10b981; color: white; padding: 2px 8px; border-radius: 12px; vertical-align: middle; margin-left: 8px; text-shadow: none; font-weight: normal;">Online</span>
           </h2>
           <!-- Show Address/GPS in Header for Admin -->
           <div *ngIf="isAppUser && currentConversationId" class="header-details-subtitle">

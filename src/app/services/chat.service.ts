@@ -15,9 +15,17 @@ import {
   doc,
   updateDoc,
   writeBatch,
+  setDoc,
 } from 'firebase/firestore';
 import { environment } from '../../environments/environment';
 import { Message } from '../models/inventory.models';
+export interface UserStatus {
+  id: string;
+  name: string;
+  lastSeen: Date;
+  role?: string;
+  isOnline?: boolean;
+}
 
 @Injectable({
   providedIn: 'root',
@@ -28,6 +36,9 @@ export class ChatService {
   private messagesSubject = new BehaviorSubject<Message[]>([]);
   public messages$ = this.messagesSubject.asObservable();
 
+  private onlineUsersSubject = new BehaviorSubject<UserStatus[]>([]);
+  public onlineUsers$ = this.onlineUsersSubject.asObservable();
+
   private logoutSubject = new BehaviorSubject<void>(undefined);
   public logout$ = this.logoutSubject.asObservable();
 
@@ -35,6 +46,39 @@ export class ChatService {
     this.app = this.firebaseService.app;
     this.db = this.firebaseService.db;
     this.listenForMessages();
+    this.listenForStatus();
+  }
+
+  private listenForStatus(): void {
+    const statusRef = collection(this.db, 'status');
+    const q = query(statusRef); // Get all statuses
+
+    onSnapshot(
+      q,
+      (snapshot) => {
+        const now = new Date();
+        const statuses = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          const lastSeen = (data['lastSeen'] as Timestamp).toDate();
+          // Online if seen in last 2 minutes
+          const isOnline = now.getTime() - lastSeen.getTime() < 2 * 60 * 1000;
+          return {
+            id: doc.id,
+            name: data['name'],
+            role: data['role'],
+            lastSeen: lastSeen,
+            isOnline: isOnline,
+          } as UserStatus;
+        });
+        this.onlineUsersSubject.next(statuses);
+      },
+      (error) => {
+        console.warn(
+          'Status update listener failed (check Firestore rules):',
+          error
+        );
+      }
+    );
   }
 
   private listenForMessages(): void {
@@ -120,5 +164,31 @@ export class ChatService {
 
   triggerLogout(): void {
     this.logoutSubject.next();
+  }
+
+  async updatePresence(
+    id: string,
+    name: string,
+    role: string = 'user'
+  ): Promise<void> {
+    try {
+      const statusRef = doc(this.db, 'status', id);
+      await setDoc(
+        statusRef,
+        {
+          name,
+          role,
+          lastSeen: new Date(),
+          state: 'online',
+        },
+        { merge: true }
+      );
+    } catch (e) {
+      console.warn('Failed to update presence (check Firestore rules):', e);
+    }
+  }
+
+  getOnlineUsers(): Observable<UserStatus[]> {
+    return this.onlineUsers$;
   }
 }
