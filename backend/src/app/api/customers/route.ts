@@ -31,8 +31,10 @@ export async function GET(request: Request) {
       const masked = filtered.map((c: any) => ({
         id: c.id,
         name: c.name,
-        // Sensitive Data Masked
-        phoneNumber: '***',
+        // Sensitive Data Masked but useful for verification
+        phoneNumber: c.phoneNumber
+          ? c.phoneNumber.replace(/\D/g, '').slice(-8)
+          : '***',
         deliveryAddress: '***',
         gpsCoordinates: '***',
         userId: '***',

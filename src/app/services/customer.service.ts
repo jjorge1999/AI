@@ -67,7 +67,7 @@ export class CustomerService {
           customers.map((c) => ({
             ...c,
             // Explicitly mask sensitive data
-            phoneNumber: '***',
+            phoneNumber: c.phoneNumber, // Unmasked for verification
             deliveryAddress: '***',
             gpsCoordinates: '***',
             userId: '***', // Hide linked user ID if any

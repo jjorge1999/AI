@@ -538,6 +538,21 @@ export class ChatComponent
           return;
         }
 
+        // Validate Phone Number (Last 8 Digits)
+        const cleanInput = this.customerInfo.phoneNumber
+          .replace(/\D/g, '')
+          .slice(-8);
+        const cleanStored = (foundCustomer.phoneNumber || '')
+          .replace(/\D/g, '')
+          .slice(-8);
+
+        if (cleanInput !== cleanStored) {
+          alert(
+            'Verification Failed: The phone number provided does not match our records.'
+          );
+          return;
+        }
+
         // Save info and proceed
         localStorage.setItem(
           'chatCustomerInfo',
