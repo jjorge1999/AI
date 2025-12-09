@@ -252,7 +252,7 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
       const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
       // Check for approaching (1 or 2 days) or overdue/today (< 1)
-      if (diffDays === 1 || diffDays === 2 || diffDays < 1) {
+      if (diffDays === 1 || diffDays === 2 || diffDays < 0) {
         dueSales.push({ sale, days: diffDays });
       }
     });
@@ -296,7 +296,7 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
 
     this.dialogService
       .alert(message, 'Delivery Reminder', 'warning')
-      .then(() => {
+      .subscribe(() => {
         this.stopAlarm();
       });
   }
@@ -638,7 +638,7 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
         'Are you sure you want to mark this item as delivered?',
         'Mark as Delivered'
       )
-      .then((confirmed) => {
+      .subscribe((confirmed) => {
         if (confirmed) {
           this.inventoryService.completePendingSale(saleId);
         }
@@ -651,7 +651,7 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
         'Confirming this reservation will deduct items from inventory. Continue?',
         'Confirm Reservation'
       )
-      .then((confirmed) => {
+      .subscribe((confirmed) => {
         if (confirmed) {
           this.inventoryService.confirmReservation(sale);
         }
@@ -664,7 +664,7 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
         'Are you sure you want to remove this reservation?',
         'Remove Reservation'
       )
-      .then((confirmed) => {
+      .subscribe((confirmed) => {
         if (confirmed) {
           this.inventoryService.deleteSale(sale.id);
         }
@@ -741,7 +741,7 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
         `Mark ${sales.length} items as delivered? This will deduct stock and complete the order.`,
         'Mark Group as Delivered'
       )
-      .then((confirmed) => {
+      .subscribe((confirmed) => {
         if (confirmed) {
           sales.forEach((s) => this.inventoryService.completePendingSale(s.id));
         }
@@ -754,7 +754,7 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
         `Confirm reservation for ${sales.length} items? This will deduct stock upon delivery.`,
         'Confirm Group Reservation'
       )
-      .then((confirmed) => {
+      .subscribe((confirmed) => {
         if (confirmed) {
           sales.forEach((s) => this.inventoryService.confirmReservation(s));
         }
@@ -767,7 +767,7 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
         `Cancel order for ${sales.length} items? This cannot be undone.`,
         'Cancel Order'
       )
-      .then((confirmed) => {
+      .subscribe((confirmed) => {
         if (confirmed) {
           sales.forEach((s) => this.inventoryService.deleteSale(s.id));
         }

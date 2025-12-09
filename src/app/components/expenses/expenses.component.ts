@@ -95,7 +95,7 @@ export class ExpensesComponent implements OnInit {
         }" (₱${expense.price.toFixed(2)})?`,
         'Delete Expense'
       )
-      .then((confirmed) => {
+      .subscribe((confirmed) => {
         if (confirmed) {
           this.inventoryService.deleteExpense(expense.id);
         }

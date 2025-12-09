@@ -83,18 +83,20 @@ export class CustomerFormComponent implements OnInit {
     };
   }
 
-  async deleteCustomer(id: string): Promise<void> {
-    if (
-      await this.dialogService.confirm(
+  deleteCustomer(id: string): void {
+    this.dialogService
+      .confirm(
         'Are you sure you want to delete this customer?',
         'Delete Customer'
       )
-    ) {
-      this.customerService.deleteCustomer(id);
-      if (this.editingId === id) {
-        this.cancelEdit();
-      }
-    }
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          this.customerService.deleteCustomer(id);
+          if (this.editingId === id) {
+            this.cancelEdit();
+          }
+        }
+      });
   }
 
   isValid(): boolean {

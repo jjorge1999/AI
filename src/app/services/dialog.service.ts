@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Observable, Subject } from 'rxjs';
 
 export interface DialogConfig {
   title?: string;
@@ -13,7 +13,7 @@ export interface DialogConfig {
 export interface DialogState {
   isOpen: boolean;
   config: DialogConfig | null;
-  resolve: ((value: boolean) => void) | null;
+  subject: Subject<boolean> | null;
 }
 
 @Injectable({
@@ -23,67 +23,64 @@ export class DialogService {
   private dialogSubject = new BehaviorSubject<DialogState>({
     isOpen: false,
     config: null,
-    resolve: null,
+    subject: null,
   });
 
   public dialog$ = this.dialogSubject.asObservable();
   private dialogQueue: Array<{
     config: DialogConfig;
-    resolve: (value: boolean) => void;
+    subject: Subject<boolean>;
   }> = [];
 
   alert(
     message: string,
     title?: string,
     type: 'info' | 'success' | 'warning' | 'error' = 'info'
-  ): Promise<boolean> {
-    return new Promise((resolve) => {
-      const config: DialogConfig = {
-        title: title || this.getDefaultTitle(type),
-        message,
-        type,
-        confirmText: 'OK',
-        showCancel: false,
-      };
-      this.enqueueDialog(config, resolve);
-    });
+  ): Observable<boolean> {
+    const subject = new Subject<boolean>();
+    const config: DialogConfig = {
+      title: title || this.getDefaultTitle(type),
+      message,
+      type,
+      confirmText: 'OK',
+      showCancel: false,
+    };
+    this.enqueueDialog(config, subject);
+    return subject.asObservable();
   }
 
-  confirm(message: string, title?: string): Promise<boolean> {
-    return new Promise((resolve) => {
-      const config: DialogConfig = {
-        title: title || 'Confirm',
-        message,
-        type: 'confirm',
-        confirmText: 'Confirm',
-        cancelText: 'Cancel',
-        showCancel: true,
-      };
-      this.enqueueDialog(config, resolve);
-    });
+  confirm(message: string, title?: string): Observable<boolean> {
+    const subject = new Subject<boolean>();
+    const config: DialogConfig = {
+      title: title || 'Confirm',
+      message,
+      type: 'confirm',
+      confirmText: 'Confirm',
+      cancelText: 'Cancel',
+      showCancel: true,
+    };
+    this.enqueueDialog(config, subject);
+    return subject.asObservable();
   }
 
-  success(message: string, title?: string): Promise<boolean> {
+  success(message: string, title?: string): Observable<boolean> {
     return this.alert(message, title, 'success');
   }
 
-  error(message: string, title?: string): Promise<boolean> {
+  error(message: string, title?: string): Observable<boolean> {
     return this.alert(message, title, 'error');
   }
 
-  warning(message: string, title?: string): Promise<boolean> {
+  warning(message: string, title?: string): Observable<boolean> {
     return this.alert(message, title, 'warning');
   }
 
-  info(message: string, title?: string): Promise<boolean> {
+  info(message: string, title?: string): Observable<boolean> {
     return this.alert(message, title, 'info');
   }
 
-  private enqueueDialog(
-    config: DialogConfig,
-    resolve: (value: boolean) => void
-  ) {
-    this.dialogQueue.push({ config, resolve });
+  private enqueueDialog(config: DialogConfig, subject: Subject<boolean>) {
+    this.dialogQueue.push({ config, subject });
     this.processQueue();
   }
 
@@ -99,21 +96,22 @@ export class DialogService {
       this.dialogSubject.next({
         isOpen: true,
         config: next.config,
-        resolve: next.resolve,
+        subject: next.subject,
       });
     }
   }
 
   close(result: boolean): void {
     const current = this.dialogSubject.value;
-    if (current.resolve) {
-      current.resolve(result);
+    if (current.subject) {
+      current.subject.next(result);
+      current.subject.complete();
     }
     // Close current
     this.dialogSubject.next({
       isOpen: false,
       config: null,
-      resolve: null,
+      subject: null,
     });
     // Try to open next
     this.processQueue();

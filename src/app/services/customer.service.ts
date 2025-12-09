@@ -78,8 +78,8 @@ export class CustomerService {
 
   addCustomer(customer: Omit<Customer, 'id' | 'createdAt'>): void {
     const customerWithUser = {
-      ...customer,
       userId: this.getCurrentUser(),
+      ...customer,
     };
     this.http
       .post<Customer>(`${this.apiUrl}/customers`, customerWithUser)

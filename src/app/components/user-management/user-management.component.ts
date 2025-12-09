@@ -83,21 +83,19 @@ export class UserManagementComponent implements OnInit {
     this.isModalOpen = false;
   }
 
-  async saveUser(): Promise<void> {
+  saveUser(): void {
     if (!this.currentUser.username || !this.currentUser.role) {
-      await this.dialogService.error(
-        'Please fill in username and role.',
-        'Validation Error'
-      );
+      this.dialogService
+        .error('Please fill in username and role.', 'Validation Error')
+        .subscribe();
       return;
     }
 
     // Password validation
     if (!this.isEditing && !this.formPassword) {
-      await this.dialogService.error(
-        'Password is required for new users.',
-        'Validation Error'
-      );
+      this.dialogService
+        .error('Password is required for new users.', 'Validation Error')
+        .subscribe();
       return;
     }
 
@@ -136,14 +134,13 @@ export class UserManagementComponent implements OnInit {
     }
   }
 
-  async deleteUser(userId: string): Promise<void> {
-    if (
-      await this.dialogService.confirm(
-        'Are you sure you want to delete this user?',
-        'Delete User'
-      )
-    ) {
-      this.userService.deleteUser(userId).subscribe();
-    }
+  deleteUser(userId: string): void {
+    this.dialogService
+      .confirm('Are you sure you want to delete this user?', 'Delete User')
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          this.userService.deleteUser(userId).subscribe();
+        }
+      });
   }
 }

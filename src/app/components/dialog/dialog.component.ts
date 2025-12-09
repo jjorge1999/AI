@@ -29,7 +29,7 @@ export class DialogComponent implements OnInit, OnDestroy {
   dialogState: DialogState = {
     isOpen: false,
     config: null,
-    resolve: null,
+    subject: null,
   };
 
   private subscription?: Subscription;

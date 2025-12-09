@@ -101,28 +101,32 @@ export class ActivityLogsComponent implements OnInit, OnDestroy {
     this.loggingService.refreshLogs();
   }
 
-  async cleanupOldLogs(): Promise<void> {
-    if (
-      await this.dialogService.confirm(
+  cleanupOldLogs(): void {
+    this.dialogService
+      .confirm(
         'This will delete all logs older than 30 days. Continue?',
         'Cleanup Logs'
       )
-    ) {
-      this.subscriptions.add(
-        this.loggingService.cleanupOldLogs().subscribe({
-          next: async (result) => {
-            await this.dialogService.success(
-              `Cleanup completed! Deleted ${result.deletedCount} logs.`
-            );
-            this.refreshLogs();
-          },
-          error: async (err) => {
-            console.error('Cleanup error:', err);
-            await this.dialogService.error('Failed to cleanup logs');
-          },
-        })
-      );
-    }
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          this.subscriptions.add(
+            this.loggingService.cleanupOldLogs().subscribe({
+              next: async (result) => {
+                this.dialogService
+                  .success(
+                    `Cleanup completed! Deleted ${result.deletedCount} logs.`
+                  )
+                  .subscribe();
+                this.refreshLogs();
+              },
+              error: async (err) => {
+                console.error('Cleanup error:', err);
+                this.dialogService.error('Failed to cleanup logs').subscribe();
+              },
+            })
+          );
+        }
+      });
   }
 
   getActionIcon(action: string): string {

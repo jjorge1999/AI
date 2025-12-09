@@ -144,6 +144,34 @@ export class ReservationComponent implements OnInit, OnDestroy {
     return this.totalAmount - this.subTotal;
   }
 
+  gpsCoordinates = '';
+  isLocationLoading = false;
+
+  async getLocation() {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser');
+      return;
+    }
+
+    this.isLocationLoading = true;
+
+    try {
+      const position = await new Promise<GeolocationPosition>(
+        (resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject);
+        }
+      );
+
+      this.gpsCoordinates = `${position.coords.latitude},${position.coords.longitude}`;
+      // Optional: Reverse geocode here if you want to fill address, but for now just store coordinates
+    } catch (error) {
+      console.error('Error getting location', error);
+      alert('Unable to retrieve your location');
+    } finally {
+      this.isLocationLoading = false;
+    }
+  }
+
   async submitReservation() {
     if (
       this.orderItems.length === 0 ||
@@ -180,10 +208,14 @@ export class ReservationComponent implements OnInit, OnDestroy {
 
       // Only create customer if they don't exist
       if (!existingCustomer) {
+        const targetUserId = this.orderItems[0]?.product?.userId;
+
         this.customerService.addCustomer({
           name: this.customerName,
           phoneNumber: this.customerContact,
           deliveryAddress: this.customerAddress,
+          gpsCoordinates: this.gpsCoordinates,
+          ...(targetUserId ? { userId: targetUserId } : {}),
         });
       }
 
@@ -210,7 +242,7 @@ export class ReservationComponent implements OnInit, OnDestroy {
         name: this.customerName,
         phoneNumber: this.customerContact,
         address: this.customerAddress,
-        gpsCoordinates: '', // Can be added later if needed
+        gpsCoordinates: this.gpsCoordinates,
         expiresAt: Date.now() + 2 * 60 * 60 * 1000, // 2 hours from now
       };
       localStorage.setItem(
