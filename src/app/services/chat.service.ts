@@ -1,9 +1,9 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { initializeApp } from 'firebase/app';
+import { FirebaseService } from './firebase.service';
+import { FirebaseApp } from 'firebase/app';
 import {
-  initializeFirestore,
-  getFirestore,
+  Firestore,
   collection,
   query,
   orderBy,
@@ -23,17 +23,17 @@ import { Message } from '../models/inventory.models';
   providedIn: 'root',
 })
 export class ChatService {
-  private app = initializeApp(environment.firebaseConfig);
-  private db = initializeFirestore(this.app, {
-    experimentalForceLongPolling: true,
-  });
+  private app: FirebaseApp;
+  private db: Firestore;
   private messagesSubject = new BehaviorSubject<Message[]>([]);
   public messages$ = this.messagesSubject.asObservable();
 
   private logoutSubject = new BehaviorSubject<void>(undefined);
   public logout$ = this.logoutSubject.asObservable();
 
-  constructor() {
+  constructor(private firebaseService: FirebaseService) {
+    this.app = this.firebaseService.app;
+    this.db = this.firebaseService.db;
     this.listenForMessages();
   }
 

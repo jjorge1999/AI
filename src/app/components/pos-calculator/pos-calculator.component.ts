@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InventoryService } from '../../services/inventory.service';
@@ -66,6 +66,10 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
   // Alarm state
   private alarmInterval: any = null;
   private checkInterval: any = null;
+
+  // Audio Context State
+  private audioCtx: any = null;
+  private audioUnlocked = false;
 
   // Cash Formatting
   cashDisplayValue: string = '';
@@ -148,6 +152,42 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
+    }
+    if (this.audioCtx) {
+      this.audioCtx.close().catch(() => {});
+    }
+  }
+
+  @HostListener('document:click')
+  @HostListener('document:touchstart')
+  @HostListener('document:keydown')
+  onUserInteraction() {
+    this.unlockAudioContext();
+  }
+
+  private unlockAudioContext() {
+    if (this.audioUnlocked) return;
+
+    if (!this.audioCtx) {
+      this.audioCtx = new (window.AudioContext ||
+        (window as any).webkitAudioContext)();
+    }
+    const ctx = this.audioCtx;
+    if (ctx) {
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      // Play silent buffer to unlock
+      try {
+        const buffer = ctx.createBuffer(1, 1, 22050);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(0);
+        this.audioUnlocked = true;
+      } catch (e) {
+        // ignore
+      }
     }
   }
 
@@ -249,7 +289,7 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
 
     this.playLoopingAlarm();
 
-    // Auto-stop alarm after 20 seconds to prevent endless loops
+    // Auto-stop alarm after 20 seconds to prevent endless loops or stuck audio
     setTimeout(() => {
       this.stopAlarm();
     }, 20000);
@@ -281,8 +321,6 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     }
   }
 
-  private audioCtx: any = null;
-
   private playBeep(): void {
     try {
       if (!this.audioCtx) {
@@ -295,6 +333,11 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
       // If suspended (common on iOS before interaction), try to resume
       if (ctx.state === 'suspended') {
         ctx.resume().catch(() => {});
+      }
+
+      if (!this.audioUnlocked) {
+        // Try to unlock naturally
+        this.unlockAudioContext();
       }
 
       // Create two oscillators for a pleasant harmony

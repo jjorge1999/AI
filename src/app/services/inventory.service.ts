@@ -5,9 +5,10 @@ import { Product, Sale, Expense } from '../models/inventory.models';
 import { environment } from '../../environments/environment';
 import { LoggingService } from './logging.service';
 import { CustomerService } from './customer.service';
-import { initializeApp } from 'firebase/app';
+import { FirebaseService } from './firebase.service';
+import { FirebaseApp } from 'firebase/app';
 import {
-  initializeFirestore,
+  Firestore,
   collection,
   query,
   where,
@@ -41,11 +42,9 @@ export class InventoryService {
   public sales$ = this.salesSubject.asObservable();
   public expenses$ = this.expensesSubject.asObservable();
 
-  private app = initializeApp(environment.firebaseConfig);
-  private db = initializeFirestore(this.app, {
-    experimentalForceLongPolling: true,
-  });
-  private auth = getAuth(this.app);
+  private app: FirebaseApp;
+  private db: Firestore;
+  private auth;
   private firebaseUser: User | null = null;
   private unsubscribes: Unsubscribe[] = [];
   private pollingInterval: any = null;
@@ -53,8 +52,12 @@ export class InventoryService {
   constructor(
     private http: HttpClient,
     private loggingService: LoggingService,
-    private customerService: CustomerService
+    private customerService: CustomerService,
+    private firebaseService: FirebaseService
   ) {
+    this.app = this.firebaseService.app;
+    this.db = this.firebaseService.db;
+    this.auth = getAuth(this.app);
     // Manual loading only (via AppComponent or specific components)
   }
 

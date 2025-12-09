@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Subject } from 'rxjs';
-import { initializeApp } from 'firebase/app';
+import { FirebaseService } from './firebase.service';
+import { FirebaseApp } from 'firebase/app';
 import {
-  initializeFirestore,
+  Firestore,
   getFirestore,
   collection,
   doc,
@@ -26,10 +27,8 @@ import { WebRTCCall } from '../models/inventory.models';
   providedIn: 'root',
 })
 export class CallService {
-  private app = initializeApp(environment.firebaseConfig);
-  private db = initializeFirestore(this.app, {
-    experimentalForceLongPolling: true,
-  });
+  private app: FirebaseApp;
+  private db: Firestore;
 
   private peerConnection: RTCPeerConnection | null = null;
   private localStream: MediaStream | null = null;
@@ -39,10 +38,17 @@ export class CallService {
   private offerCandidatesSubscription: Unsubscribe | null = null;
   private answerCandidatesSubscription: Unsubscribe | null = null;
 
-  public incomingCall$ = new Subject<WebRTCCall | null>();
-  public callStatus$ = new BehaviorSubject<string>('idle'); // idle, calling, connected, incoming
-  public remoteStream$ = new BehaviorSubject<MediaStream | null>(null);
+  public incomingCall$: BehaviorSubject<WebRTCCall | null> =
+    new BehaviorSubject<WebRTCCall | null>(null);
+  public remoteStream$: BehaviorSubject<MediaStream | null> =
+    new BehaviorSubject<MediaStream | null>(null);
   public error$ = new Subject<string>();
+
+  public callStatus$: BehaviorSubject<
+    'idle' | 'calling' | 'connected' | 'ended' | 'incoming'
+  > = new BehaviorSubject<
+    'idle' | 'calling' | 'connected' | 'ended' | 'incoming'
+  >('idle');
 
   private currentCallId: string | null = null;
   private candidateQueue: RTCIceCandidate[] = [];
@@ -61,7 +67,10 @@ export class CallService {
     ],
   };
 
-  constructor() {}
+  constructor(private firebaseService: FirebaseService) {
+    this.app = this.firebaseService.app;
+    this.db = this.firebaseService.db;
+  }
 
   async initializeCall(conversationId: string, callerName: string) {
     try {
