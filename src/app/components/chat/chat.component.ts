@@ -1460,7 +1460,9 @@ export class ChatComponent
             // Use Fallback Template directly (more reliable than AI for this use case)
             const convo = `Hello ${safeName}, just confirming your order of ${
               safeQty > 1 ? safeQty + 'pcs' : safeQty + 'pc'
-            } of ${safeProduct} is scheduled for delivery on ${dateStr}. Thank you for your patience!`;
+            } of ${safeProduct} is scheduled for delivery on ${dateStr}. Worth ₱${(
+              s?.price * safeQty
+            ).toFixed(2)}. Thank you for your patience!`;
             generated = convo;
           } else {
             generated = `Hello ${
