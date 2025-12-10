@@ -223,7 +223,16 @@
                <span class="message-time">{{ formatTime(message.timestamp) }}</span>
             </div>
           </div>
-          <div class="message-text" *ngIf="message.text">{{ message.text }}</div>
+          <div class="message-text" *ngIf="message.text">
+            {{ message.text }}
+            <!-- Sentiment Badge (for Admin only, on incoming messages) -->
+             <span *ngIf="isAppUser && !isMyMessage(message) && message.sentiment"
+                   class="sentiment-badge"
+                   [class.sentiment-positive]="message.sentiment === 'POSITIVE'"
+                   [class.sentiment-negative]="message.sentiment === 'NEGATIVE'">
+               {{ message.sentiment === 'POSITIVE' ? '😊' : '😞' }}
+             </span>
+          </div>
           <div class="message-audio" *ngIf="message.audioBase64">
             <audio controls [src]="message.audioBase64"></audio>
           </div>
@@ -231,6 +240,13 @@
             🗑️
           </button>
         </div>
+      </div>
+
+      <!-- Smart Reply Suggestions -->
+      <div class="smart-replies" *ngIf="isAppUser && suggestedReplies.length > 0">
+        <button *ngFor="let reply of suggestedReplies" class="btn-smart-reply" (click)="useSmartReply(reply)">
+          ✨ {{ reply }}
+        </button>
       </div>
 
       <div class="input-container">

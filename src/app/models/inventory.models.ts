@@ -71,6 +71,7 @@ export interface Message {
   conversationId?: string;
   audioBase64?: string;
   isRead?: boolean;
+  sentiment?: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
 }
 
 export interface WebRTCCall {
