@@ -1447,22 +1447,50 @@ export class ChatComponent
           let generated: string | null = null;
 
           if (pendingSales.length > 0) {
-            const s = pendingSales[0];
-            const dateStr = s.deliveryDate
-              ? new Date(s.deliveryDate).toLocaleDateString()
-              : 'soon';
-            const safeProduct = s.productName || 'items';
             const safeName = customerName || 'Valued Customer';
-            const safeQty = s.quantitySold || 1;
 
-            console.log('Using sale:', s.productName, s.quantitySold, dateStr);
+            // Build an HTML table for ALL orders
+            const tableRows = pendingSales.map((s, index) => {
+              const dateStr = s.deliveryDate
+                ? new Date(s.deliveryDate).toLocaleDateString()
+                : 'Soon';
+              const safeProduct = s.productName || 'Items';
+              const safeQty = s.quantitySold || 1;
+              const totalPrice = (s?.price || 0) * safeQty;
 
-            // Use Fallback Template directly (more reliable than AI for this use case)
-            const convo = `Hello ${safeName}, just confirming your order of ${
-              safeQty > 1 ? safeQty + 'pcs' : safeQty + 'pc'
-            } of ${safeProduct} is scheduled for delivery on ${dateStr}. Worth ₱${(
-              s?.price * safeQty
-            ).toFixed(2)}. Thank you for your patience!`;
+              return `<tr>
+                <td>${index + 1}</td>
+                <td>${safeProduct}</td>
+                <td>${safeQty > 1 ? safeQty + ' pcs' : safeQty + ' pc'}</td>
+                <td>${dateStr}</td>
+                <td>₱${totalPrice.toFixed(2)}</td>
+              </tr>`;
+            });
+
+            console.log('Using sales:', pendingSales.length, 'orders');
+
+            // Build the complete HTML message with table
+            const convo = `
+              <div class="order-summary">
+                <p><strong>Hello ${safeName}!</strong></p>
+                <p>Here are your orders:</p>
+                <table class="orders-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Product</th>
+                      <th>Qty</th>
+                      <th>Delivery</th>
+                      <th>Price</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${tableRows.join('')}
+                  </tbody>
+                </table>
+                <p class="thank-you">Thank you for your patience! 🙏</p>
+              </div>
+            `;
             generated = convo;
           } else {
             generated = `Hello ${

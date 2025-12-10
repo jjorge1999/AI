@@ -13,7 +13,11 @@
   justify-content: center;
   min-height: 100%;
   padding: var(--space-lg);
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(147, 51, 234, 0.05));
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.05),
+    rgba(147, 51, 234, 0.05)
+  );
   overflow-y: auto;
   scroll-behavior: smooth;
 }
@@ -100,8 +104,12 @@
 .btn-register {
   margin-top: var(--space-md);
   padding: 0.875rem 1.5rem;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-  color: white;
+  background: linear-gradient(
+    135deg,
+    var(--color-primary),
+    var(--color-accent)
+  );
+  color: rgb(60, 113, 220);
   border: none;
   border-radius: var(--radius-md);
   font-weight: 600;
@@ -139,9 +147,17 @@
 }
 
 @keyframes bounceIn {
-  0% { transform: scale(0); opacity: 0; }
-  60% { transform: scale(1.2); }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .chat-wrapper {
@@ -198,11 +214,15 @@
 .conversation-item:hover {
   background: rgba(255, 255, 255, 0.08);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .conversation-item.active {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  background: linear-gradient(
+    135deg,
+    var(--color-primary),
+    var(--color-accent)
+  );
   border-color: transparent;
   box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
 }
@@ -220,7 +240,7 @@
   font-weight: 700;
   font-size: 1.1rem;
   flex-shrink: 0;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
   transition: all 0.2s;
 }
 
@@ -233,7 +253,7 @@
   background-color: #10b981; /* Green */
   border: 2px solid var(--color-surface);
   border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   z-index: 5;
 }
 
@@ -279,7 +299,11 @@
 
 .chat-header {
   padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  background: linear-gradient(
+    135deg,
+    var(--color-primary),
+    var(--color-accent)
+  );
   border-bottom: 2px solid var(--color-border);
   position: relative;
   z-index: 10;
@@ -654,14 +678,14 @@
   background: var(--color-text-muted);
 }
 
-textarea[readonly], input[readonly] {
+textarea[readonly],
+input[readonly] {
   background-color: var(--color-bg);
   cursor: not-allowed;
   opacity: 0.8;
   color: var(--color-text-muted);
   border-color: var(--color-border);
 }
-
 
 @media (max-width: 640px) {
   .message {
@@ -672,7 +696,7 @@ textarea[readonly], input[readonly] {
   .chat-wrapper {
     flex-direction: column;
   }
-  
+
   .chat-sidebar {
     width: 100%;
     height: auto; /* Allow content to dictate height */
@@ -735,7 +759,7 @@ textarea[readonly], input[readonly] {
   }
 
   .header-content {
-    flex-direction: row; 
+    flex-direction: row;
     align-items: center;
     gap: 8px;
   }
@@ -771,7 +795,8 @@ textarea[readonly], input[readonly] {
     display: none; /* Hide name on mobile to save space */
   }
 
-  .btn-edit, .btn-logout {
+  .btn-edit,
+  .btn-logout {
     padding: 0.4rem;
     min-width: 32px;
     min-height: 32px;
@@ -823,9 +848,15 @@ textarea[readonly], input[readonly] {
 }
 
 @keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
 }
 
 .message-audio {
@@ -858,10 +889,7 @@ audio {
   transform: scale(1.1);
 }
 
-
-
 /* Audio Call Overlay */
-
 
 .call-overlay {
   position: absolute;
@@ -885,7 +913,7 @@ audio {
   text-align: center;
   width: 90%;
   max-width: 350px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
   border: 1px solid var(--color-border);
 }
 
@@ -905,9 +933,21 @@ audio {
 }
 
 @keyframes pulse-avatar {
-  0% { transform: scale(1); opacity: 1; text-shadow: 0 0 0 rgba(16, 185, 129, 0.7); }
-  50% { transform: scale(1.1); opacity: 0.8; text-shadow: 0 0 20px rgba(16, 185, 129, 0); }
-  100% { transform: scale(1); opacity: 1; text-shadow: 0 0 0 rgba(16, 185, 129, 0); }
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    text-shadow: 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+    text-shadow: 0 0 20px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    text-shadow: 0 0 0 rgba(16, 185, 129, 0);
+  }
 }
 
 .call-actions {
@@ -917,7 +957,9 @@ audio {
   margin-top: 2rem;
 }
 
-.btn-accept, .btn-reject, .btn-end {
+.btn-accept,
+.btn-reject,
+.btn-end {
   padding: 0.8rem 1.5rem;
   border-radius: 30px;
   font-weight: 600;
@@ -931,11 +973,14 @@ audio {
   background: #10b981;
 }
 
-.btn-reject, .btn-end {
+.btn-reject,
+.btn-end {
   background: #ef4444;
 }
 
-.btn-accept:hover, .btn-reject:hover, .btn-end:hover {
+.btn-accept:hover,
+.btn-reject:hover,
+.btn-end:hover {
   transform: scale(1.05);
 }
 
@@ -949,7 +994,7 @@ audio {
 .volume-meter {
   width: 200px;
   height: 6px;
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 3px;
   margin: 0 auto 1.5rem auto;
   overflow: hidden;
@@ -1009,4 +1054,149 @@ audio {
 
 .status-offline {
   background: #9ca3af;
+}
+
+/* Orders Table Styles for Support AI Messages */
+.order-summary {
+  padding: 4px 0;
+}
+
+.order-summary p {
+  margin: 8px 0;
+}
+
+.order-summary .thank-you {
+  margin-top: 12px;
+  font-style: italic;
+  opacity: 0.9;
+}
+
+.orders-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 0.85rem;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.orders-table thead {
+  background: linear-gradient(
+    135deg,
+    var(--color-primary),
+    var(--color-accent)
+  );
+  color: white;
+}
+
+.orders-table th {
+  padding: 10px 8px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.orders-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.orders-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.orders-table tbody tr:hover td {
+  background: var(--color-bg);
+}
+
+/* Responsive table for mobile - Card layout */
+@media (max-width: 640px) {
+  .order-summary {
+    padding: 0;
+  }
+
+  .orders-table {
+    font-size: 0.8rem;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  /* Hide table header on mobile */
+  .orders-table thead {
+    display: none;
+  }
+
+  .orders-table,
+  .orders-table tbody,
+  .orders-table tr,
+  .orders-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .orders-table tbody tr {
+    margin-bottom: 12px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--color-border);
+  }
+
+  .orders-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--color-border);
+    text-align: right;
+  }
+
+  .orders-table td:last-child {
+    border-bottom: none;
+  }
+
+  /* Add labels before each cell */
+  .orders-table td:nth-of-type(1)::before { content: "Order #"; }
+  .orders-table td:nth-of-type(2)::before { content: "Product"; }
+  .orders-table td:nth-of-type(3)::before { content: "Quantity"; }
+  .orders-table td:nth-of-type(4)::before { content: "Delivery"; }
+  .orders-table td:nth-of-type(5)::before { content: "Price"; }
+
+  .orders-table td::before {
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.5px;
+  }
+
+  /* Highlight the product name row */
+  .orders-table td:nth-of-type(2) {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    color: white;
+    font-weight: 600;
+  }
+
+  .orders-table td:nth-of-type(2)::before {
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  /* Make price stand out */
+  .orders-table td:nth-of-type(5) {
+    font-weight: 600;
+    color: var(--color-primary);
+    font-size: 0.9rem;
+  }
+
+  .orders-table tbody tr:hover td {
+    background: inherit;
+  }
+
+  .orders-table td:nth-of-type(2):hover {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  }
 }

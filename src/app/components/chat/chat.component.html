@@ -227,8 +227,7 @@
                <span class="message-time">{{ formatTime(message.timestamp) }}</span>
             </div>
           </div>
-          <div class="message-text" *ngIf="message.text">
-            {{ message.text }}
+          <div class="message-text" *ngIf="message.text" [innerHTML]="message.text">
             <!-- Sentiment Badge (for Admin only, on incoming messages) -->
              <span *ngIf="isAppUser && !isMyMessage(message) && message.sentiment"
                    class="sentiment-badge"
