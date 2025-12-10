@@ -393,6 +393,45 @@
   align-self: flex-start;
 }
 
+.sentiment-badge {
+  font-size: 0.8rem;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.sentiment-positive {
+  filter: drop-shadow(0 0 2px green);
+}
+
+.sentiment-negative {
+  filter: drop-shadow(0 0 2px red);
+}
+
+.smart-replies {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.btn-smart-reply {
+  background: var(--bg-color, #f5f5f5);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 16px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-color, #333);
+}
+
+.btn-smart-reply:hover {
+  background: var(--primary-color, #3b82f6);
+  color: white;
+  border-color: var(--primary-color, #3b82f6);
+}
+
 .message-header {
   display: flex;
   justify-content: space-between;

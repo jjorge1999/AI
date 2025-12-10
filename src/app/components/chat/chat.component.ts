@@ -21,6 +21,7 @@ import { ChatService, UserStatus } from '../../services/chat.service';
 import { CustomerService } from '../../services/customer.service';
 import { UserService } from '../../services/user.service';
 import { CallService } from '../../services/call.service';
+import { AiService } from '../../services/ai.service';
 import {
   Message,
   Customer,
@@ -90,6 +91,8 @@ export class ChatComponent
   onlineUsers = signal<UserStatus[]>([]);
   currentTime = signal(Date.now());
 
+  suggestedReplies: string[] = [];
+
   // Computed Support Status
   isSupportOnline = computed(() => {
     const cutoff = this.currentTime() - 2 * 60 * 1000;
@@ -104,7 +107,8 @@ export class ChatComponent
     private chatService: ChatService,
     private customerService: CustomerService,
     private userService: UserService,
-    private callService: CallService
+    private callService: CallService,
+    private aiService: AiService
   ) {
     // Request notification permission immediately
     this.requestNotificationPermission();
@@ -770,11 +774,16 @@ export class ChatComponent
       }
     }
 
-    // Check for new incoming messages for Notification
+    // Check for new incoming messages for Notification & AI Analysis
     if (notify && hadMessages && newCount > previousCount) {
       const lastMsg = filteredMessages[newCount - 1];
       if (!this.isMyMessage(lastMsg)) {
         this.playNotificationSound();
+
+        // Admin: Analyze sentiment and suggest replies
+        if (this.isAppUser && lastMsg.text) {
+          this.processIncomingMessage(lastMsg);
+        }
 
         // System Notification if hidden
         if (
@@ -984,8 +993,47 @@ export class ChatComponent
     this.currentConversationId = convId;
     this.unreadCounts[convId] = 0; // Clear unread count
     this.updateFilteredMessages(false); // Refreshes view with new filter, no sound
+    this.suggestedReplies = []; // Clear old suggestions
 
     // Admin uses global listener started in checkLoginAndStatus
+  }
+
+  async processIncomingMessage(message: Message) {
+     if (!message.text) return;
+
+     // 1. Analyze Sentiment
+     const result = await this.aiService.analyzeSentiment(message.text);
+     if (result) {
+       message.sentiment = result.label as 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+
+       // 2. Generate Smart Replies based on Sentiment
+       if (result.label === 'NEGATIVE') {
+         this.suggestedReplies = [
+           "I'm sorry to hear that. How can we fix this?",
+           "Apologies for the inconvenience. Let me check.",
+           "Please tell us more so we can help."
+         ];
+       } else if (result.label === 'POSITIVE') {
+         this.suggestedReplies = [
+           "Thank you! We appreciate it.",
+           "Glad you liked it!",
+           "Thanks! Let us know if you need anything else."
+         ];
+       } else {
+         this.suggestedReplies = [
+           "How can I help you further?",
+           "Could you please clarify?",
+           "Let me check that for you."
+         ];
+       }
+     }
+  }
+
+  useSmartReply(reply: string) {
+    this.newMessage = reply;
+    // Optional: Auto-send or let user edit?
+    // Let's just fill it in so they can edit/send.
+    // If you want auto-send, call this.sendMessage() here.
   }
 
   private scrollToBottom(): void {
