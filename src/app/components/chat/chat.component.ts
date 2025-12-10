@@ -934,6 +934,7 @@ export class ChatComponent
       .sendMessage(this.newMessage, this.senderName, convId)
       .then(() => {
         this.newMessage = '';
+        this.suggestedReplies = []; // Clear suggestions after sending
         this.shouldScroll = true;
       })
       .catch((error) => {
