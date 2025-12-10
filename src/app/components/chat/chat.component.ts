@@ -1058,30 +1058,75 @@ export class ChatComponent
         let response = '';
 
         if (matchedProducts.length > 0) {
-          // Found specific matching products
-          const productList = matchedProducts
-            .slice(0, 3)
-            .map(
-              (p) =>
-                `• ${p.name} - ₱${p.price.toFixed(2)} (${
-                  p.quantity > 0 ? `${p.quantity} in stock` : 'Out of stock'
-                })`
-            )
-            .join('\n');
+          // Found specific matching products - use HTML table
+          const productsToShow = matchedProducts.slice(0, 5);
+          const tableRows = productsToShow.map((p) => {
+            const stockStatus =
+              p.quantity > 0
+                ? `<span class="stock-available">${p.quantity} in stock</span>`
+                : `<span class="stock-out">Out of stock</span>`;
+            return `<tr>
+              <td>${p.name}</td>
+              <td>₱${p.price.toFixed(2)}</td>
+              <td>${stockStatus}</td>
+            </tr>`;
+          });
 
-          response = `Hello ${this.senderName}! Here's what I found:\n\n${productList}\n\nWould you like to place an order?`;
+          response = `
+            <div class="product-inquiry">
+              <p><strong>Hello ${this.senderName}!</strong></p>
+              <p>Here's what I found:</p>
+              <table class="products-table">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Price</th>
+                    <th>Availability</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tableRows.join('')}
+                </tbody>
+              </table>
+              <p class="cta-text">Would you like to place an order? 🛒</p>
+            </div>
+          `;
         } else {
-          // No specific match, show top available products
+          // No specific match, show top available products in table
           const availableProducts = products
             .filter((p) => p.quantity > 0)
             .slice(0, 5);
 
           if (availableProducts.length > 0) {
-            const productList = availableProducts
-              .map((p) => `• ${p.name} - ₱${p.price.toFixed(2)}`)
-              .join('\n');
+            const tableRows = availableProducts.map((p) => {
+              return `<tr>
+                <td>${p.name}</td>
+                <td>₱${p.price.toFixed(2)}</td>
+                <td><span class="stock-available">${
+                  p.quantity
+                } in stock</span></td>
+              </tr>`;
+            });
 
-            response = `Hello ${this.senderName}! Here are some of our available products:\n\n${productList}\n\nLet me know if you're interested in any of these!`;
+            response = `
+              <div class="product-inquiry">
+                <p><strong>Hello ${this.senderName}!</strong></p>
+                <p>Here are some of our available products:</p>
+                <table class="products-table">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Price</th>
+                      <th>Availability</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${tableRows.join('')}
+                  </tbody>
+                </table>
+                <p class="cta-text">Let me know if you're interested! 😊</p>
+              </div>
+            `;
           } else {
             response = `Hello ${this.senderName}! I'm checking our inventory. Please hold on while an admin assists you.`;
           }
@@ -1165,162 +1210,90 @@ export class ChatComponent
   async processIncomingMessage(message: Message) {
     if (!message.text) return;
 
+    // Only show suggested replies for admin users
+    if (!this.isAppUser) {
+      return;
+    }
+
     // Guard: Ensure we are still looking at the conversation this message belongs to
-    if (
-      this.isAppUser &&
-      message.conversationId !== this.currentConversationId
-    ) {
+    if (message.conversationId !== this.currentConversationId) {
       return;
     }
 
-    // 1. Analyze Sentiment
-    const result = await this.aiService.analyzeSentiment(message.text);
+    // Skip heavy AI sentiment analysis to reduce lag
+    // Use simple keyword-based suggestions instead
 
-    // Double check guard after async operation
-    if (
-      this.isAppUser &&
-      message.conversationId !== this.currentConversationId
-    ) {
-      return;
-    }
-
-    if (result) {
-      message.sentiment = result.label as 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
-    }
-
-    // 2. Gather Customer Context from Database
     const customerName = this.getDisplayName(this.currentConversationId || '');
     const lowerMessage = message.text.toLowerCase();
-    const allMessages = this.messages
-      .map((m) => m.text?.toLowerCase() || '')
-      .join(' ');
 
-    // Fetch Products
-    this.inventoryService.products$.pipe(take(1)).subscribe((products) => {
-      // Fetch Sales for this customer
-      this.inventoryService.sales$.pipe(take(1)).subscribe((sales) => {
-        const customerSales = sales.filter(
-          (s) =>
-            s.customerId === this.currentConversationId ||
-            (s.customerId || '').toLowerCase() === customerName.toLowerCase()
-        );
+    // Clear old suggestions
+    this.suggestedReplies = [];
 
-        // Find pending deliveries
-        const pendingSales = customerSales.filter((s) => s.pending === true);
+    // Quick keyword matching without fetching data first
+    const isOrderInquiry = [
+      'order',
+      'delivery',
+      'when',
+      'status',
+      'where',
+    ].some((kw) => lowerMessage.includes(kw));
+    const isPriceInquiry = ['price', 'how much', 'cost', 'magkano'].some((kw) =>
+      lowerMessage.includes(kw)
+    );
+    const isStockInquiry = ['available', 'stock', 'do you have', 'meron'].some(
+      (kw) => lowerMessage.includes(kw)
+    );
+    const isNegative = [
+      'problem',
+      'issue',
+      'wrong',
+      'bad',
+      'late',
+      'delayed',
+      'cancel',
+    ].some((kw) => lowerMessage.includes(kw));
+    const isPositive = [
+      'thank',
+      'thanks',
+      'great',
+      'good',
+      'love',
+      'perfect',
+      'salamat',
+    ].some((kw) => lowerMessage.includes(kw));
 
-        // Find products mentioned in the message
-        const mentionedProducts = products.filter(
-          (p) =>
-            lowerMessage.includes(p.name.toLowerCase()) ||
-            allMessages.includes(p.name.toLowerCase())
-        );
+    // Generate quick suggestions based on keywords
+    if (isNegative) {
+      this.suggestedReplies = [
+        "I'm sorry to hear that. How can we fix this?",
+        'Apologies for the inconvenience. Let me check.',
+      ];
+    } else if (isPositive) {
+      this.suggestedReplies = [
+        'Thank you! We appreciate it.',
+        'Glad to help! Let us know if you need anything else.',
+      ];
+    } else if (isOrderInquiry) {
+      this.suggestedReplies = [
+        'Let me check your order status.',
+        'Your order is being processed. I will update you shortly.',
+      ];
+    } else if (isPriceInquiry || isStockInquiry) {
+      this.suggestedReplies = [
+        'Let me check our inventory for you.',
+        'What product are you interested in?',
+      ];
+    } else {
+      this.suggestedReplies = [
+        'How can I help you today?',
+        'Let me check that for you.',
+      ];
+    }
 
-        // 3. Generate Context-Aware Suggested Replies
-        this.suggestedReplies = [];
-
-        // Price/availability inquiry
-        if (
-          lowerMessage.includes('price') ||
-          lowerMessage.includes('how much') ||
-          lowerMessage.includes('cost')
-        ) {
-          if (mentionedProducts.length > 0) {
-            const p = mentionedProducts[0];
-            this.suggestedReplies.push(
-              `${p.name} is ₱${p.price.toFixed(2)}. ${
-                p.quantity > 0
-                  ? 'We have ' + p.quantity + ' in stock.'
-                  : 'Currently out of stock.'
-              }`
-            );
-          } else {
-            // Show top products
-            const topProducts = products
-              .filter((p) => p.quantity > 0)
-              .slice(0, 3);
-            if (topProducts.length > 0) {
-              const list = topProducts
-                .map((p) => `${p.name} (₱${p.price.toFixed(2)})`)
-                .join(', ');
-              this.suggestedReplies.push(`Our popular items: ${list}`);
-            }
-          }
-        }
-
-        // Order/delivery inquiry
-        if (
-          lowerMessage.includes('order') ||
-          lowerMessage.includes('delivery') ||
-          lowerMessage.includes('when') ||
-          lowerMessage.includes('status')
-        ) {
-          if (pendingSales.length > 0) {
-            const s = pendingSales[0];
-            const dateStr = s.deliveryDate
-              ? new Date(s.deliveryDate).toLocaleDateString()
-              : 'soon';
-            this.suggestedReplies.push(
-              `Your order of ${s.quantitySold}x ${s.productName} is scheduled for ${dateStr}.`
-            );
-          } else if (customerSales.length > 0) {
-            this.suggestedReplies.push(
-              `Your last order was ${
-                customerSales[0].productName
-              } on ${new Date(
-                customerSales[0].timestamp
-              ).toLocaleDateString()}.`
-            );
-          } else {
-            this.suggestedReplies.push(
-              `I don't see any recent orders for you. Would you like to place one?`
-            );
-          }
-        }
-
-        // Stock/availability inquiry
-        if (
-          lowerMessage.includes('available') ||
-          lowerMessage.includes('stock') ||
-          lowerMessage.includes('do you have')
-        ) {
-          if (mentionedProducts.length > 0) {
-            const p = mentionedProducts[0];
-            this.suggestedReplies.push(
-              p.quantity > 0
-                ? `Yes, we have ${p.quantity} ${
-                    p.name
-                  } available at ₱${p.price.toFixed(2)} each.`
-                : `Sorry, ${p.name} is currently out of stock.`
-            );
-          }
-        }
-
-        // Sentiment-based fallback replies
-        if (this.suggestedReplies.length === 0) {
-          if (result?.label === 'NEGATIVE') {
-            this.suggestedReplies = [
-              "I'm sorry to hear that. How can we fix this?",
-              'Apologies for the inconvenience. Let me check.',
-            ];
-          } else if (result?.label === 'POSITIVE') {
-            this.suggestedReplies = [
-              'Thank you! We appreciate it.',
-              'Glad you liked it! Let us know if you need anything else.',
-            ];
-          } else {
-            this.suggestedReplies = [
-              'How can I help you today?',
-              'Let me check that for you.',
-            ];
-          }
-        }
-
-        // Add a generic helpful reply at the end
-        if (this.suggestedReplies.length < 3) {
-          this.suggestedReplies.push('Is there anything else I can help with?');
-        }
-      });
-    });
+    // Add a generic helpful reply
+    if (this.suggestedReplies.length < 3) {
+      this.suggestedReplies.push('Is there anything else I can help with?');
+    }
   }
 
   async generateFollowUp() {

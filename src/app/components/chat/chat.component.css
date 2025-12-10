@@ -1200,3 +1200,153 @@ audio {
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   }
 }
+
+/* Products Table Styles for Auto Responder */
+.product-inquiry {
+  padding: 4px 0;
+}
+
+.product-inquiry p {
+  margin: 8px 0;
+}
+
+.product-inquiry .cta-text {
+  margin-top: 12px;
+  font-weight: 500;
+}
+
+.products-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 0.85rem;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.products-table thead {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+}
+
+.products-table th {
+  padding: 10px 8px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.products-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.products-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.products-table tbody tr:hover td {
+  background: var(--color-bg);
+}
+
+/* Stock Status Badges */
+.stock-available {
+  color: #10b981;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.stock-out {
+  color: #ef4444;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+/* Mobile Products Table - Card Layout */
+@media (max-width: 640px) {
+  .product-inquiry {
+    padding: 0;
+  }
+
+  .products-table {
+    font-size: 0.8rem;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .products-table thead {
+    display: none;
+  }
+
+  .products-table,
+  .products-table tbody,
+  .products-table tr,
+  .products-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .products-table tbody tr {
+    margin-bottom: 12px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--color-border);
+  }
+
+  .products-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--color-border);
+    text-align: right;
+  }
+
+  .products-table td:last-child {
+    border-bottom: none;
+  }
+
+  /* Add labels before each cell */
+  .products-table td:nth-of-type(1)::before { content: "Product"; }
+  .products-table td:nth-of-type(2)::before { content: "Price"; }
+  .products-table td:nth-of-type(3)::before { content: "Stock"; }
+
+  .products-table td::before {
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.5px;
+  }
+
+  /* Highlight the product name row */
+  .products-table td:nth-of-type(1) {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    font-weight: 600;
+  }
+
+  .products-table td:nth-of-type(1)::before {
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  /* Make price stand out */
+  .products-table td:nth-of-type(2) {
+    font-weight: 600;
+    color: var(--color-primary);
+    font-size: 0.9rem;
+  }
+
+  .products-table tbody tr:hover td {
+    background: inherit;
+  }
+
+  .products-table td:nth-of-type(1):hover {
+    background: linear-gradient(135deg, #10b981, #059669);
+  }
+}
