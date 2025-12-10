@@ -1,0 +1,1 @@
+import{a}from"./chunk-SQV22B5T.js";import"./chunk-UWMXBSJH.js";import"./chunk-JMUZJZKL.js";import"./chunk-FMESHSGB.js";import"./chunk-BQ4N44S4.js";import"./chunk-VTT5FMM4.js";export{a as CustomerFormComponent};
