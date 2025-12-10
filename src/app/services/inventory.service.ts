@@ -20,6 +20,8 @@ import {
   deleteDoc,
   doc,
   setDoc,
+  orderBy,
+  limit,
 } from 'firebase/firestore';
 import {
   getAuth,
@@ -141,10 +143,27 @@ export class InventoryService {
     );
 
     // Products
-    const productsQuery = query(
-      collection(this.db, 'products'),
-      where('userId', '==', firestoreId)
-    );
+    // For customers, fetch ALL products so the AI can respond to inquiries
+    const isCustomer = !!localStorage.getItem('customer_id');
+    let productsQuery;
+
+    if (isCustomer) {
+      console.log(
+        'InventoryService: Customer Mode - Fetching ALL products for AI'
+      );
+      productsQuery = query(
+        collection(this.db, 'products'),
+        orderBy('name', 'asc'),
+        limit(100)
+      );
+    } else {
+      // Seller Mode: Query by userId
+      productsQuery = query(
+        collection(this.db, 'products'),
+        where('userId', '==', legacyId)
+      );
+    }
+
     this.unsubscribes.push(
       onSnapshot(
         productsQuery,
@@ -158,7 +177,7 @@ export class InventoryService {
               } as Product)
           );
           this.productsSubject.next(products);
-          if (products.length === 0) {
+          if (!isCustomer && products.length === 0) {
             this.migrateProducts(legacyId, firestoreId);
           }
         },
@@ -173,10 +192,29 @@ export class InventoryService {
     );
 
     // Sales
-    const salesQuery = query(
-      collection(this.db, 'sales'),
-      where('userId', '==', firestoreId)
-    );
+    // Determine if we are querying as a Seller or a Customer
+    let salesQuery;
+    // isCustomer already declared above
+
+    if (isCustomer) {
+      console.log(
+        'InventoryService: Customer Mode - Querying RECENT sales for fuzzy matching'
+      );
+      // Fetch recent sales to find customer records even if unlinked (by Name)
+      // Note: This relies on Client-Side filtering in ChatComponent.
+      salesQuery = query(
+        collection(this.db, 'sales'),
+        orderBy('timestamp', 'desc'),
+        limit(100)
+      );
+    } else {
+      // Seller Mode: Query by userId
+      salesQuery = query(
+        collection(this.db, 'sales'),
+        where('userId', '==', legacyId)
+      );
+    }
+
     this.unsubscribes.push(
       onSnapshot(
         salesQuery,
@@ -186,7 +224,8 @@ export class InventoryService {
             this.transformSale({ id: doc.id, ...doc.data() })
           );
           this.salesSubject.next(sales);
-          if (sales.length === 0) {
+          // Only migrate if we are Admin/Seller and empty?
+          if (!isCustomer && sales.length === 0) {
             this.migrateSales(legacyId, firestoreId);
           }
         },

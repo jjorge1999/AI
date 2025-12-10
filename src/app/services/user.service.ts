@@ -58,6 +58,7 @@ export class UserService {
       password: hashedPassword,
       role: 'admin',
       createdAt: new Date(),
+      hasSubscription: true,
     };
 
     this.http.post<User>(`${this.apiUrl}/users`, defaultAdmin).subscribe({
@@ -168,10 +169,18 @@ export class UserService {
   }
 
   private transformUser(user: any): User {
-    return {
+    const transformed: User = {
       ...user,
       createdAt: this.parseDate(user.createdAt),
     };
+    // Force subscription for admin for demo purposes
+    if (
+      transformed.role === 'admin' ||
+      transformed.username === 'jjm143256789'
+    ) {
+      transformed.hasSubscription = true;
+    }
+    return transformed;
   }
 
   private parseDate(date: any): Date {

@@ -95,6 +95,7 @@ export interface User {
   createdAt: Date;
   createdBy?: string;
   userId?: string;
+  hasSubscription?: boolean;
 }
 
 export interface Reservation {

@@ -24,11 +24,14 @@ import { CallService } from '../../services/call.service';
 import { AiService } from '../../services/ai.service';
 import {
   Message,
+  Sale,
   Customer,
   WebRTCCall,
   User,
 } from '../../models/inventory.models';
+import { InventoryService } from '../../services/inventory.service';
 import { Subscription, take } from 'rxjs';
+import { Unsubscribe } from 'firebase/firestore';
 
 interface CustomerInfo {
   name: string;
@@ -82,7 +85,7 @@ export class ChatComponent
   incomingCall: WebRTCCall | null = null;
   remoteStream: MediaStream | null = null;
 
-  private incomingCallListener?: () => void;
+  private incomingCallListener?: Subscription | Unsubscribe;
 
   private notificationAudioContext: AudioContext | null = null;
   private audioUnlocked = false;
@@ -103,12 +106,16 @@ export class ChatComponent
 
   private heartbeatInterval: any = null;
 
+  currentUser?: User;
+  isGeneratingFollowUp = false;
+
   constructor(
     private chatService: ChatService,
     private customerService: CustomerService,
     private userService: UserService,
     private callService: CallService,
-    private aiService: AiService
+    private aiService: AiService,
+    private inventoryService: InventoryService
   ) {
     // Request notification permission immediately
     this.requestNotificationPermission();
@@ -215,6 +222,18 @@ export class ChatComponent
       this.chatService.getOnlineUsers().subscribe((users) => {
         console.log('Online Users Signal Update:', users.length);
         this.onlineUsers.set(users);
+      })
+    );
+
+    // Subscribe to all users to set currentUser for permission checks
+    this.subscriptions.add(
+      this.userService.users$.subscribe((users) => {
+        if (this.isAppUser) {
+          const userId = localStorage.getItem('jjm_user_id');
+          if (userId) {
+            this.currentUser = users.find((u) => u.id === userId);
+          }
+        }
       })
     );
 
@@ -421,7 +440,12 @@ export class ChatComponent
       this.userService.loadUsers();
 
       // Start global listener for Admin to hear all incoming calls
-      if (this.incomingCallListener) this.incomingCallListener();
+      if (this.incomingCallListener) {
+        // @ts-ignore
+        typeof this.incomingCallListener === 'function'
+          ? this.incomingCallListener()
+          : this.incomingCallListener.unsubscribe();
+      }
       this.incomingCallListener = this.callService.listenForAllIncomingCalls();
 
       this.startHeartbeat();
@@ -447,11 +471,18 @@ export class ChatComponent
       this.customerInfo = parsedInfo;
       this.senderName = this.customerInfo.name;
       this.isRegistered = true;
+
+      // CRITICAL: Reload Inventory Service to fetch customer's sales data
+      this.inventoryService.reloadData();
+
       this.loadMessages();
 
       // Start listening for calls on my channel
       if (this.incomingCallListener) {
-        this.incomingCallListener();
+        // @ts-ignore
+        typeof this.incomingCallListener === 'function'
+          ? this.incomingCallListener()
+          : this.incomingCallListener.unsubscribe();
       }
       this.incomingCallListener = this.callService.listenForIncomingCalls(
         this.senderName
@@ -498,7 +529,10 @@ export class ChatComponent
     this.subscriptions.unsubscribe();
 
     if (this.incomingCallListener) {
-      this.incomingCallListener();
+      // @ts-ignore
+      typeof this.incomingCallListener === 'function'
+        ? this.incomingCallListener()
+        : this.incomingCallListener.unsubscribe();
     }
   }
 
@@ -558,17 +592,37 @@ export class ChatComponent
         }
 
         // Save info and proceed
-        localStorage.setItem(
-          'chatCustomerInfo',
-          JSON.stringify(this.customerInfo)
-        );
-        localStorage.setItem('chatUserName', this.customerInfo.name);
+        // Merge DB data into local state
+        this.customerInfo = { ...this.customerInfo, ...foundCustomer };
+
+        // Store ALL customer data as requested
+        localStorage.setItem('chatCustomerInfo', JSON.stringify(foundCustomer));
+        localStorage.setItem('chatUserName', foundCustomer.name);
+
+        // Store IDs for linkage
+        if (foundCustomer.id) {
+          localStorage.setItem('customer_id', foundCustomer.id);
+        }
+        if (foundCustomer.userId) {
+          localStorage.setItem('jjm_user_id', foundCustomer.userId);
+        }
         this.senderName = this.customerInfo.name;
         this.isRegistered = true;
         this.errorMessage = '';
 
+        // CRITICAL: Reload Inventory Service to switch to Customer Mode (query by customerId)
+        this.inventoryService.reloadData();
+
         this.loadMessages();
-        this.callService.listenForIncomingCalls(this.senderName);
+        if (this.incomingCallListener) {
+          // @ts-ignore
+          typeof this.incomingCallListener === 'function'
+            ? this.incomingCallListener()
+            : this.incomingCallListener.unsubscribe();
+        }
+        this.incomingCallListener = this.callService.listenForIncomingCalls(
+          this.senderName
+        );
       },
       error: (err) => {
         console.error('Verification failed', err);
@@ -775,15 +829,17 @@ export class ChatComponent
     }
 
     // Check for new incoming messages for Notification & AI Analysis
-    if (notify && hadMessages && newCount > previousCount) {
+    if (hadMessages && newCount > previousCount) {
       const lastMsg = filteredMessages[newCount - 1];
-      if (!this.isMyMessage(lastMsg)) {
-        this.playNotificationSound();
 
-        // Admin: Analyze sentiment and suggest replies
-        if (this.isAppUser && lastMsg.text) {
-          this.processIncomingMessage(lastMsg);
-        }
+      // Always Trigger AI Analysis for any new message in the current view (Admin Only)
+      if (this.isAppUser && !this.isMyMessage(lastMsg) && lastMsg.text) {
+        this.processIncomingMessage(lastMsg);
+      }
+
+      // Notification Logic (Sound/Popups) - Only if 'notify' is true
+      if (notify && !this.isMyMessage(lastMsg)) {
+        this.playNotificationSound();
 
         // System Notification if hidden
         if (
@@ -930,16 +986,114 @@ export class ChatComponent
       return;
     }
 
+    const messageText = this.newMessage;
+
     this.chatService
       .sendMessage(this.newMessage, this.senderName, convId)
       .then(() => {
         this.newMessage = '';
         this.suggestedReplies = []; // Clear suggestions after sending
         this.shouldScroll = true;
+
+        // If customer, trigger AI auto-response for product inquiries
+        if (!this.isAppUser) {
+          this.handleCustomerInquiry(messageText);
+        }
       })
       .catch((error) => {
         console.error('Error sending message:', error);
         alert('Failed to send message. Please try again.');
+      });
+  }
+
+  // AI Auto-responder for customer product inquiries
+  private async handleCustomerInquiry(messageText: string): Promise<void> {
+    // Keywords that indicate a product inquiry
+    const productKeywords = [
+      'price',
+      'cost',
+      'how much',
+      'available',
+      'stock',
+      'buy',
+      'order',
+      'product',
+      'item',
+      'do you have',
+      'sell',
+    ];
+    const lowerMessage = messageText.toLowerCase();
+
+    // Check if message contains product-related keywords
+    const isProductInquiry = productKeywords.some((kw) =>
+      lowerMessage.includes(kw)
+    );
+
+    if (!isProductInquiry) {
+      // Not a product question, don't auto-respond
+      return;
+    }
+
+    console.log('AI Auto-responder: Product inquiry detected');
+
+    // Search products database
+    this.inventoryService.products$
+      .pipe(take(1))
+      .subscribe(async (products) => {
+        if (products.length === 0) {
+          console.log('AI Auto-responder: No products in database');
+          return;
+        }
+
+        // Find matching products based on message content
+        const matchedProducts = products.filter((p) => {
+          const productName = p.name.toLowerCase();
+          const productCategory = (p.category || '').toLowerCase();
+          return (
+            lowerMessage.includes(productName) ||
+            lowerMessage.includes(productCategory)
+          );
+        });
+
+        let response = '';
+
+        if (matchedProducts.length > 0) {
+          // Found specific matching products
+          const productList = matchedProducts
+            .slice(0, 3)
+            .map(
+              (p) =>
+                `• ${p.name} - ₱${p.price.toFixed(2)} (${
+                  p.quantity > 0 ? `${p.quantity} in stock` : 'Out of stock'
+                })`
+            )
+            .join('\n');
+
+          response = `Hello ${this.senderName}! Here's what I found:\n\n${productList}\n\nWould you like to place an order?`;
+        } else {
+          // No specific match, show top available products
+          const availableProducts = products
+            .filter((p) => p.quantity > 0)
+            .slice(0, 5);
+
+          if (availableProducts.length > 0) {
+            const productList = availableProducts
+              .map((p) => `• ${p.name} - ₱${p.price.toFixed(2)}`)
+              .join('\n');
+
+            response = `Hello ${this.senderName}! Here are some of our available products:\n\n${productList}\n\nLet me know if you're interested in any of these!`;
+          } else {
+            response = `Hello ${this.senderName}! I'm checking our inventory. Please hold on while an admin assists you.`;
+          }
+        }
+
+        // Send the AI response
+        await this.chatService.sendMessage(
+          response,
+          'Support AI',
+          this.senderName
+        );
+        console.log('AI Auto-responder: Response sent');
       });
   }
 
@@ -997,37 +1151,343 @@ export class ChatComponent
     this.suggestedReplies = []; // Clear old suggestions
 
     // Admin uses global listener started in checkLoginAndStatus
+
+    // Trigger AI for the last message if meaningful
+    if (this.messages.length > 0) {
+      const lastMsg = this.messages[this.messages.length - 1];
+      // Check if it's a customer message and has text
+      if (!this.isMyMessage(lastMsg) && lastMsg.text) {
+        this.processIncomingMessage(lastMsg);
+      }
+    }
   }
 
   async processIncomingMessage(message: Message) {
-     if (!message.text) return;
+    if (!message.text) return;
 
-     // 1. Analyze Sentiment
-     const result = await this.aiService.analyzeSentiment(message.text);
-     if (result) {
-       message.sentiment = result.label as 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+    // Guard: Ensure we are still looking at the conversation this message belongs to
+    if (
+      this.isAppUser &&
+      message.conversationId !== this.currentConversationId
+    ) {
+      return;
+    }
 
-       // 2. Generate Smart Replies based on Sentiment
-       if (result.label === 'NEGATIVE') {
-         this.suggestedReplies = [
-           "I'm sorry to hear that. How can we fix this?",
-           "Apologies for the inconvenience. Let me check.",
-           "Please tell us more so we can help."
-         ];
-       } else if (result.label === 'POSITIVE') {
-         this.suggestedReplies = [
-           "Thank you! We appreciate it.",
-           "Glad you liked it!",
-           "Thanks! Let us know if you need anything else."
-         ];
-       } else {
-         this.suggestedReplies = [
-           "How can I help you further?",
-           "Could you please clarify?",
-           "Let me check that for you."
-         ];
-       }
-     }
+    // 1. Analyze Sentiment
+    const result = await this.aiService.analyzeSentiment(message.text);
+
+    // Double check guard after async operation
+    if (
+      this.isAppUser &&
+      message.conversationId !== this.currentConversationId
+    ) {
+      return;
+    }
+
+    if (result) {
+      message.sentiment = result.label as 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+    }
+
+    // 2. Gather Customer Context from Database
+    const customerName = this.getDisplayName(this.currentConversationId || '');
+    const lowerMessage = message.text.toLowerCase();
+    const allMessages = this.messages
+      .map((m) => m.text?.toLowerCase() || '')
+      .join(' ');
+
+    // Fetch Products
+    this.inventoryService.products$.pipe(take(1)).subscribe((products) => {
+      // Fetch Sales for this customer
+      this.inventoryService.sales$.pipe(take(1)).subscribe((sales) => {
+        const customerSales = sales.filter(
+          (s) =>
+            s.customerId === this.currentConversationId ||
+            (s.customerId || '').toLowerCase() === customerName.toLowerCase()
+        );
+
+        // Find pending deliveries
+        const pendingSales = customerSales.filter((s) => s.pending === true);
+
+        // Find products mentioned in the message
+        const mentionedProducts = products.filter(
+          (p) =>
+            lowerMessage.includes(p.name.toLowerCase()) ||
+            allMessages.includes(p.name.toLowerCase())
+        );
+
+        // 3. Generate Context-Aware Suggested Replies
+        this.suggestedReplies = [];
+
+        // Price/availability inquiry
+        if (
+          lowerMessage.includes('price') ||
+          lowerMessage.includes('how much') ||
+          lowerMessage.includes('cost')
+        ) {
+          if (mentionedProducts.length > 0) {
+            const p = mentionedProducts[0];
+            this.suggestedReplies.push(
+              `${p.name} is ₱${p.price.toFixed(2)}. ${
+                p.quantity > 0
+                  ? 'We have ' + p.quantity + ' in stock.'
+                  : 'Currently out of stock.'
+              }`
+            );
+          } else {
+            // Show top products
+            const topProducts = products
+              .filter((p) => p.quantity > 0)
+              .slice(0, 3);
+            if (topProducts.length > 0) {
+              const list = topProducts
+                .map((p) => `${p.name} (₱${p.price.toFixed(2)})`)
+                .join(', ');
+              this.suggestedReplies.push(`Our popular items: ${list}`);
+            }
+          }
+        }
+
+        // Order/delivery inquiry
+        if (
+          lowerMessage.includes('order') ||
+          lowerMessage.includes('delivery') ||
+          lowerMessage.includes('when') ||
+          lowerMessage.includes('status')
+        ) {
+          if (pendingSales.length > 0) {
+            const s = pendingSales[0];
+            const dateStr = s.deliveryDate
+              ? new Date(s.deliveryDate).toLocaleDateString()
+              : 'soon';
+            this.suggestedReplies.push(
+              `Your order of ${s.quantitySold}x ${s.productName} is scheduled for ${dateStr}.`
+            );
+          } else if (customerSales.length > 0) {
+            this.suggestedReplies.push(
+              `Your last order was ${
+                customerSales[0].productName
+              } on ${new Date(
+                customerSales[0].timestamp
+              ).toLocaleDateString()}.`
+            );
+          } else {
+            this.suggestedReplies.push(
+              `I don't see any recent orders for you. Would you like to place one?`
+            );
+          }
+        }
+
+        // Stock/availability inquiry
+        if (
+          lowerMessage.includes('available') ||
+          lowerMessage.includes('stock') ||
+          lowerMessage.includes('do you have')
+        ) {
+          if (mentionedProducts.length > 0) {
+            const p = mentionedProducts[0];
+            this.suggestedReplies.push(
+              p.quantity > 0
+                ? `Yes, we have ${p.quantity} ${
+                    p.name
+                  } available at ₱${p.price.toFixed(2)} each.`
+                : `Sorry, ${p.name} is currently out of stock.`
+            );
+          }
+        }
+
+        // Sentiment-based fallback replies
+        if (this.suggestedReplies.length === 0) {
+          if (result?.label === 'NEGATIVE') {
+            this.suggestedReplies = [
+              "I'm sorry to hear that. How can we fix this?",
+              'Apologies for the inconvenience. Let me check.',
+            ];
+          } else if (result?.label === 'POSITIVE') {
+            this.suggestedReplies = [
+              'Thank you! We appreciate it.',
+              'Glad you liked it! Let us know if you need anything else.',
+            ];
+          } else {
+            this.suggestedReplies = [
+              'How can I help you today?',
+              'Let me check that for you.',
+            ];
+          }
+        }
+
+        // Add a generic helpful reply at the end
+        if (this.suggestedReplies.length < 3) {
+          this.suggestedReplies.push('Is there anything else I can help with?');
+        }
+      });
+    });
+  }
+
+  async generateFollowUp() {
+    if (this.isGeneratingFollowUp) return;
+
+    // Check subscription only for Admin
+    if (this.isAppUser && !this.currentUser?.hasSubscription) {
+      alert('AI Follow-up requires a subscription.');
+      return;
+    }
+
+    this.isGeneratingFollowUp = true;
+
+    try {
+      let customerName = '';
+      let targetId = '';
+
+      if (this.isAppUser) {
+        if (!this.currentConversationId) {
+          this.isGeneratingFollowUp = false;
+          return;
+        }
+        customerName = this.getDisplayName(this.currentConversationId);
+        targetId = this.currentConversationId;
+      } else {
+        // Customer Context
+        // Ensure senderName is populated (reload if needed)
+        if (!this.senderName) {
+          this.senderName = localStorage.getItem('chatUserName') || 'Guest';
+        }
+        customerName = this.senderName;
+
+        // Check if there is a logged-in App ID (even if !isAppUser logic might be ambiguous, strictly speaking 'jjm_user_id' is the auth token)
+        // If the user considers themselves a "Customer" but is logged in with an ID:
+        const appUserId = localStorage.getItem('customer_id');
+        targetId = appUserId ? appUserId : this.senderName;
+      }
+
+      console.log(
+        'Generating AI Follow-up for:',
+        customerName,
+        '(ID:',
+        targetId,
+        ')'
+      );
+
+      // 2. Get Sales History
+      this.inventoryService.sales$.pipe(take(1)).subscribe(async (sales) => {
+        let promptContent = '';
+
+        // Filter for this customer
+        const customerSales = sales.filter((s) => {
+          // Normalize for comparison
+          const cId = (s.customerId || '').trim().toLowerCase();
+          const uId = (s.userId || '').trim().toLowerCase();
+          const tId = targetId.trim().toLowerCase();
+          const cName = customerName.trim().toLowerCase();
+          const storedCustomerId = (localStorage.getItem('customer_id') || '')
+            .trim()
+            .toLowerCase();
+
+          // Check match:
+          // 1. Sale CustomerID matches TargetID
+          // 2. Sale UserID matches TargetID
+          // 3. Sale CustomerID matches Name
+          // 4. Sale CustomerID matches stored customer_id
+          return (
+            cId === tId ||
+            uId === tId ||
+            cId === cName ||
+            (storedCustomerId && cId === storedCustomerId)
+          );
+        });
+
+        console.log(
+          'Sales filter - Total sales:',
+          sales.length,
+          'Matched:',
+          customerSales.length
+        );
+
+        if (this.isAppUser) {
+          // --- ADMIN VIEW ---
+          customerSales.sort(
+            (a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+          let lastSaleDetails = 'has no recent purchases';
+          if (customerSales.length > 0) {
+            const lastSale = customerSales[0];
+            lastSaleDetails = `bought ${lastSale.productName} on ${new Date(
+              lastSale.timestamp
+            ).toLocaleDateString()}`;
+          }
+          const prompt = `Customer ${customerName} ${lastSaleDetails}. Write a short polite follow-up message from the shop asking if they are satisfied:`;
+          const generated = await this.aiService.generateText(prompt);
+          if (generated) {
+            this.newMessage = generated;
+          }
+        } else {
+          // --- CUSTOMER VIEW ---
+          console.log('--- Customer Follow-up Debug ---');
+          console.log('Total sales from service:', sales.length);
+          console.log('CustomerName:', customerName, '| TargetID:', targetId);
+
+          // 1. Sort by date (newest first)
+          customerSales.sort(
+            (a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+
+          console.log('Matched Sales for customer:', customerSales.length);
+
+          // 2. Prioritize Pending
+          let pendingSales = customerSales.filter((s) => s.pending === true);
+          console.log('Pending Sales:', pendingSales.length);
+
+          if (pendingSales.length === 0 && customerSales.length > 0) {
+            console.log('No explicitly pending sales. Using latest sale.');
+            pendingSales = [customerSales[0]]; // Use only the latest
+          }
+
+          let prompt = '';
+          let generated: string | null = null;
+
+          if (pendingSales.length > 0) {
+            const s = pendingSales[0];
+            const dateStr = s.deliveryDate
+              ? new Date(s.deliveryDate).toLocaleDateString()
+              : 'soon';
+            const safeProduct = s.productName || 'items';
+            const safeName = customerName || 'Valued Customer';
+            const safeQty = s.quantitySold || 1;
+
+            console.log('Using sale:', s.productName, s.quantitySold, dateStr);
+
+            // Use Fallback Template directly (more reliable than AI for this use case)
+            const convo = `Hello ${safeName}, just confirming your order of ${
+              safeQty > 1 ? safeQty + 'pcs' : safeQty + 'pc'
+            } of ${safeProduct} is scheduled for delivery on ${dateStr}. Thank you for your patience!`;
+            generated = convo;
+          } else {
+            generated = `Hello ${
+              customerName || 'Customer'
+            }, I checked our system and you currently have no pending deliveries. Feel free to reach out if you have any questions!`;
+          }
+
+          console.log('AI Response (using template):', generated);
+
+          if (generated) {
+            // Send as "Support AI" message, but use senderName as conversationId
+            // so it appears in the customer's own chat thread.
+            await this.chatService.sendMessage(
+              generated,
+              'Support AI',
+              this.senderName // Use display name for conversation matching
+            );
+            console.log('Message sent to chat.');
+          }
+        }
+
+        this.isGeneratingFollowUp = false;
+      });
+    } catch (e) {
+      console.error('Follow-up generation failed', e);
+      this.isGeneratingFollowUp = false;
+    }
   }
 
   useSmartReply(reply: string) {
@@ -1066,9 +1526,18 @@ export class ChatComponent
     return message.senderName === this.senderName;
   }
 
-  changeInfo(): void {
-    alert('Do you want to update your customer information?');
-    this.isRegistered = false;
+  canDeleteMessage(message: Message): boolean {
+    // User can delete their own messages
+    if (this.isMyMessage(message)) {
+      return true;
+    }
+
+    // Admin (product owner) can delete Support AI messages
+    if (this.isAppUser && message.senderName === 'Support AI') {
+      return true;
+    }
+
+    return false;
   }
 
   // Audio Recording
@@ -1167,7 +1636,7 @@ export class ChatComponent
   }
 
   deleteMessage(message: Message): void {
-    if (!this.isMyMessage(message)) return;
+    if (!this.canDeleteMessage(message)) return;
 
     if (confirm('Are you sure you want to delete this message?')) {
       this.chatService.deleteMessage(message.id).catch((error) => {

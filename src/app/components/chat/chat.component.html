@@ -131,11 +131,15 @@
           
           <div class="user-info">
             <span class="user-name">{{ senderName }}</span>
-            <button class="btn-edit" (click)="changeInfo()" title="Edit information">
-              ✏️
-            </button>
-            <button *ngIf="!isAppUser" class="btn-logout" (click)="logout()" title="Logout">
-              🚪
+            <button
+              class="btn-magic"
+              *ngIf="!isAppUser"
+              (click)="generateFollowUp()"
+              title="Generate Follow-up Message"
+              [disabled]="isGeneratingFollowUp"
+            >
+              <span *ngIf="!isGeneratingFollowUp">✨ Follow-up</span>
+              <span *ngIf="isGeneratingFollowUp">⏳ Checking...</span>
             </button>
             <button 
               class="btn-call" 
@@ -236,7 +240,7 @@
           <div class="message-audio" *ngIf="message.audioBase64">
             <audio controls [src]="message.audioBase64"></audio>
           </div>
-          <button *ngIf="isMyMessage(message)" class="btn-delete-msg" (click)="deleteMessage(message)" title="Delete message">
+          <button *ngIf="canDeleteMessage(message)" class="btn-delete-msg" (click)="deleteMessage(message)" title="Delete message">
             🗑️
           </button>
         </div>
