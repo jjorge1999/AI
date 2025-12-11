@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { environment } from '../../environments/environment';
+import { SettingsService } from './settings.service';
 
 // Hugging Face Inference API response interface
 interface HfInferenceResponse {
@@ -24,16 +25,16 @@ export class AiService {
   // Flag to prefer Gemma API over local models
   private useGemmaApi = true;
 
-  constructor() {
-    // Token is now loaded dynamically from localStorage/Firebase
+  constructor(private settingsService: SettingsService) {
+    // Token is now loaded dynamically from SettingsService (Firebase + localStorage)
   }
 
   /**
-   * Get the current HF token (checks localStorage which is synced from Firebase)
+   * Get the current HF token (from SettingsService which syncs Firebase + localStorage)
    */
   private getHfToken(): string | null {
     return (
-      localStorage.getItem('hf_token') ||
+      this.settingsService.getHuggingFaceToken() ||
       (environment as any).huggingFaceToken ||
       null
     );
