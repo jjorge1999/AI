@@ -1009,6 +1009,15 @@ export class ChatComponent
       'want',
       'need',
       'get',
+      // Weight/Quantity indicators (treat as product inquiry)
+      'kl',
+      'kg',
+      'kilos',
+      'kilo',
+      'pcs',
+      'pc',
+      'piece',
+      'pieces',
       // Filipino/Tagalog
       'magkano',
       'meron',
