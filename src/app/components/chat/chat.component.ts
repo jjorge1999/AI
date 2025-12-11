@@ -574,11 +574,23 @@ export class ChatComponent
         }
 
         // Save info and proceed
-        // Merge DB data into local state
-        this.customerInfo = { ...this.customerInfo, ...foundCustomer };
+        // Merge DB data into local state (but keep user's original input for phone/address)
+        this.customerInfo = {
+          ...this.customerInfo,
+          ...foundCustomer,
+          // Keep the user's original input for these fields (DB returns masked data)
+          phoneNumber: this.customerInfo.phoneNumber,
+          address: this.customerInfo.address,
+        };
 
-        // Store ALL customer data as requested
-        localStorage.setItem('chatCustomerInfo', JSON.stringify(foundCustomer));
+        // Store customer data with UNMASKED phone/address (user's original input)
+        const infoToStore = {
+          ...foundCustomer,
+          phoneNumber: this.customerInfo.phoneNumber, // User's original input
+          deliveryAddress: this.customerInfo.address, // User's original input
+          address: this.customerInfo.address, // For backwards compatibility
+        };
+        localStorage.setItem('chatCustomerInfo', JSON.stringify(infoToStore));
         localStorage.setItem('chatUserName', foundCustomer.name);
 
         // Store IDs for linkage
