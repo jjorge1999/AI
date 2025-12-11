@@ -1168,8 +1168,9 @@ Write 2-3 sentences in the customer's language. Be enthusiastic. Use 1-2 emojis.
           );
 
           if (gemmaResponse) {
-            // Use Gemma's natural response
-            response = gemmaResponse;
+            // Use Gemma's natural response + append reservation link
+            const reserveLink = `<br><br><a href="/reservation" class="reserve-btn">🛒 Reserve Now</a>`;
+            response = gemmaResponse + reserveLink;
             console.log('AI Auto-responder: Gemma response received');
           } else {
             // Fallback to structured HTML table if Gemma fails
