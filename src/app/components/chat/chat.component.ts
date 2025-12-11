@@ -1006,7 +1006,7 @@ export class ChatComponent
       });
   }
 
-  // AI Auto-responder for customer product inquiries
+  // AI Auto-responder for customer product inquiries - Uses Gemma AI
   private async handleCustomerInquiry(messageText: string): Promise<void> {
     // Keywords that indicate a product inquiry
     const productKeywords = [
@@ -1021,6 +1021,10 @@ export class ChatComponent
       'item',
       'do you have',
       'sell',
+      'looking for',
+      'interested',
+      'magkano',
+      'meron',
     ];
     const lowerMessage = messageText.toLowerCase();
 
@@ -1030,7 +1034,8 @@ export class ChatComponent
     );
 
     if (!isProductInquiry) {
-      // Not a product question, don't auto-respond
+      // Not a product question, try general Gemma response
+      await this.handleGeneralInquiry(messageText);
       return;
     }
 
@@ -1042,6 +1047,21 @@ export class ChatComponent
       .subscribe(async (products) => {
         if (products.length === 0) {
           console.log('AI Auto-responder: No products in database');
+          // Use Gemma as sales rep even when inventory is empty
+          const gemmaResponse = await this.aiService.generateWithGemma(
+            `You are a senior sales representative in the Philippines. A customer named ${this.senderName} is asking about products, but inventory is currently being restocked.
+
+LANGUAGE RULE: Detect the customer's language from their message. If Filipino/Tagalog, respond in Filipino. If Cebuano/Bisaya, respond in Cebuano. If English, respond in English. Match their language!
+
+Write a persuasive response: apologize briefly, create urgency by mentioning new stock arriving very soon, ask for their contact to notify them first when products arrive. Make them feel like VIP customers. Keep it short (2-3 sentences). Use 1-2 emojis.`
+          );
+          if (gemmaResponse) {
+            await this.chatService.sendMessage(
+              gemmaResponse,
+              'Support AI',
+              this.senderName
+            );
+          }
           return;
         }
 
@@ -1057,61 +1077,76 @@ export class ChatComponent
 
         let response = '';
 
-        if (matchedProducts.length > 0) {
-          // Found specific matching products - use HTML table
-          const productsToShow = matchedProducts.slice(0, 5);
-          const tableRows = productsToShow.map((p) => {
-            const stockStatus =
-              p.quantity > 0
-                ? `<span class="stock-available">${p.quantity} in stock</span>`
-                : `<span class="stock-out">Out of stock</span>`;
-            return `<tr>
-              <td>${p.name}</td>
-              <td>₱${p.price.toFixed(2)}</td>
-              <td>${stockStatus}</td>
-            </tr>`;
-          });
+        // Build product context for Gemma
+        const productsToShow =
+          matchedProducts.length > 0
+            ? matchedProducts.slice(0, 5)
+            : products.filter((p) => p.quantity > 0).slice(0, 5);
 
-          response = `
-            <div class="product-inquiry">
-              <p><strong>Hello ${this.senderName}!</strong></p>
-              <p>Here's what I found:</p>
-              <table class="products-table">
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    <th>Price</th>
-                    <th>Availability</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${tableRows.join('')}
-                </tbody>
-              </table>
-              <p class="cta-text">Would you like to place an order? 🛒</p>
-            </div>
-          `;
-        } else {
-          // No specific match, show top available products in table
-          const availableProducts = products
-            .filter((p) => p.quantity > 0)
-            .slice(0, 5);
+        if (productsToShow.length > 0) {
+          // Create product list for Gemma context
+          const productList = productsToShow
+            .map(
+              (p) =>
+                `- ${p.name}: ₱${p.price.toFixed(2)} (${
+                  p.quantity > 0 ? p.quantity + ' in stock' : 'out of stock'
+                })`
+            )
+            .join('\n');
 
-          if (availableProducts.length > 0) {
-            const tableRows = availableProducts.map((p) => {
+          const matchType =
+            matchedProducts.length > 0 ? 'matching' : 'available';
+
+          // Gemma as senior sales representative - persuasive selling with language matching
+          const gemmaPrompt = `You are a SENIOR SALES REPRESENTATIVE with 15 years of experience in the Philippines. Your goal is to CLOSE THE SALE. A customer named ${this.senderName} asked: "${messageText}"
+
+Here are our ${matchType} products:
+${productList}
+
+LANGUAGE RULE (VERY IMPORTANT):
+- Detect customer's language from their message above
+- If Filipino/Tagalog (e.g., "magkano", "meron ba", "bili"), respond in FILIPINO
+- If Cebuano/Bisaya (e.g., "pila", "naa ba", "palita"), respond in CEBUANO
+- If English, respond in ENGLISH
+- Match their language naturally!
+
+SALES RULES:
+1. Create URGENCY (limited stock/limitado na lang, selling fast/mabilis maubos)
+2. Highlight VALUE (quality, best-seller, customer favorites)
+3. Use SOCIAL PROOF (maraming customers ang bumibili nito, daghan kaayo mopalit)
+4. Offer to help them ORDER RIGHT NOW
+5. Ask a closing question
+
+Write 2-3 sentences in the customer's language. Be enthusiastic. Use 1-2 emojis. Do NOT use markdown.`;
+
+          console.log('AI Auto-responder: Calling Gemma with product context');
+          const gemmaResponse = await this.aiService.generateWithGemma(
+            gemmaPrompt
+          );
+
+          if (gemmaResponse) {
+            // Use Gemma's natural response
+            response = gemmaResponse;
+            console.log('AI Auto-responder: Gemma response received');
+          } else {
+            // Fallback to structured HTML table if Gemma fails
+            console.log('AI Auto-responder: Gemma unavailable, using fallback');
+            const tableRows = productsToShow.map((p) => {
+              const stockStatus =
+                p.quantity > 0
+                  ? `<span class="stock-available">${p.quantity} in stock</span>`
+                  : `<span class="stock-out">Out of stock</span>`;
               return `<tr>
                 <td>${p.name}</td>
                 <td>₱${p.price.toFixed(2)}</td>
-                <td><span class="stock-available">${
-                  p.quantity
-                } in stock</span></td>
+                <td>${stockStatus}</td>
               </tr>`;
             });
 
             response = `
               <div class="product-inquiry">
                 <p><strong>Hello ${this.senderName}!</strong></p>
-                <p>Here are some of our available products:</p>
+                <p>Here's what I found:</p>
                 <table class="products-table">
                   <thead>
                     <tr>
@@ -1124,12 +1159,22 @@ export class ChatComponent
                     ${tableRows.join('')}
                   </tbody>
                 </table>
-                <p class="cta-text">Let me know if you're interested! 😊</p>
+                <p class="cta-text">Would you like to place an order? 🛒</p>
               </div>
             `;
-          } else {
-            response = `Hello ${this.senderName}! I'm checking our inventory. Please hold on while an admin assists you.`;
           }
+        } else {
+          // No available products - still sell!
+          const gemmaResponse = await this.aiService.generateWithGemma(
+            `You are a senior sales representative in the Philippines. A customer named ${this.senderName} wants products but everything is out of stock. Their message was: "${messageText}"
+
+LANGUAGE RULE: Detect the customer's language. If Filipino/Tagalog, respond in Filipino. If Cebuano/Bisaya, respond in Cebuano. If English, respond in English.
+
+Turn this into an opportunity: Express excitement about restocking soon, create FOMO by saying items sell out fast, offer to put them on a VIP waitlist to get first access. Ask for their order preference. Be enthusiastic! 2-3 sentences in their language, 1-2 emojis.`
+          );
+          response =
+            gemmaResponse ||
+            `Hello ${this.senderName}! Great timing - we're restocking very soon! 🔥 Let me put you on our VIP list so you get first access. Which items are you interested in?`;
         }
 
         // Send the AI response
@@ -1140,6 +1185,69 @@ export class ChatComponent
         );
         console.log('AI Auto-responder: Response sent');
       });
+  }
+
+  // Handle general (non-product) inquiries with Gemma
+  private async handleGeneralInquiry(messageText: string): Promise<void> {
+    // Keywords that should trigger AI response
+    const triggerKeywords = [
+      'hello',
+      'hi',
+      'help',
+      'question',
+      'ask',
+      'support',
+      'hours',
+      'open',
+      'location',
+      'delivery',
+      'shipping',
+      'return',
+      'refund',
+      'payment',
+      'contact',
+      'thank',
+    ];
+    const lowerMessage = messageText.toLowerCase();
+
+    const shouldRespond = triggerKeywords.some((kw) =>
+      lowerMessage.includes(kw)
+    );
+
+    if (!shouldRespond) {
+      // Don't respond to every message - let admin handle complex queries
+      return;
+    }
+
+    console.log('AI Auto-responder: General inquiry detected');
+
+    // Gemma as senior sales rep - always looking to sell, with language matching
+    const gemmaPrompt = `You are a SENIOR SALES REPRESENTATIVE for an online store in the Philippines. A customer named ${this.senderName} sent: "${messageText}"
+
+LANGUAGE RULE (VERY IMPORTANT):
+- If customer writes in Filipino/Tagalog, respond in FILIPINO
+- If customer writes in Cebuano/Bisaya, respond in CEBUANO  
+- If customer writes in English, respond in ENGLISH
+- Match their language naturally!
+
+Your job is to ENGAGE and CONVERT them into a buyer. Rules:
+1. Answer their question briefly in their language
+2. ALWAYS pivot to products (may magandang deals tayo ngayon / nindot kaayo atong deals karon / we have great deals today)
+3. Create interest - ask what they're looking for
+4. If they say hi/hello/kumusta/musta, warmly greet them and ask what products they need
+
+Write 1-2 sentences in their language. Be warm, enthusiastic. Use 1-2 emojis. End with a question.`;
+
+    const gemmaResponse = await this.aiService.generateWithGemma(gemmaPrompt);
+
+    if (gemmaResponse) {
+      await this.chatService.sendMessage(
+        gemmaResponse,
+        'Support AI',
+        this.senderName
+      );
+      console.log('AI Auto-responder: General response sent');
+    }
   }
 
   getLocation(silent: boolean = false): void {
