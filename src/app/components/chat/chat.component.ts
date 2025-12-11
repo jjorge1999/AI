@@ -134,8 +134,8 @@ export class ChatComponent
           this.checkLoginAndStatus();
         } catch (e) {
           console.error('Error parsing chat credentials', e);
-          localStorage.removeItem('chatCustomerInfo');
-          localStorage.removeItem('chatUserName');
+          // localStorage.removeItem('chatCustomerInfo');
+          // localStorage.removeItem('chatUserName');
         }
       }
 
@@ -339,8 +339,8 @@ export class ChatComponent
 
   private performForceLogout(): void {
     // Force logout without confirmation
-    localStorage.removeItem('chatCustomerInfo');
-    localStorage.removeItem('chatUserName');
+    // localStorage.removeItem('chatCustomerInfo');
+    // localStorage.removeItem('chatUserName');
     this.isRegistered = false;
     this.isAppUser = false;
     this.senderName = '';
@@ -1788,8 +1788,8 @@ Write 1-2 sentences in their language. Be warm, enthusiastic. Use 1-2 emojis. En
         'Are you sure you want to logout? Your information will be cleared.'
       )
     ) {
-      localStorage.removeItem('chatCustomerInfo');
-      localStorage.removeItem('chatUserName');
+      // localStorage.removeItem('chatCustomerInfo');
+      // localStorage.removeItem('chatUserName');
       this.isRegistered = false;
       this.customerInfo = {
         name: '',

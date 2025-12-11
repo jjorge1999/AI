@@ -106,11 +106,11 @@ export class SettingsService {
         { merge: true }
       );
 
-      localStorage.removeItem('hf_token');
+      // localStorage.removeItem('hf_token');
       console.log('Settings: Hugging Face token cleared from database');
     } catch (error) {
       console.error('Settings: Error clearing token from database:', error);
-      localStorage.removeItem('hf_token');
+      // localStorage.removeItem('hf_token');
       throw error;
     }
   }

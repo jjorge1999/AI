@@ -158,7 +158,7 @@
     <div class="filter-group">
       <label for="deliveryFilter">Date:</label>
       <input type="date" id="deliveryFilter" [(ngModel)]="deliveryFilterDate" (ngModelChange)="updateGroupedSales()" name="deliveryFilter" />
-      <button class="btn-clear" (click)="deliveryFilterDate = ''" *ngIf="deliveryFilterDate" title="Clear Date">❌</button>
+      <button class="btn-clear" (click)="clearFilter()" *ngIf="deliveryFilterDate || statusFilter !== 'all'" title="Clear Filter">❌</button>
     </div>
     
     <div class="filter-group">
