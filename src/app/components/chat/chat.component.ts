@@ -1008,8 +1008,9 @@ export class ChatComponent
 
   // AI Auto-responder for customer product inquiries - Uses Gemma AI
   private async handleCustomerInquiry(messageText: string): Promise<void> {
-    // Keywords that indicate a product inquiry
+    // Keywords that indicate a product inquiry (English, Filipino, Cebuano)
     const productKeywords = [
+      // English
       'price',
       'cost',
       'how much',
@@ -1023,10 +1024,31 @@ export class ChatComponent
       'sell',
       'looking for',
       'interested',
+      'want',
+      'need',
+      'get',
+      // Filipino/Tagalog
       'magkano',
       'meron',
+      'pabili',
+      'bili',
+      'gusto',
+      'kailangan',
+      'presyo',
+      'available ba',
+      'meron ba',
+      // Cebuano/Bisaya
+      'pila',
+      'tagpila',
+      'naa ba',
+      'palita',
+      'gusto ko',
+      'kinahanglan',
     ];
     const lowerMessage = messageText.toLowerCase();
+
+    // Also check if the message mentions any product name directly
+    let mentionsProduct = false;
 
     // Check if message contains product-related keywords
     const isProductInquiry = productKeywords.some((kw) =>
@@ -1065,14 +1087,27 @@ Write a persuasive response: apologize briefly, create urgency by mentioning new
           return;
         }
 
-        // Find matching products based on message content
+        // Improved product matching - check if message words appear in product name or vice versa
+        const messageWords = lowerMessage
+          .split(/\s+/)
+          .filter((w) => w.length > 2);
         const matchedProducts = products.filter((p) => {
           const productName = p.name.toLowerCase();
           const productCategory = (p.category || '').toLowerCase();
-          return (
-            lowerMessage.includes(productName) ||
-            lowerMessage.includes(productCategory)
+          const productWords = productName.split(/\s+/);
+
+          // Check if any word from the message appears in product name
+          const messageMatchesProduct = messageWords.some(
+            (word) =>
+              productName.includes(word) || productCategory.includes(word)
           );
+
+          // Check if any word from product name appears in message
+          const productMatchesMessage = productWords.some(
+            (word) => word.length > 2 && lowerMessage.includes(word)
+          );
+
+          return messageMatchesProduct || productMatchesMessage;
         });
 
         let response = '';
