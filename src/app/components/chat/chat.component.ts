@@ -130,17 +130,8 @@ export class ChatComponent
         // Check if credentials exist and are valid
         try {
           const parsedInfo = JSON.parse(savedCustomerInfo);
-
-          // Check expiration
-          if (parsedInfo.expiresAt && Date.now() > parsedInfo.expiresAt) {
-            // Expired - clear them
-            localStorage.removeItem('chatCustomerInfo');
-            localStorage.removeItem('chatUserName');
-            console.log('Chat credentials expired, cleared from storage');
-          } else {
-            // Valid credentials found - trigger login check
-            this.checkLoginAndStatus();
-          }
+          // Valid credentials found - trigger login check (no expiration for public chat)
+          this.checkLoginAndStatus();
         } catch (e) {
           console.error('Error parsing chat credentials', e);
           localStorage.removeItem('chatCustomerInfo');
@@ -457,16 +448,7 @@ export class ChatComponent
     if (savedCustomerInfo) {
       const parsedInfo = JSON.parse(savedCustomerInfo);
 
-      // Check if credentials have expired (2 hours)
-      if (parsedInfo.expiresAt && Date.now() > parsedInfo.expiresAt) {
-        localStorage.removeItem('chatCustomerInfo');
-        localStorage.removeItem('chatUserName');
-        this.isRegistered = false;
-        this.getLocation(true);
-        console.log('Chat credentials expired after 2 hours');
-        return;
-      }
-
+      // No expiration check - customers stay logged in until explicit logout
       // Trust localStorage and auto-login immediately
       this.customerInfo = parsedInfo;
       this.senderName = this.customerInfo.name;
