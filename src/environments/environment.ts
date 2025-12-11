@@ -2,8 +2,8 @@ export const environment = {
   production: false,
   apiUrl: 'http://localhost:3000/api',
   socketUrl: 'http://localhost:3001',
-  // Hugging Face Token for Gemma AI (get from: https://huggingface.co/settings/tokens)
-  huggingFaceToken: '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', // Add your token here or set in localStorage as 'hf_token'
+  // Hugging Face Token - Set at runtime via: localStorage.setItem('hf_token', 'your_token')
+  huggingFaceToken: '',
   firebaseConfig: {
     apiKey: 'AIzaSyDJL01CQ2KJGqni6Q3EPR8Yv1CPW6cXezk',
     authDomain: 'inventory-8b0ad.firebaseapp.com',
