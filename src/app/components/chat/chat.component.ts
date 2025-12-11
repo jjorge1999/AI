@@ -1011,7 +1011,9 @@ export class ChatComponent
       'get',
       // Weight/Quantity indicators (treat as product inquiry)
       'kl',
+      'kls',
       'kg',
+      'kgs',
       'kilos',
       'kilo',
       'pcs',
