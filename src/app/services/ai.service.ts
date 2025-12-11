@@ -20,24 +20,29 @@ export class AiService {
   // Docs: https://huggingface.co/docs/inference-providers/
   private readonly HF_API_URL =
     'https://router.huggingface.co/v1/chat/completions';
-  private hfToken: string | null = null;
 
   // Flag to prefer Gemma API over local models
   private useGemmaApi = true;
 
   constructor() {
-    // Try to load HF token from environment or localStorage
-    this.hfToken =
-      (environment as any).huggingFaceToken ||
+    // Token is now loaded dynamically from localStorage/Firebase
+  }
+
+  /**
+   * Get the current HF token (checks localStorage which is synced from Firebase)
+   */
+  private getHfToken(): string | null {
+    return (
       localStorage.getItem('hf_token') ||
-      null;
+      (environment as any).huggingFaceToken ||
+      null
+    );
   }
 
   /**
    * Set the Hugging Face API token for Gemma inference
    */
   setHuggingFaceToken(token: string): void {
-    this.hfToken = token;
     localStorage.setItem('hf_token', token);
     console.log('AI Service: Hugging Face token set');
   }
@@ -46,7 +51,8 @@ export class AiService {
    * Check if Gemma API is available (token is set)
    */
   isGemmaApiAvailable(): boolean {
-    return !!this.hfToken;
+    const token = this.getHfToken();
+    return !!token && token.startsWith('hf_');
   }
 
   /**
@@ -114,7 +120,7 @@ export class AiService {
    */
   async generateText(prompt: string): Promise<string | null> {
     // Try Gemma API first if enabled and token is available
-    if (this.useGemmaApi && this.hfToken) {
+    if (this.useGemmaApi && this.getHfToken()) {
       const gemmaResult = await this.generateWithGemma(prompt);
       if (gemmaResult) {
         return gemmaResult;
@@ -131,7 +137,8 @@ export class AiService {
    * Uses OpenAI-compatible chat completions format
    */
   async generateWithGemma(prompt: string): Promise<string | null> {
-    if (!this.hfToken) {
+    const hfToken = this.getHfToken();
+    if (!hfToken) {
       console.warn('AI Service: No Hugging Face token available for Gemma API');
       return null;
     }
@@ -140,7 +147,7 @@ export class AiService {
       const response = await fetch(this.HF_API_URL, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${this.hfToken}`,
+          Authorization: `Bearer ${hfToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -216,7 +223,8 @@ export class AiService {
   async chatWithGemma(
     messages: { role: 'user' | 'model' | 'assistant'; content: string }[]
   ): Promise<string | null> {
-    if (!this.hfToken) {
+    const hfToken = this.getHfToken();
+    if (!hfToken) {
       console.warn('AI Service: No Hugging Face token for Gemma chat');
       return null;
     }
@@ -231,7 +239,7 @@ export class AiService {
       const response = await fetch(this.HF_API_URL, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${this.hfToken}`,
+          Authorization: `Bearer ${hfToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({

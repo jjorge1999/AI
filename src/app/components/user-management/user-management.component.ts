@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { UserService } from '../../services/user.service';
 import { DialogService } from '../../services/dialog.service';
-import { AiService } from '../../services/ai.service';
+import { SettingsService } from '../../services/settings.service';
 import { User } from '../../models/inventory.models';
 
 @Component({
@@ -32,11 +32,12 @@ export class UserManagementComponent implements OnInit {
   hfToken = '';
   isGemmaConfigured = false;
   showAiSettings = false;
+  isSavingToken = false;
 
   constructor(
     private userService: UserService,
     private dialogService: DialogService,
-    private aiService: AiService
+    private settingsService: SettingsService
   ) {}
 
   ngOnInit(): void {
@@ -46,12 +47,20 @@ export class UserManagementComponent implements OnInit {
     this.userService.loadUsers();
     // 3. Check if Gemma is configured
     this.checkGemmaStatus();
+
+    // 4. Subscribe to settings changes (realtime sync from Firebase)
+    this.settingsService.getSettings().subscribe((settings) => {
+      this.isGemmaConfigured = this.settingsService.isGemmaConfigured();
+      if (settings.huggingFaceToken && !this.showAiSettings) {
+        this.hfToken = settings.huggingFaceToken.substring(0, 10) + '...';
+      }
+    });
   }
 
   checkGemmaStatus(): void {
-    this.isGemmaConfigured = this.aiService.isGemmaApiAvailable();
+    this.isGemmaConfigured = this.settingsService.isGemmaConfigured();
     // Load existing token for display (masked)
-    const existingToken = localStorage.getItem('hf_token');
+    const existingToken = this.settingsService.getHuggingFaceToken();
     if (existingToken) {
       this.hfToken = existingToken.substring(0, 10) + '...';
     }
@@ -61,12 +70,12 @@ export class UserManagementComponent implements OnInit {
     this.showAiSettings = !this.showAiSettings;
     if (this.showAiSettings) {
       // Clear the masked display when editing
-      const existingToken = localStorage.getItem('hf_token');
+      const existingToken = this.settingsService.getHuggingFaceToken();
       this.hfToken = existingToken || '';
     }
   }
 
-  saveHfToken(): void {
+  async saveHfToken(): Promise<void> {
     if (!this.hfToken || !this.hfToken.startsWith('hf_')) {
       this.dialogService
         .error(
@@ -77,23 +86,48 @@ export class UserManagementComponent implements OnInit {
       return;
     }
 
-    this.aiService.setHuggingFaceToken(this.hfToken);
-    this.isGemmaConfigured = true;
-    this.showAiSettings = false;
-    this.hfToken = this.hfToken.substring(0, 10) + '...';
+    this.isSavingToken = true;
 
-    this.dialogService
-      .alert('Gemma AI has been configured successfully! 🎉', 'AI Configured')
-      .subscribe();
+    try {
+      await this.settingsService.saveHuggingFaceToken(this.hfToken);
+      this.isGemmaConfigured = true;
+      this.showAiSettings = false;
+      this.hfToken = this.hfToken.substring(0, 10) + '...';
+
+      this.dialogService
+        .alert(
+          'Gemma AI has been configured and saved to database! 🎉 All devices will now use this token.',
+          'AI Configured'
+        )
+        .subscribe();
+    } catch (error) {
+      this.dialogService
+        .error(
+          'Failed to save to database, but token saved locally.',
+          'Partial Save'
+        )
+        .subscribe();
+    } finally {
+      this.isSavingToken = false;
+    }
   }
 
-  clearHfToken(): void {
-    localStorage.removeItem('hf_token');
-    this.hfToken = '';
-    this.isGemmaConfigured = false;
-    this.dialogService
-      .alert('Hugging Face token has been removed.', 'Token Cleared')
-      .subscribe();
+  async clearHfToken(): Promise<void> {
+    try {
+      await this.settingsService.clearHuggingFaceToken();
+      this.hfToken = '';
+      this.isGemmaConfigured = false;
+      this.dialogService
+        .alert(
+          'Hugging Face token has been removed from all devices.',
+          'Token Cleared'
+        )
+        .subscribe();
+    } catch (error) {
+      this.dialogService
+        .error('Failed to clear token from database.', 'Error')
+        .subscribe();
+    }
   }
 
   loadUsers(): void {
