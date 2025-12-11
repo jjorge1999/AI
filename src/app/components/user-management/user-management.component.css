@@ -236,3 +236,123 @@
     cursor: pointer;
     font-weight: 600;
 }
+
+.btn-save:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* AI Settings Section */
+.ai-settings-section {
+    margin-top: var(--space-xl);
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-lg);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.section-header:hover {
+    background: var(--color-bg);
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.section-icon {
+    font-size: 1.5rem;
+}
+
+.section-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--color-text);
+}
+
+.toggle-icon {
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-badge.configured {
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.status-badge.not-configured {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.ai-settings-content {
+    padding: 0 var(--space-lg) var(--space-lg);
+    border-top: 1px solid var(--color-border);
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.settings-description {
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    margin: var(--space-md) 0 var(--space-lg);
+    line-height: 1.5;
+}
+
+.settings-description a {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+.settings-description a:hover {
+    text-decoration: underline;
+}
+
+.settings-actions {
+    display: flex;
+    gap: var(--space-md);
+    margin-top: var(--space-lg);
+}
+
+.btn-clear {
+    padding: 0.75rem 1.5rem;
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-clear:hover {
+    background: rgba(239, 68, 68, 0.2);
+}
+
+.form-group input.has-value {
+    border-color: var(--color-primary);
+}

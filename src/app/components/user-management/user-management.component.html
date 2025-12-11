@@ -56,6 +56,46 @@
     </div>
   </div>
 
+  <!-- AI Settings Section -->
+  <div class="ai-settings-section">
+    <header class="section-header" (click)="toggleAiSettings()">
+      <div class="header-content">
+        <span class="section-icon">🤖</span>
+        <h3>AI Settings (Gemma)</h3>
+        <span class="status-badge" [class.configured]="isGemmaConfigured" [class.not-configured]="!isGemmaConfigured">
+          {{ isGemmaConfigured ? '✓ Configured' : '⚠ Not Configured' }}
+        </span>
+      </div>
+      <span class="toggle-icon">{{ showAiSettings ? '▼' : '▶' }}</span>
+    </header>
+
+    <div class="ai-settings-content" *ngIf="showAiSettings">
+      <p class="settings-description">
+        Configure your Hugging Face API token to enable Gemma AI for smart chat responses.
+        Get your token from <a href="https://huggingface.co/settings/tokens" target="_blank">huggingface.co/settings/tokens</a>
+      </p>
+
+      <div class="form-group">
+        <label>Hugging Face Token</label>
+        <input 
+          type="text" 
+          [(ngModel)]="hfToken" 
+          placeholder="hf_xxxxxxxxxxxxxxxxxxxxx"
+          [class.has-value]="hfToken"
+        />
+      </div>
+
+      <div class="settings-actions">
+        <button class="btn-save" (click)="saveHfToken()" [disabled]="!hfToken">
+          💾 Save Token
+        </button>
+        <button class="btn-clear" (click)="clearHfToken()" *ngIf="isGemmaConfigured">
+          🗑️ Clear Token
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal -->
   <div class="modal-overlay" *ngIf="isModalOpen">
     <div class="modal-card">

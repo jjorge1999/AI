@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { UserService } from '../../services/user.service';
 import { DialogService } from '../../services/dialog.service';
+import { AiService } from '../../services/ai.service';
 import { User } from '../../models/inventory.models';
 
 @Component({
@@ -27,9 +28,15 @@ export class UserManagementComponent implements OnInit {
   };
   formPassword = ''; // Separate variable for form input
 
+  // AI Settings
+  hfToken = '';
+  isGemmaConfigured = false;
+  showAiSettings = false;
+
   constructor(
     private userService: UserService,
-    private dialogService: DialogService
+    private dialogService: DialogService,
+    private aiService: AiService
   ) {}
 
   ngOnInit(): void {
@@ -37,6 +44,56 @@ export class UserManagementComponent implements OnInit {
     this.loadUsers();
     // 2. Trigger the fetch from backend
     this.userService.loadUsers();
+    // 3. Check if Gemma is configured
+    this.checkGemmaStatus();
+  }
+
+  checkGemmaStatus(): void {
+    this.isGemmaConfigured = this.aiService.isGemmaApiAvailable();
+    // Load existing token for display (masked)
+    const existingToken = localStorage.getItem('hf_token');
+    if (existingToken) {
+      this.hfToken = existingToken.substring(0, 10) + '...';
+    }
+  }
+
+  toggleAiSettings(): void {
+    this.showAiSettings = !this.showAiSettings;
+    if (this.showAiSettings) {
+      // Clear the masked display when editing
+      const existingToken = localStorage.getItem('hf_token');
+      this.hfToken = existingToken || '';
+    }
+  }
+
+  saveHfToken(): void {
+    if (!this.hfToken || !this.hfToken.startsWith('hf_')) {
+      this.dialogService
+        .error(
+          'Please enter a valid Hugging Face token (starts with hf_)',
+          'Invalid Token'
+        )
+        .subscribe();
+      return;
+    }
+
+    this.aiService.setHuggingFaceToken(this.hfToken);
+    this.isGemmaConfigured = true;
+    this.showAiSettings = false;
+    this.hfToken = this.hfToken.substring(0, 10) + '...';
+
+    this.dialogService
+      .alert('Gemma AI has been configured successfully! 🎉', 'AI Configured')
+      .subscribe();
+  }
+
+  clearHfToken(): void {
+    localStorage.removeItem('hf_token');
+    this.hfToken = '';
+    this.isGemmaConfigured = false;
+    this.dialogService
+      .alert('Hugging Face token has been removed.', 'Token Cleared')
+      .subscribe();
   }
 
   loadUsers(): void {
