@@ -59,9 +59,13 @@ export class ReservationComponent implements OnInit, OnDestroy {
     if (savedInfo) {
       try {
         const info = JSON.parse(savedInfo);
+        console.log('Reservation autofill from chatCustomerInfo:', info);
         this.customerName = info.name || '';
-        this.customerContact = info.phoneNumber || '';
-        this.customerAddress = info.address || info.deliveryAddress || '';
+        // Check both possible phone field names
+        this.customerContact =
+          info.phoneNumber || info.phone || info.contact || '';
+        // Check both possible address field names (Customer model uses deliveryAddress)
+        this.customerAddress = info.deliveryAddress || info.address || '';
       } catch (e) {
         console.error('Error parsing chatCustomerInfo', e);
       }
