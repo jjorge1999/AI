@@ -1029,26 +1029,43 @@ export class ChatComponent
     ];
     const lowerMessage = messageText.toLowerCase();
 
-    // Also check if the message mentions any product name directly
-    let mentionsProduct = false;
-
     // Check if message contains product-related keywords
-    const isProductInquiry = productKeywords.some((kw) =>
+    const hasProductKeyword = productKeywords.some((kw) =>
       lowerMessage.includes(kw)
     );
 
-    if (!isProductInquiry) {
-      // Not a product question, try general Gemma response
-      await this.handleGeneralInquiry(messageText);
-      return;
-    }
-
-    console.log('AI Auto-responder: Product inquiry detected');
-
-    // Search products database
+    // Also check if the message mentions any product name directly
+    // We need to fetch products first to check this
     this.inventoryService.products$
       .pipe(take(1))
       .subscribe(async (products) => {
+        // Check if message mentions any product name
+        const messageWords = lowerMessage
+          .split(/\s+/)
+          .filter((w) => w.length > 2);
+        const mentionsProduct = products.some((p) => {
+          const productName = p.name.toLowerCase();
+          const productWords = productName.split(/\s+/);
+
+          // Check if any product word appears in message
+          return (
+            productWords.some(
+              (word) => word.length > 2 && lowerMessage.includes(word)
+            ) || messageWords.some((word) => productName.includes(word))
+          );
+        });
+
+        // If neither keyword nor product name mentioned, handle as general inquiry
+        if (!hasProductKeyword && !mentionsProduct) {
+          await this.handleGeneralInquiry(messageText);
+          return;
+        }
+
+        console.log('AI Auto-responder: Product inquiry detected', {
+          hasProductKeyword,
+          mentionsProduct,
+        });
+
         if (products.length === 0) {
           console.log('AI Auto-responder: No products in database');
           // Use Gemma as sales rep even when inventory is empty
@@ -1070,9 +1087,7 @@ Write a persuasive response: apologize briefly, create urgency by mentioning new
         }
 
         // Improved product matching - check if message words appear in product name or vice versa
-        const messageWords = lowerMessage
-          .split(/\s+/)
-          .filter((w) => w.length > 2);
+        // Note: messageWords was already defined above
         const matchedProducts = products.filter((p) => {
           const productName = p.name.toLowerCase();
           const productCategory = (p.category || '').toLowerCase();
