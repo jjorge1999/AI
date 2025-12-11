@@ -257,13 +257,12 @@ export class ReservationComponent implements OnInit, OnDestroy {
         })
       );
 
-      // 3. Auto-login to chat by storing customer info with 2-hour expiration
+      // 3. Auto-login to chat by storing customer info (no expiration)
       const chatCustomerInfo = {
         name: this.customerName,
         phoneNumber: this.customerContact,
         address: this.customerAddress,
         gpsCoordinates: this.gpsCoordinates,
-        expiresAt: Date.now() + 2 * 60 * 60 * 1000, // 2 hours from now
       };
       localStorage.setItem(
         'chatCustomerInfo',
