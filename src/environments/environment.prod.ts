@@ -1,9 +1,9 @@
 export const environment = {
   production: true,
   apiUrl: 'https://inventory-three-theta.vercel.app/api',
-  // Hugging Face Token for Gemma AI - Set via localStorage.setItem('hf_token', 'your_token')
-  // Get token from: https://huggingface.co/settings/tokens
-  huggingFaceToken: '',
+  // Replace with your deployed WebSocket server URL (e.g., on Render/Railway)
+  // Hugging Face Token for Gemma AI (get from: https://huggingface.co/settings/tokens)
+  huggingFaceToken: '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', // Add your token here or set in localStorage as 'hf_token'
   firebaseConfig: {
     apiKey: 'AIzaSyDJL01CQ2KJGqni6Q3EPR8Yv1CPW6cXezk',
     authDomain: 'inventory-8b0ad.firebaseapp.com',
