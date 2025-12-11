@@ -8,11 +8,6 @@ last 2 Safari versions
 last 2 iOS versions
 last 2 Opera versions
 
-# Android support - includes Huawei browser
-Chrome >= 60
-Android >= 7
-Samsung >= 10
-
-# Broader support for older devices
-> 0.5%
+# Slightly broader support
+> 1%
 not dead
