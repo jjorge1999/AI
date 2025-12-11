@@ -1206,10 +1206,15 @@ Turn this into an opportunity: Express excitement about restocking soon, create 
 
   // Handle general (non-product) inquiries with Gemma
   private async handleGeneralInquiry(messageText: string): Promise<void> {
-    // Keywords that should trigger AI response
+    // Keywords that should trigger AI response - expanded for better coverage
     const triggerKeywords = [
+      // English greetings
       'hello',
       'hi',
+      'hey',
+      'good morning',
+      'good afternoon',
+      'good evening',
       'help',
       'question',
       'ask',
@@ -1224,14 +1229,61 @@ Turn this into an opportunity: Express excitement about restocking soon, create 
       'payment',
       'contact',
       'thank',
+      'thanks',
+      'okay',
+      'ok',
+      'yes',
+      'no',
+      'what',
+      'how',
+      'when',
+      'where',
+      'why',
+      // Filipino/Tagalog
+      'kumusta',
+      'musta',
+      'kamusta',
+      'opo',
+      'po',
+      'salamat',
+      'maraming salamat',
+      'sige',
+      'oo',
+      'hindi',
+      'anong',
+      'paano',
+      'san',
+      'saan',
+      'kailan',
+      'bakit',
+      'pwede',
+      // Cebuano/Bisaya
+      'maayong',
+      'unsay',
+      'unsa',
+      'asa',
+      'kanus-a',
+      'ngano',
+      'oy',
+      'hoy',
+      'salamat',
+      'daghang salamat',
+      'sigi',
+      'oo',
+      'dili',
+      'pwede ba',
     ];
-    const lowerMessage = messageText.toLowerCase();
+    const lowerMessage = messageText.toLowerCase().trim();
 
     const shouldRespond = triggerKeywords.some((kw) =>
       lowerMessage.includes(kw)
     );
 
-    if (!shouldRespond) {
+    // Also respond to very short messages (likely greetings or acknowledgments)
+    const isShortMessage =
+      lowerMessage.length >= 2 && lowerMessage.length <= 20;
+
+    if (!shouldRespond && !isShortMessage) {
       // Don't respond to every message - let admin handle complex queries
       return;
     }
