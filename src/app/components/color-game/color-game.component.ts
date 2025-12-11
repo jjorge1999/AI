@@ -79,7 +79,13 @@ export class ColorGameComponent implements OnInit {
         const info = JSON.parse(savedInfo);
         if (info && info.name) {
           this.verificationName = info.name;
-          this.verifyCustomer();
+          // Also get phone number for auto-verification
+          const phone = info.phoneNumber || info.phone || '';
+          if (phone) {
+            this.verificationPhone = phone;
+            // Auto-verify since we have both name and phone
+            this.verifyCustomer();
+          }
         }
       } catch (e) {
         console.error('Error parsing auto-verification info', e);
