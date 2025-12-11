@@ -54,6 +54,19 @@ export class ReservationComponent implements OnInit, OnDestroy {
     tomorrow.setDate(tomorrow.getDate() + 1);
     this.pickupDate = tomorrow.toISOString().split('T')[0];
 
+    // Autofill customer info from localStorage (from chat session)
+    const savedInfo = localStorage.getItem('chatCustomerInfo');
+    if (savedInfo) {
+      try {
+        const info = JSON.parse(savedInfo);
+        this.customerName = info.name || '';
+        this.customerContact = info.phoneNumber || '';
+        this.customerAddress = info.address || info.deliveryAddress || '';
+      } catch (e) {
+        console.error('Error parsing chatCustomerInfo', e);
+      }
+    }
+
     this.loadProducts();
   }
 

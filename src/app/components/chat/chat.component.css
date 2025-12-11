@@ -1350,3 +1350,28 @@ audio {
     background: linear-gradient(135deg, #10b981, #059669);
   }
 }
+
+/* Reserve Now Button in AI Responses */
+.reserve-btn {
+  display: inline-block;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  margin-top: 10px;
+  transition: all 0.3s;
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+.reserve-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(16, 185, 129, 0.4);
+  filter: brightness(1.1);
+}
+
+.product-inquiry .cta-text {
+  margin-top: 12px;
+  font-weight: 500;
+}

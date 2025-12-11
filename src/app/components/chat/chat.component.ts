@@ -1157,7 +1157,7 @@ SALES RULES:
 1. Create URGENCY (limited stock/limitado na lang, selling fast/mabilis maubos)
 2. Highlight VALUE (quality, best-seller, customer favorites)
 3. Use SOCIAL PROOF (maraming customers ang bumibili nito, daghan kaayo mopalit)
-4. Offer to help them ORDER RIGHT NOW
+4. Direct them to RESERVE/ORDER: Tell them to click the 'Reserve Now' button to place their order (your info will be auto-filled!)
 5. Ask a closing question
 
 Write 2-3 sentences in the customer's language. Be enthusiastic. Use 1-2 emojis. Do NOT use markdown.`;
@@ -1202,7 +1202,8 @@ Write 2-3 sentences in the customer's language. Be enthusiastic. Use 1-2 emojis.
                     ${tableRows.join('')}
                   </tbody>
                 </table>
-                <p class="cta-text">Would you like to place an order? 🛒</p>
+                <p class="cta-text">Ready to order? Click below to reserve (your info will be auto-filled!) 🛒</p>
+                <a href="/reservation" class="reserve-btn">📦 Reserve Now</a>
               </div>
             `;
           }
