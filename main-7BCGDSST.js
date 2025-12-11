@@ -22,7 +22,7 @@ SALES RULES:
 4. Direct them to RESERVE/ORDER: Tell them to click the 'Reserve Now' button to place their order (your info will be auto-filled!)
 5. Ask a closing question
 
-Write 2-3 sentences in the customer's language. Be enthusiastic. Use 1-2 emojis. Do NOT use markdown.`;console.log("AI Auto-responder: Calling Gemma with product context");let x=yield this.aiService.generateWithGemma(b);if(x)u=x,console.log("AI Auto-responder: Gemma response received");else{console.log("AI Auto-responder: Gemma unavailable, using fallback");let T=m.map(I=>{let R=I.quantity>0?`<span class="stock-available">${I.quantity} in stock</span>`:'<span class="stock-out">Out of stock</span>';return`<tr>
+Write 2-3 sentences in the customer's language. Be enthusiastic. Use 1-2 emojis. Do NOT use markdown.`;console.log("AI Auto-responder: Calling Gemma with product context");let x=yield this.aiService.generateWithGemma(b);if(x)u=x+'<br><br><a href="/reservation" class="reserve-btn">\u{1F6D2} Reserve Now</a>',console.log("AI Auto-responder: Gemma response received");else{console.log("AI Auto-responder: Gemma unavailable, using fallback");let T=m.map(I=>{let R=I.quantity>0?`<span class="stock-available">${I.quantity} in stock</span>`:'<span class="stock-out">Out of stock</span>';return`<tr>
                 <td>${I.name}</td>
                 <td>\u20B1${I.price.toFixed(2)}</td>
                 <td>${R}</td>
