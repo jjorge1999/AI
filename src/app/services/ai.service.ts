@@ -1,5 +1,4 @@
 import { Injectable } from '@angular/core';
-import { pipeline } from '@huggingface/transformers';
 import { environment } from '../../environments/environment';
 
 // Hugging Face Inference API response interface
@@ -15,6 +14,7 @@ export class AiService {
   private sentimentPipeline: any = null;
   private generationPipeline: any = null;
   private isLoading = false;
+  private localModelsSupported = true; // Assume supported until proven otherwise
 
   // Hugging Face Inference Providers - OpenAI-compatible endpoint
   // Docs: https://huggingface.co/docs/inference-providers/
@@ -66,8 +66,19 @@ export class AiService {
   async init() {
     if ((this.sentimentPipeline && this.generationPipeline) || this.isLoading)
       return;
+
+    if (!this.localModelsSupported) {
+      console.log(
+        'AI Service: Local models not supported on this browser, using Gemma API only'
+      );
+      return;
+    }
+
     this.isLoading = true;
     try {
+      // Dynamic import to prevent crashes on older browsers
+      const { pipeline } = await import('@huggingface/transformers');
+
       // 1. Sentiment Analysis (always local)
       if (!this.sentimentPipeline) {
         this.sentimentPipeline = await pipeline(
@@ -88,6 +99,8 @@ export class AiService {
       console.log('AI Service: Local models loaded successfully');
     } catch (error) {
       console.error('AI Service: Failed to load local AI models', error);
+      console.log('AI Service: Falling back to Gemma API only');
+      this.localModelsSupported = false;
     } finally {
       this.isLoading = false;
     }
