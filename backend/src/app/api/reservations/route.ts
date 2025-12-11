@@ -52,7 +52,11 @@ export async function POST(request: Request) {
         timestamp: timestamp,
         deliveryDate: deliveryDate,
         deliveryNotes: deliveryNotes,
-        customerId: '',
+        // Store customer info for AI matching
+        customerId: reservation.customerName.toLowerCase().trim(), // Use name as ID for matching
+        customerName: reservation.customerName,
+        customerContact: reservation.customerContact,
+        customerAddress: reservation.customerAddress || '',
         pending: true,
         reservationStatus: 'pending_confirmation',
         userId: productUserId, // Use product owner's userId

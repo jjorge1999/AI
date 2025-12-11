@@ -23,6 +23,9 @@ export interface Sale {
   deliveryDate?: Date;
   deliveryNotes?: string;
   customerId?: string;
+  customerName?: string; // For reservations
+  customerContact?: string; // For reservations
+  customerAddress?: string; // For reservations
   pending?: boolean; // true if sale is pending delivery
   discount?: number;
   discountType?: 'amount' | 'percent';

@@ -1492,6 +1492,7 @@ Write 1-2 sentences in their language. Be warm, enthusiastic. Use 1-2 emojis. En
           // Normalize for comparison
           const cId = (s.customerId || '').trim().toLowerCase();
           const uId = (s.userId || '').trim().toLowerCase();
+          const sCustomerName = (s.customerName || '').trim().toLowerCase(); // For reservations
           const tId = targetId.trim().toLowerCase();
           const cName = customerName.trim().toLowerCase();
           const storedCustomerId = (localStorage.getItem('customer_id') || '')
@@ -1503,11 +1504,13 @@ Write 1-2 sentences in their language. Be warm, enthusiastic. Use 1-2 emojis. En
           // 2. Sale UserID matches TargetID
           // 3. Sale CustomerID matches Name
           // 4. Sale CustomerID matches stored customer_id
+          // 5. Sale CustomerName matches customer name (for reservations)
           return (
             cId === tId ||
             uId === tId ||
             cId === cName ||
-            (storedCustomerId && cId === storedCustomerId)
+            (storedCustomerId && cId === storedCustomerId) ||
+            sCustomerName === cName // NEW: Match by customerName field
           );
         });
 
