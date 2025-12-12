@@ -22,7 +22,7 @@ SALES RULES:
 4. Direct them to RESERVE/ORDER: Tell them to click the 'Reserve Now' button to place their order (your info will be auto-filled!)
 5. Ask a closing question
 
-Write 2-3 sentences in the customer's language. Be enthusiastic. Use 1-2 emojis. Do NOT use markdown.`;console.log("AI Auto-responder: Calling Gemma with product context");let x=yield this.aiService.generateWithGemma(b);if(x)u=x+'<br><br><a href="/reservation" class="reserve-btn">\u{1F6D2} Reserve Now</a>',console.log("AI Auto-responder: Gemma response received");else{console.log("AI Auto-responder: Gemma unavailable, using fallback");let T=m.map(I=>{let R=I.quantity>0?`<span class="stock-available">${I.quantity} in stock</span>`:'<span class="stock-out">Out of stock</span>';return`<tr>
+Write 2-3 sentences in the customer's language. Be enthusiastic. Use 1-2 emojis. Do NOT use markdown.`;console.log("AI Auto-responder: Calling Gemma with product context");let x=yield this.aiService.generateWithGemma(b);if(x)u=x+'<br><br><a href="/AI/reservation" class="reserve-btn">\u{1F6D2} Reserve Now</a>',console.log("AI Auto-responder: Gemma response received");else{console.log("AI Auto-responder: Gemma unavailable, using fallback");let T=m.map(I=>{let R=I.quantity>0?`<span class="stock-available">${I.quantity} in stock</span>`:'<span class="stock-out">Out of stock</span>';return`<tr>
                 <td>${I.name}</td>
                 <td>\u20B1${I.price.toFixed(2)}</td>
                 <td>${R}</td>
@@ -43,7 +43,7 @@ Write 2-3 sentences in the customer's language. Be enthusiastic. Use 1-2 emojis.
                   </tbody>
                 </table>
                 <p class="cta-text">Ready to order? Click below to reserve (your info will be auto-filled!) \u{1F6D2}</p>
-                <a href="/reservation" class="reserve-btn">\u{1F4E6} Reserve Now</a>
+                <a href="/AI/reservation" class="reserve-btn">\u{1F4E6} Reserve Now</a>
               </div>
             `}}else u=(yield this.aiService.generateWithGemma(`You are a senior sales representative in the Philippines. A customer named ${this.senderName} wants products but everything is out of stock. Their message was: "${e}"
 
