@@ -1,126 +1,207 @@
-<div class="reports-section">
-  <!-- Summary Cards -->
-  <div class="summary-grid">
-    <div class="summary-card income">
-      <div class="card-icon">💰</div>
-      <div class="card-content">
-        <div class="card-label">Total Income</div>
-        <div class="card-value">₱{{ totalIncome | number:'1.2-2' }}</div>
+<div class="reports-container">
+  <!-- Header Section -->
+  <header class="page-header">
+    <div class="header-content">
+      <div class="header-title-section">
+        <h1 class="page-title">Income vs Expense Analysis</h1>
+        <p class="page-subtitle">Track your financial performance and cash flow health over time.</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn-export">
+          <span class="material-icon">download</span>
+          <span class="btn-text">Export Report</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Date Range Filters -->
+  <div class="filter-chips">
+    <button
+      *ngFor="let range of dateRanges"
+      class="filter-chip"
+      [class.active]="dateRange === range.value"
+      (click)="setDateRange(range.value)"
+    >
+      {{ range.label }}
+    </button>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="stats-grid">
+    <!-- Income Card -->
+    <div class="stat-card">
+      <div class="stat-header">
+        <p class="stat-label">Total Income</p>
+        <span class="stat-icon green">
+          <span class="material-icon">trending_up</span>
+        </span>
+      </div>
+      <p class="stat-value">{{ formatCurrency(totalIncome) }}</p>
+      <div class="stat-trend positive">
+        <span class="material-icon">arrow_upward</span>
+        <span class="trend-value">{{ filteredSales.length }} sales</span>
       </div>
     </div>
 
-    <div class="summary-card expense">
-      <div class="card-icon">💸</div>
-      <div class="card-content">
-        <div class="card-label">Total Expenses</div>
-        <div class="card-value">₱{{ totalExpenses | number:'1.2-2' }}</div>
+    <!-- Expense Card -->
+    <div class="stat-card">
+      <div class="stat-header">
+        <p class="stat-label">Total Expenses</p>
+        <span class="stat-icon orange">
+          <span class="material-icon">trending_down</span>
+        </span>
+      </div>
+      <p class="stat-value">{{ formatCurrency(totalExpenses) }}</p>
+      <div class="stat-trend negative">
+        <span class="material-icon">arrow_downward</span>
+        <span class="trend-value">{{ filteredExpenses.length }} expenses</span>
       </div>
     </div>
 
-    <div class="summary-card profit" [class.negative]="netProfit < 0">
-      <div class="card-icon">{{ netProfit >= 0 ? '📈' : '📉' }}</div>
-      <div class="card-content">
-        <div class="card-label">Net Profit</div>
-        <div class="card-value">₱{{ netProfit | number:'1.2-2' }}</div>
+    <!-- Net Profit Card -->
+    <div class="stat-card profit-card">
+      <div class="stat-glow"></div>
+      <div class="stat-header">
+        <p class="stat-label">Net Profit</p>
+        <span class="stat-icon primary">
+          <span class="material-icon">account_balance_wallet</span>
+        </span>
       </div>
-    </div>
-
-    <div class="summary-card margin">
-      <div class="card-icon">📊</div>
-      <div class="card-content">
-        <div class="card-label">Profit Margin</div>
-        <div class="card-value">{{ profitMargin | number:'1.1-1' }}%</div>
+      <p class="stat-value" [class.negative-profit]="netProfit < 0">{{ formatCurrency(netProfit) }}</p>
+      <div class="stat-trend" [class.positive]="profitMargin >= 0" [class.negative]="profitMargin < 0">
+        <span class="material-icon">{{ profitMargin >= 0 ? 'arrow_upward' : 'arrow_downward' }}</span>
+        <span class="trend-value">{{ profitMargin | number:'1.0-0' }}% margin</span>
       </div>
     </div>
   </div>
 
-  <!-- Income vs Expense Chart -->
-  <div class="card chart-card">
-    <h3>
-      <span class="icon">📊</span>
-      Income vs Expenses
-    </h3>
-
-    <div class="comparison-chart">
-      <div class="chart-row">
-        <div class="chart-label">Income</div>
-        <div class="chart-bar-wrapper">
-          <div 
-            class="chart-bar income-bar" 
-            [style.width.%]="incomePercentage"
-            [title]="'₱' + (totalIncome | number:'1.2-2')"
-          ></div>
+  <!-- Charts Section -->
+  <div class="charts-grid">
+    <!-- Bar Chart -->
+    <div class="chart-card chart-main">
+      <div class="chart-header">
+        <div class="chart-title-section">
+          <h3 class="chart-title">Financial Performance</h3>
+          <p class="chart-subtitle">Income vs Expense over time</p>
         </div>
-        <div class="chart-value">₱{{ totalIncome | number:'1.2-2' }}</div>
+        <div class="chart-legend">
+          <div class="legend-item">
+            <span class="legend-dot income"></span>
+            <span>Income</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot expense"></span>
+            <span>Expense</span>
+          </div>
+        </div>
       </div>
 
-      <div class="chart-row">
-        <div class="chart-label">Expenses</div>
-        <div class="chart-bar-wrapper">
-          <div 
-            class="chart-bar expense-bar" 
-            [style.width.%]="expensePercentage"
-            [title]="'₱' + (totalExpenses | number:'1.2-2')"
-          ></div>
+      <div class="bar-chart">
+        <div class="chart-grid-lines">
+          <div class="grid-line"></div>
+          <div class="grid-line"></div>
+          <div class="grid-line"></div>
+          <div class="grid-line"></div>
         </div>
-        <div class="chart-value">₱{{ totalExpenses | number:'1.2-2' }}</div>
+        <div class="bars-container">
+          <div class="bar-group" *ngFor="let data of monthlyData">
+            <div class="bar-pair">
+              <div
+                class="bar income-bar"
+                [style.height.%]="getBarHeight(data.income)"
+                [title]="formatCurrency(data.income)"
+              >
+                <span class="bar-tooltip">{{ formatCurrency(data.income) }}</span>
+              </div>
+              <div
+                class="bar expense-bar"
+                [style.height.%]="getExpenseBarHeight(data.expense)"
+                [title]="formatCurrency(data.expense)"
+              ></div>
+            </div>
+            <span class="bar-label">{{ data.month }}</span>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="chart-legend">
-      <div class="legend-item">
-        <span class="legend-color income-color"></span>
-        <span>Income ({{ incomePercentage | number:'1.1-1' }}%)</span>
-      </div>
-      <div class="legend-item">
-        <span class="legend-color expense-color"></span>
-        <span>Expenses ({{ expensePercentage | number:'1.1-1' }}%)</span>
+    <!-- Expense Breakdown -->
+    <div class="chart-card chart-secondary">
+      <h3 class="chart-title">Expense Summary</h3>
+      <div class="summary-content">
+        <div class="summary-stat">
+          <span class="summary-label">Total Expenses</span>
+          <span class="summary-value">{{ formatCurrency(totalExpenses) }}</span>
+        </div>
+        <div class="summary-stat">
+          <span class="summary-label">Expense Count</span>
+          <span class="summary-value">{{ filteredExpenses.length }}</span>
+        </div>
+        <div class="summary-stat">
+          <span class="summary-label">Avg. Expense</span>
+          <span class="summary-value">{{ formatCurrency(filteredExpenses.length > 0 ? totalExpenses / filteredExpenses.length : 0) }}</span>
+        </div>
+        <div class="profit-indicator">
+          <div class="profit-bar-bg">
+            <div class="profit-bar income-segment" [style.width.%]="totalIncome > 0 ? 100 : 0"></div>
+            <div class="profit-bar expense-segment" [style.width.%]="(totalExpenses / (totalIncome || 1)) * 100"></div>
+          </div>
+          <div class="profit-labels">
+            <span>Income</span>
+            <span>Expenses</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Breakdown -->
-  <div class="breakdown-grid">
-    <div class="card">
-      <h3>
-        <span class="icon">💵</span>
-        Income Breakdown
-      </h3>
-      <div class="breakdown-stats">
-        <div class="stat-row">
-          <span class="stat-label">Total Sales:</span>
-          <span class="stat-value">{{ completedSalesCount }}</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Pending Deliveries:</span>
-          <span class="stat-value">{{ pendingSalesCount }}</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Average Sale:</span>
-          <span class="stat-value">₱{{ averageSale | number:'1.2-2' }}</span>
-        </div>
-      </div>
+  <!-- Recent Transactions -->
+  <div class="transactions-card">
+    <div class="transactions-header">
+      <h3 class="chart-title">Recent Transactions</h3>
     </div>
-
-    <div class="card">
-      <h3>
-        <span class="icon">💳</span>
-        Expense Breakdown
-      </h3>
-      <div class="breakdown-stats">
-        <div class="stat-row">
-          <span class="stat-label">Total Expenses:</span>
-          <span class="stat-value">{{ expenses.length }}</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Average Expense:</span>
-          <span class="stat-value">₱{{ expenses.length > 0 ? (totalExpenses / expenses.length) : 0 | number:'1.2-2' }}</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Expense Ratio:</span>
-          <span class="stat-value">{{ expensePercentage | number:'1.1-1' }}%</span>
-        </div>
-      </div>
+    <div class="transactions-table-wrapper">
+      <table class="transactions-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Category</th>
+            <th>Type</th>
+            <th class="text-right">Amount</th>
+            <th class="text-center">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let tx of recentTransactions" class="table-row">
+            <td class="date-cell">{{ formatDate(tx.date) }}</td>
+            <td class="desc-cell">{{ tx.description }}</td>
+            <td class="category-cell">{{ tx.category }}</td>
+            <td>
+              <span class="type-badge" [class.income]="tx.type === 'income'" [class.expense]="tx.type === 'expense'">
+                {{ tx.type | titlecase }}
+              </span>
+            </td>
+            <td class="amount-cell" [class.income]="tx.type === 'income'" [class.expense]="tx.type === 'expense'">
+              {{ tx.type === 'income' ? '+' : '-' }}{{ formatCurrency(tx.amount) }}
+            </td>
+            <td class="status-cell">
+              <span class="status-badge" [class.completed]="tx.status === 'completed'" [class.pending]="tx.status === 'pending'">
+                {{ tx.status | titlecase }}
+              </span>
+            </td>
+          </tr>
+          <tr *ngIf="recentTransactions.length === 0">
+            <td colspan="6" class="empty-row">
+              <div class="empty-state">
+                <span class="material-icon">receipt_long</span>
+                <p>No transactions found</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>

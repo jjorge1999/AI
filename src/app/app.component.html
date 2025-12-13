@@ -3,190 +3,196 @@
   <router-outlet></router-outlet>
 </div>
 
-<!-- Main Application -->
-<div *ngIf="isLoggedIn">
-<header class="header">
-  <div class="container">
-    <div class="header-content">
-      <div class="logo-section">
-        <div class="logo-icon">📦</div>
-        <div class="brand-info">
-          <h1>JJM Inventory</h1>
-          <p class="tagline">Smart Business Management</p>
+<!-- Main Application with Sidebar Layout -->
+<div *ngIf="isLoggedIn" class="app-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar" [class.collapsed]="isSidebarCollapsed" [class.mobile-open]="isMobileSidebarOpen">
+    <div class="sidebar-content">
+      <!-- Logo/User Section -->
+      <div class="sidebar-header">
+        <div class="user-profile">
+          <div class="user-avatar">
+            <span class="avatar-text">{{ getUserInitials() }}</span>
+          </div>
+          <div class="user-info" *ngIf="!isSidebarCollapsed">
+            <h1 class="user-name">{{ userFullName }}</h1>
+            <p class="user-role">{{ userRole === 'admin' ? 'Administrator' : 'Staff Member' }}</p>
+          </div>
         </div>
       </div>
-      <div class="header-actions">
-        <button class="theme-toggle" (click)="toggleVisionAid()" [title]="isVisionAid ? 'Disable Vision Aid' : 'Enable Vision Aid'" style="margin-right: 8px;">
-          <span class="theme-icon">👁️</span>
+
+      <!-- Navigation -->
+      <nav class="sidebar-nav">
+        <a 
+          class="nav-item" 
+          [class.active]="activeTab === 'home'"
+          (click)="setActiveTab('home'); closeMobileSidebar()"
+        >
+          <span class="material-icon" [class.fill]="activeTab === 'home'">dashboard</span>
+          <span class="nav-label" *ngIf="!isSidebarCollapsed">Dashboard</span>
+        </a>
+        <a 
+          class="nav-item" 
+          [class.active]="activeTab === 'add-product'"
+          (click)="setActiveTab('add-product'); closeMobileSidebar()"
+        >
+          <span class="material-icon" [class.fill]="activeTab === 'add-product'">add_box</span>
+          <span class="nav-label" *ngIf="!isSidebarCollapsed">Add Product</span>
+        </a>
+        <a 
+          class="nav-item" 
+          [class.active]="activeTab === 'inventory'"
+          (click)="setActiveTab('inventory'); closeMobileSidebar()"
+        >
+          <span class="material-icon" [class.fill]="activeTab === 'inventory'">inventory_2</span>
+          <span class="nav-label" *ngIf="!isSidebarCollapsed">Inventory</span>
+        </a>
+        <a 
+          class="nav-item" 
+          [class.active]="activeTab === 'sell'"
+          (click)="setActiveTab('sell'); closeMobileSidebar()"
+        >
+          <span class="material-icon" [class.fill]="activeTab === 'sell'">point_of_sale</span>
+          <span class="nav-label" *ngIf="!isSidebarCollapsed">Point of Sale</span>
+        </a>
+        <a 
+          class="nav-item" 
+          [class.active]="activeTab === 'customers'"
+          (click)="setActiveTab('customers'); closeMobileSidebar()"
+        >
+          <span class="material-icon" [class.fill]="activeTab === 'customers'">groups</span>
+          <span class="nav-label" *ngIf="!isSidebarCollapsed">Customers</span>
+        </a>
+        <a 
+          class="nav-item" 
+          [class.active]="activeTab === 'expenses'"
+          (click)="setActiveTab('expenses'); closeMobileSidebar()"
+        >
+          <span class="material-icon" [class.fill]="activeTab === 'expenses'">receipt_long</span>
+          <span class="nav-label" *ngIf="!isSidebarCollapsed">Expenses</span>
+        </a>
+        <a 
+          class="nav-item" 
+          [class.active]="activeTab === 'reports'"
+          (click)="setActiveTab('reports'); closeMobileSidebar()"
+        >
+          <span class="material-icon" [class.fill]="activeTab === 'reports'">bar_chart</span>
+          <span class="nav-label" *ngIf="!isSidebarCollapsed">Analytics</span>
+        </a>
+        <a 
+          class="nav-item" 
+          [class.active]="activeTab === 'logs'"
+          (click)="setActiveTab('logs'); closeMobileSidebar()"
+        >
+          <span class="material-icon" [class.fill]="activeTab === 'logs'">history</span>
+          <span class="nav-label" *ngIf="!isSidebarCollapsed">Activity Logs</span>
+        </a>
+        <a 
+          *ngIf="userRole === 'admin'"
+          class="nav-item" 
+          [class.active]="activeTab === 'users'"
+          (click)="setActiveTab('users'); closeMobileSidebar()"
+        >
+          <span class="material-icon" [class.fill]="activeTab === 'users'">manage_accounts</span>
+          <span class="nav-label" *ngIf="!isSidebarCollapsed">User Management</span>
+        </a>
+      </nav>
+
+      <!-- Bottom Actions -->
+      <div class="sidebar-footer">
+        <button class="nav-item settings-item" (click)="toggleTheme()">
+          <span class="material-icon">{{ isDarkTheme ? 'light_mode' : 'dark_mode' }}</span>
+          <span class="nav-label" *ngIf="!isSidebarCollapsed">{{ isDarkTheme ? 'Light Mode' : 'Dark Mode' }}</span>
         </button>
-        <button class="theme-toggle" (click)="toggleTheme()" [title]="isDarkTheme ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
-          <span class="theme-icon">{{ isDarkTheme ? '☀️' : '🌙' }}</span>
+        <button class="nav-item settings-item" (click)="toggleVisionAid()">
+          <span class="material-icon">visibility</span>
+          <span class="nav-label" *ngIf="!isSidebarCollapsed">Vision Aid</span>
         </button>
-        <button class="logout-button" (click)="logout()" title="Logout">
-          <span class="logout-icon">🚪</span>
-          <span class="logout-text">Logout</span>
+        <button class="nav-item logout-item" (click)="logout()">
+          <span class="material-icon">logout</span>
+          <span class="nav-label" *ngIf="!isSidebarCollapsed">Logout</span>
         </button>
       </div>
     </div>
-  </div>
-</header>
+  </aside>
 
-<main class="container">
-  <!-- Tab Navigation -->
-  <nav class="tabs">
-    <button 
-      class="tab-button" 
-      [class.active]="activeTab === 'home'"
-      (click)="setActiveTab('home')"
-    >
-      <span class="tab-icon">🏠</span>
-      <span class="tab-label">Home</span>
-    </button>
-    <button 
-      class="tab-button" 
-      [class.active]="activeTab === 'add-product'"
-      (click)="setActiveTab('add-product')"
-    >
-      <span class="tab-icon">📦</span>
-      <span class="tab-label">Add Product</span>
-    </button>
-    <button 
-      class="tab-button" 
-      [class.active]="activeTab === 'sell'"
-      (click)="setActiveTab('sell')"
-    >
-      <span class="tab-icon">💰</span>
-      <span class="tab-label">Sell</span>
-    </button>
-    <button 
-      class="tab-button" 
-      [class.active]="activeTab === 'inventory'"
-      (click)="setActiveTab('inventory')"
-    >
-      <span class="tab-icon">📊</span>
-      <span class="tab-label">Inventory</span>
-    </button>
-    <button 
-      class="tab-button" 
-      [class.active]="activeTab === 'customers'"
-      (click)="setActiveTab('customers')"
-    >
-      <span class="tab-icon">👥</span>
-      <span class="tab-label">Customers</span>
-    </button>
-    <button 
-      class="tab-button" 
-      [class.active]="activeTab === 'expenses'"
-      (click)="setActiveTab('expenses')"
-    >
-      <span class="tab-icon">💸</span>
-      <span class="tab-label">Expenses</span>
-    </button>
-    <button 
-      class="tab-button" 
-      [class.active]="activeTab === 'reports'"
-      (click)="setActiveTab('reports')"
-    >
-      <span class="tab-icon">📈</span>
-      <span class="tab-label">Reports</span>
-    </button>
-    <button 
-      class="tab-button" 
-      [class.active]="activeTab === 'logs'"
-      (click)="setActiveTab('logs')"
-    >
-      <span class="tab-icon">📋</span>
-      <span class="tab-label">Activity Logs</span>
-    </button>
-    <!-- Chat Tab Button Removed -->
-    <button 
-      *ngIf="userRole === 'admin'"
-      class="tab-button" 
-      [class.active]="activeTab === 'users'"
-      (click)="setActiveTab('users')"
-    >
-      <span class="tab-icon">👤</span>
-      <span class="tab-label">Users</span>
-    </button>
-  </nav>
+  <!-- Mobile Sidebar Overlay -->
+  <div class="sidebar-overlay" [class.visible]="isMobileSidebarOpen" (click)="closeMobileSidebar()"></div>
 
-  <!-- Tab Content -->
-  <div class="tab-content">
-    <!-- Home Tab -->
-    <div class="tab-pane" *ngIf="activeTab === 'home'">
-      <div class="tab-pane-content">
-        <app-landing></app-landing>
+  <!-- Main Content Area -->
+  <main class="main-content">
+    <!-- Top Header Bar -->
+    <header class="top-header">
+      <div class="header-left">
+        <button class="menu-toggle" (click)="toggleMobileSidebar()">
+          <span class="material-icon">menu</span>
+        </button>
+        <button class="sidebar-collapse-btn" (click)="toggleSidebarCollapse()">
+          <span class="material-icon">{{ isSidebarCollapsed ? 'chevron_right' : 'chevron_left' }}</span>
+        </button>
+        <h2 class="page-title">{{ getPageTitle() }}</h2>
+      </div>
+      <div class="header-right">
+        <!-- Quick Actions -->
+        <div class="header-actions">
+          <button class="notification-btn" title="Notifications">
+            <span class="material-icon">notifications</span>
+            <span class="notification-dot" *ngIf="totalUnreadMessages > 0"></span>
+          </button>
+          <button class="add-item-btn" (click)="setActiveTab('add-product')">
+            <span class="material-icon">add</span>
+            <span class="btn-text">Add Item</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Scrollable Content Area -->
+    <div class="content-area">
+      <div class="content-wrapper">
+        <!-- Home Tab -->
+        <div class="content-pane" *ngIf="activeTab === 'home'">
+          <app-landing></app-landing>
+        </div>
+        <!-- Add Product Tab -->
+        <div class="content-pane" *ngIf="activeTab === 'add-product'">
+          <app-product-form></app-product-form>
+        </div>
+        <!-- Sell Tab -->
+        <div class="content-pane" *ngIf="activeTab === 'sell'">
+          <app-pos-calculator></app-pos-calculator>
+        </div>
+        <!-- Inventory Tab -->
+        <div class="content-pane" *ngIf="activeTab === 'inventory'">
+          <app-inventory-list></app-inventory-list>
+        </div>
+        <!-- Customers Tab -->
+        <div class="content-pane" *ngIf="activeTab === 'customers'">
+          <app-customer-form></app-customer-form>
+        </div>
+        <!-- Expenses Tab -->
+        <div class="content-pane" *ngIf="activeTab === 'expenses'">
+          <app-expenses></app-expenses>
+        </div>
+        <!-- Reports Tab -->
+        <div class="content-pane" *ngIf="activeTab === 'reports'">
+          <app-reports></app-reports>
+        </div>
+        <!-- Activity Logs Tab -->
+        <div class="content-pane" *ngIf="activeTab === 'logs'">
+          <app-activity-logs></app-activity-logs>
+        </div>
+        <!-- User Management Tab -->
+        <div class="content-pane" *ngIf="activeTab === 'users' && userRole === 'admin'">
+          <app-user-management></app-user-management>
+        </div>
       </div>
     </div>
-    <!-- Add Product Tab -->
-    <div class="tab-pane" *ngIf="activeTab === 'add-product'">
-      <div class="tab-pane-content">
-        <app-product-form></app-product-form>
-      </div>
-    </div>
-
-    <!-- Sell Tab -->
-    <div class="tab-pane" *ngIf="activeTab === 'sell'">
-      <div class="tab-pane-content">
-        <app-pos-calculator></app-pos-calculator>
-      </div>
-    </div>
-
-    <!-- Inventory Tab -->
-    <div class="tab-pane" *ngIf="activeTab === 'inventory'">
-      <div class="tab-pane-content">
-        <app-inventory-list></app-inventory-list>
-      </div>
-    </div>
-
-    <!-- Customers Tab -->
-    <div class="tab-pane" *ngIf="activeTab === 'customers'">
-      <div class="tab-pane-content">
-        <app-customer-form></app-customer-form>
-      </div>
-    </div>
-
-    <!-- Expenses Tab -->
-    <div class="tab-pane" *ngIf="activeTab === 'expenses'">
-      <div class="tab-pane-content">
-        <app-expenses></app-expenses>
-      </div>
-    </div>
-
-    <!-- Reports Tab -->
-    <div class="tab-pane" *ngIf="activeTab === 'reports'">
-      <div class="tab-pane-content">
-        <app-reports></app-reports>
-      </div>
-    </div>
-
-    <!-- Activity Logs Tab -->
-    <div class="tab-pane" *ngIf="activeTab === 'logs'">
-      <div class="tab-pane-content">
-        <app-activity-logs></app-activity-logs>
-      </div>
-    </div>
-
-    <!-- Chat Tab Removed per request (Widget is used instead) -->
-
-    <!-- User Management Tab -->
-    <div class="tab-pane" *ngIf="activeTab === 'users' && userRole === 'admin'">
-      <div class="tab-pane-content">
-        <app-user-management></app-user-management>
-      </div>
-    </div>
-  </div>
-</main>
-
-<footer class="footer">
-  <div class="container">
-    <p>&copy; 2024 JJM Inventory. All rights reserved.</p>
-  </div>
-</footer>
+  </main>
 </div>
 
 <!-- Floating Chat Widget (Always Visible) -->
-<div class="chat-widget">
+<div class="chat-widget" *ngIf="isLoggedIn">
   <button 
     class="chat-toggle-button" 
     (click)="toggleChat()"

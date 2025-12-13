@@ -1,295 +1,366 @@
-<div class="card">
-  <h3>Point of Sale</h3>
+<div class="pos-container">
+  <!-- LEFT COLUMN: Products -->
+  <main class="products-panel">
+    <!-- Category Filter Rail -->
+    <div class="category-rail">
+      <button
+        class="category-btn"
+        [class.active]="!categoryFilter"
+        (click)="categoryFilter = ''"
+      >
+        <span class="material-icon">star</span>
+        <span class="category-label">All Items</span>
+      </button>
+      <button
+        *ngFor="let cat of categories"
+        class="category-btn"
+        [class.active]="categoryFilter === cat"
+        (click)="categoryFilter = cat"
+      >
+        <span class="material-icon">{{ getCategoryIcon(cat) }}</span>
+        <span class="category-label">{{ cat }}</span>
+      </button>
+    </div>
 
-  <div class="pos-layout">
-    <!-- Selection Panel -->
-    <div class="selection-panel">
-      <!-- Row 1: Customer Context -->
-      <div class="form-row full-width">
-        <div class="form-group">
-          <label for="customer">Select Customer</label>
-          <select id="customer" [(ngModel)]="selectedCustomerId">
-            <option value="">-- Walk-in Customer --</option>
-            <option *ngFor="let customer of customers" [value]="customer.id">
-              {{ customer.name }}
-            </option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Row 2: Product Action Line -->
-      <div class="multi-item-row">
-        <!-- Product -->
-        <div class="form-group product-select-group">
-          <label for="product">Select Product</label>
-          <select id="product" [(ngModel)]="selectedProductId" (change)="onProductChange()">
-            <option value="">-- Choose a product --</option>
-            <option *ngFor="let product of products" [value]="product.id">
-              {{ product.name }} - ₱{{ product.price | number:'1.2-2' }} (Stock: {{ product.quantity }})
-            </option>
-          </select>
-        </div>
-
-        <!-- Quantity -->
-        <div class="form-group tiny-width">
-          <label for="qty">Qty</label>
-          <input type="number" id="qty" [(ngModel)]="quantity" [min]="1" [max]="maxQuantity" />
-        </div>
-
-        <!-- Discount -->
-        <div class="form-group">
-          <label>Discount</label>
-          <div class="discount-row">
-            <input type="number" [(ngModel)]="discount" placeholder="0" class="small-input">
-            <select [(ngModel)]="discountType" class="small-select">
-              <option value="amount">₱</option>
-              <option value="percent">%</option>
-            </select>
+    <!-- Product Grid -->
+    <div class="product-grid-wrapper">
+      <div class="product-grid">
+        <div
+          *ngFor="let product of filteredProducts"
+          class="product-card"
+          [class.in-cart]="isInCart(product.id)"
+          (click)="addProductToCart(product)"
+        >
+          <div
+            class="product-image"
+            [style.backgroundImage]="product.imageUrl ? 'url(' + product.imageUrl + ')' : 'none'"
+          >
+            <span *ngIf="!product.imageUrl" class="material-icon no-image">inventory_2</span>
+            <span class="cart-indicator" *ngIf="isInCart(product.id)">
+              {{ getCartQuantity(product.id) }}
+            </span>
+          </div>
+          <div class="product-info">
+            <p class="product-name">{{ product.name }}</p>
+            <div class="product-meta">
+              <span class="product-price">{{ formatCurrency(product.price) }}</span>
+              <span class="product-stock">Qty: {{ product.quantity }}</span>
+            </div>
           </div>
         </div>
 
-        <!-- Add Button -->
-        <div class="form-group">
-           <button class="btn-primary btn-add" (click)="addToCart()" [disabled]="!selectedProductId">
-             ➕ Add
-           </button>
+        <!-- Empty State -->
+        <div *ngIf="filteredProducts.length === 0" class="empty-products">
+          <span class="material-icon">search_off</span>
+          <p>No products available</p>
         </div>
       </div>
     </div>
+  </main>
 
-    <!-- Error Message -->
-    <div class="error-message" *ngIf="errorMessage">⚠️ {{ errorMessage }}</div>
-
-    <!-- Cart Display -->
-    <div class="cart-container">
-      <table class="cart-table">
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th class="text-right">Price</th>
-            <th class="text-center">Qty</th>
-            <th class="text-right">Total</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let item of cart; let i = index">
-            <td>
-               <div class="cart-prod-name">{{ item.product.name }}</div>
-               <div class="cart-prod-disc" *ngIf="item.discount > 0">
-                 Disc: -{{ item.discountType === 'percent' ? item.discount + '%' : '₱' + item.discount }}
-               </div>
-            </td>
-            <td class="text-right">₱{{ item.product.price | number:'1.2-2' }}</td>
-            <td class="text-center">{{ item.quantity }}</td>
-            <td class="text-right font-bold">₱{{ item.total | number:'1.2-2' }}</td>
-            <td class="text-center">
-              <button class="btn-remove-sm" (click)="removeFromCart(i)" title="Remove">✕</button>
-            </td>
-          </tr>
-          <tr *ngIf="cart.length === 0">
-             <td colspan="5" class="empty-cart-cell">Cart is empty. Add items above.</td>
-          </tr>
-        </tbody>
-      </table>
+  <!-- RIGHT COLUMN: Cart Panel -->
+  <aside class="cart-panel">
+    <!-- Cart Header -->
+    <div class="cart-header">
+      <div class="order-info">
+        <h3 class="order-title">Order #{{ orderNumber }}</h3>
+        <p class="order-meta">{{ currentDate | date:'shortDate' }} • {{ currentTime }}</p>
+      </div>
+      <button class="clear-btn" (click)="clearCart()" *ngIf="cart.length > 0">Clear</button>
     </div>
 
-    <!-- Checkout Panel -->
-    <div class="checkout-panel" *ngIf="cart.length > 0">
-      <div class="delivery-card">
-         <h4>🚚 Delivery Options</h4>
-         <div class="form-row">
-           <div class="form-group">
-             <label>Date</label>
-             <input type="date" [(ngModel)]="deliveryDate" [min]="minDate">
-           </div>
-           <div class="form-group">
-             <label>Time</label>
-             <input type="time" [(ngModel)]="deliveryTime">
-           </div>
-         </div>
-         <div class="form-group">
-           <textarea [(ngModel)]="deliveryNotes" placeholder="Delivery notes..." rows="2"></textarea>
-         </div>
+    <!-- Customer Select -->
+    <div class="customer-select-wrapper">
+      <select [(ngModel)]="selectedCustomerId" class="customer-select">
+        <option value="">-- Walk-in Customer --</option>
+        <option *ngFor="let customer of customers" [value]="customer.id">
+          {{ customer.name }}
+        </option>
+      </select>
+    </div>
+
+    <!-- Cart Items List -->
+    <div class="cart-items">
+      <div
+        *ngFor="let item of cart; let i = index"
+        class="cart-item"
+      >
+        <div
+          class="cart-item-image"
+          [style.backgroundImage]="item.product.imageUrl ? 'url(' + item.product.imageUrl + ')' : 'none'"
+        >
+          <span *ngIf="!item.product.imageUrl" class="material-icon">inventory_2</span>
+        </div>
+        <div class="cart-item-details">
+          <div class="cart-item-row">
+            <span class="cart-item-name">{{ item.product.name }}</span>
+            <span class="cart-item-total">{{ formatCurrency(item.total) }}</span>
+          </div>
+          <div class="cart-item-row">
+            <span class="cart-item-price" *ngIf="item.discount === 0">
+              {{ formatCurrency(item.product.price) }} each
+            </span>
+            <span class="cart-item-price discount-applied" *ngIf="item.discount > 0">
+              {{ item.discountType === 'percent' ? item.discount + '%' : formatCurrency(item.discount) }} off
+            </span>
+            <!-- Quantity Controls -->
+            <div class="qty-controls">
+              <button class="qty-btn" (click)="decrementItem(i)">
+                <span class="material-icon">remove</span>
+              </button>
+              <span class="qty-value">{{ item.quantity }}</span>
+              <button class="qty-btn" (click)="incrementItem(i)" [disabled]="item.quantity >= item.product.quantity">
+                <span class="material-icon">add</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <button class="remove-item-btn" (click)="removeFromCart(i)" title="Remove">
+          <span class="material-icon">close</span>
+        </button>
       </div>
 
-      <div class="payment-card">
-         <h4>💰 Payment</h4>
-         <div class="summary-line total-line">
-           <span>Total Due:</span>
-           <span>₱{{ total | number:'1.2-2' }}</span>
-         </div>
-         
-         <div class="form-group cash-group">
-           <label>Cash Received (₱)</label>
-           <!-- Formatting: Type text to handle raw/formatted switch -->
-           <input 
-             type="text" 
-             [ngModel]="cashDisplayValue"
-             (ngModelChange)="onCashInput($event)"
-             (blur)="formatCashOnBlur()"
-             (focus)="unformatCashOnFocus()"
-             class="cash-input" 
-             placeholder="0.00"
-           >
-         </div>
-         
-         <div class="summary-line change-line" [class.negative]="change < 0">
-           <span>Change:</span>
-           <span>₱{{ change | number:'1.2-2' }}</span>
-         </div>
-
-         <button class="btn-checkout" (click)="checkout()" [disabled]="!isValid()">
-           Complete Order
-         </button>
+      <!-- Empty Cart -->
+      <div *ngIf="cart.length === 0" class="empty-cart">
+        <span class="material-icon">shopping_cart</span>
+        <p>Cart is empty</p>
+        <span class="hint">Tap products to add them</span>
       </div>
+    </div>
+
+    <!-- Bottom Section: Totals & Actions -->
+    <div class="cart-footer">
+      <!-- Quick Actions -->
+      <div class="quick-actions">
+        <button class="action-btn" (click)="openDiscountModal()">
+          <span class="material-icon">percent</span>
+          <span class="action-label">Discount</span>
+        </button>
+        <button class="action-btn" (click)="openDeliveryModal()">
+          <span class="material-icon">local_shipping</span>
+          <span class="action-label">Delivery</span>
+        </button>
+        <button class="action-btn" (click)="openNotesModal()">
+          <span class="material-icon">edit_note</span>
+          <span class="action-label">Notes</span>
+        </button>
+        <button class="action-btn" (click)="togglePendingPanel()">
+          <span class="material-icon">schedule</span>
+          <span class="action-label">Pending</span>
+          <span class="pending-badge" *ngIf="pendingSales.length > 0">{{ pendingSales.length }}</span>
+        </button>
+      </div>
+
+      <!-- Delivery Info (if set) -->
+      <div class="delivery-summary" *ngIf="deliveryDate">
+        <span class="material-icon">local_shipping</span>
+        <span>{{ deliveryDate | date:'shortDate' }} {{ deliveryTime ? 'at ' + deliveryTime : '' }}</span>
+        <button class="clear-delivery" (click)="clearDelivery()">✕</button>
+      </div>
+
+      <!-- Summary -->
+      <div class="order-summary">
+        <div class="summary-row">
+          <span>Subtotal</span>
+          <span>{{ formatCurrency(total) }}</span>
+        </div>
+        <div class="summary-row total-row">
+          <span>Total</span>
+          <span class="total-amount">{{ formatCurrency(total) }}</span>
+        </div>
+      </div>
+
+      <!-- Payment Input -->
+      <div class="payment-section" *ngIf="cart.length > 0">
+        <div class="cash-input-wrapper">
+          <label>Cash Received</label>
+          <div class="cash-input-row">
+            <span class="currency-symbol">₱</span>
+            <input
+              type="text"
+              [ngModel]="cashDisplayValue"
+              (ngModelChange)="onCashInput($event)"
+              (blur)="formatCashOnBlur()"
+              (focus)="unformatCashOnFocus()"
+              placeholder="0.00"
+              class="cash-input"
+            />
+          </div>
+        </div>
+        <div class="change-display" [class.negative]="change < 0">
+          <span>Change</span>
+          <span class="change-amount">{{ formatCurrency(change) }}</span>
+        </div>
+      </div>
+
+      <!-- Main Action Buttons -->
+      <div class="main-actions">
+        <button
+          class="charge-btn"
+          [disabled]="!isValid()"
+          (click)="checkout()"
+        >
+          <span>CHARGE {{ formatCurrency(total) }}</span>
+          <span class="material-icon">arrow_forward</span>
+        </button>
+      </div>
+
+      <!-- Error Message -->
+      <div class="error-banner" *ngIf="errorMessage">
+        <span class="material-icon">warning</span>
+        {{ errorMessage }}
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- Pending Deliveries Slide Panel -->
+<div class="pending-overlay" [class.open]="isPendingPanelOpen" (click)="closePendingPanel()">
+  <div class="pending-panel" [class.open]="isPendingPanelOpen" (click)="$event.stopPropagation()">
+    <div class="pending-header">
+      <h3>
+        <span class="material-icon">schedule</span>
+        Pending Deliveries
+      </h3>
+      <button class="close-pending-btn" (click)="closePendingPanel()">
+        <span class="material-icon">close</span>
+      </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="pending-filters">
+      <input
+        type="date"
+        [(ngModel)]="deliveryFilterDate"
+        (ngModelChange)="updateGroupedSales()"
+        class="filter-input"
+        placeholder="Filter by date"
+      />
+      <select
+        [(ngModel)]="statusFilter"
+        (ngModelChange)="updateGroupedSales()"
+        class="filter-select"
+      >
+        <option value="all">All Deliveries</option>
+        <option value="reservation">Reservations Only</option>
+      </select>
+      <button
+        class="clear-filter-btn"
+        *ngIf="deliveryFilterDate || statusFilter !== 'all'"
+        (click)="clearFilter()"
+      >
+        <span class="material-icon">clear</span>
+      </button>
+    </div>
+
+    <!-- Pending List -->
+    <div class="pending-list">
+      <div
+        *ngFor="let group of paginatedGroupedPendingSales"
+        class="pending-order-card"
+        [class.reservation]="group.status === 'pending_confirmation'"
+      >
+        <div class="order-card-header">
+          <div class="order-title-section">
+            <span class="order-id" *ngIf="group.isGroup">Order #{{ group.orderId | slice:4:12 }}</span>
+            <span class="order-id" *ngIf="!group.isGroup">{{ group.sales?.[0]?.productName }}</span>
+            <span class="reservation-badge" *ngIf="group.status === 'pending_confirmation'">RESERVATION</span>
+          </div>
+          <span class="order-total">{{ formatCurrency(group.total) }}</span>
+        </div>
+
+        <div class="order-items-preview" *ngIf="group.isGroup">
+          <span *ngFor="let s of group.sales; let last = last">
+            {{ s.productName }} (x{{ s.quantitySold }}){{ last ? '' : ', ' }}
+          </span>
+        </div>
+
+        <div class="order-details">
+          <div class="detail-row" *ngIf="group.customer">
+            <span class="material-icon">person</span>
+            <span>{{ group.customer.name }}</span>
+          </div>
+          <div class="detail-row" *ngIf="group.deliveryDate">
+            <span class="material-icon">event</span>
+            <span>{{ group.deliveryDate | date:'medium' }}</span>
+          </div>
+          <div class="detail-row" *ngIf="group.deliveryNotes">
+            <span class="material-icon">notes</span>
+            <span>{{ group.deliveryNotes }}</span>
+          </div>
+        </div>
+
+        <div class="order-actions">
+          <button class="order-action-btn edit" (click)="openEditModal(group?.sales[0])">
+            <span class="material-icon">edit</span>
+          </button>
+          <button
+            *ngIf="group.status === 'pending_confirmation'"
+            class="order-action-btn confirm"
+            (click)="confirmGroupReservation(group?.sales)"
+          >
+            <span class="material-icon">check_circle</span>
+          </button>
+          <button
+            *ngIf="group.status !== 'pending_confirmation'"
+            class="order-action-btn deliver"
+            (click)="markGroupAsDelivered(group?.sales)"
+          >
+            <span class="material-icon">local_shipping</span>
+          </button>
+          <button class="order-action-btn delete" (click)="cancelGroupOrder(group?.sales)">
+            <span class="material-icon">delete</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div *ngIf="allGroupedSales.length === 0" class="empty-pending">
+        <span class="material-icon">check_circle</span>
+        <p>No pending deliveries</p>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pending-pagination" *ngIf="pendingTotalPages > 1">
+      <button [disabled]="pendingPage === 1" (click)="prevPendingPage()">
+        <span class="material-icon">chevron_left</span>
+      </button>
+      <span>Page {{ pendingPage }} of {{ pendingTotalPages }}</span>
+      <button [disabled]="pendingPage >= pendingTotalPages" (click)="nextPendingPage()">
+        <span class="material-icon">chevron_right</span>
+      </button>
     </div>
   </div>
 </div>
 
-<!-- Pending Deliveries -->
-<div class="card pending-deliveries">
-  <h3 (click)="togglePending()" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none;" title="Click to toggle visibility">
-    <span>🚚 Pending Deliveries</span>
-    <span style="font-size: 0.8rem; background: var(--color-bg); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--color-border);">{{ isPendingCollapsed ? 'Show' : 'Hide' }} {{ isPendingCollapsed ? '▼' : '▲' }}</span>
-  </h3>
-  <div class="pending-content-wrapper" *ngIf="!isPendingCollapsed">
-  <div class="filter-row">
-    <div class="filter-group">
-      <label for="deliveryFilter">Date:</label>
-      <input type="date" id="deliveryFilter" [(ngModel)]="deliveryFilterDate" (ngModelChange)="updateGroupedSales()" name="deliveryFilter" />
-      <button class="btn-clear" (click)="clearFilter()" *ngIf="deliveryFilterDate || statusFilter !== 'all'" title="Clear Filter">❌</button>
-    </div>
-    
-    <div class="filter-group">
-       <label for="statusFilter">Show:</label>
-       <select id="statusFilter" [(ngModel)]="statusFilter" (ngModelChange)="updateGroupedSales()" class="status-select">
-         <option value="all">All Deliveries</option>
-         <option value="reservation">⚠️ Reservations</option>
-       </select>
-    </div>
-  </div>
-  <div class="pending-list">
-     <div class="pending-item" *ngFor="let group of paginatedGroupedPendingSales">
-      <div class="pending-details">
-        <div class="pending-header">
-           <div class="header-left">
-              <span class="product-name" *ngIf="!group.isGroup">{{ group.sales?.[0]?.productName }}</span>
-              <span class="product-name" *ngIf="group.isGroup">Order #{{ group.orderId | slice:4:12 }}... ({{ group.sales?.length }} items)</span>
-           </div>
-          <span class="status-badge warning" *ngIf="group.status === 'pending_confirmation'">⚠️ RESERVATION</span>
-          <span class="status-badge success" *ngIf="group.status === 'confirmed'">✅ CONFIRMED</span>
-          <span class="sale-date">{{ group.timestamp | date : 'short' }}</span>
-        </div>
-
-        <div class="multi-item-list" *ngIf="group.isGroup">
-            <div *ngFor="let s of group.sales" class="sub-item">
-               • {{ s.productName }} <span class="sub-qty">(x{{ s.quantitySold }})</span>
-            </div>
-        </div>
-        
-        <div class="pending-info">
-          <span *ngIf="!group.isGroup">Qty: {{ group.quantityTotal }}</span>
-          <span *ngIf="group.isGroup">Total Qty: {{ group.quantityTotal }}</span>
-          <span class="total-price">Due: ₱{{ group.total | number:'1.2-2' }}</span>
-        </div>
-
-        <div class="customer-details" *ngIf="group.customer">
-          <div class="customer-header">👤 Customer Details</div>
-          <div class="customer-row"><span class="customer-label">Name:</span> <span class="customer-value">{{ group.customer?.name }}</span></div>
-          <div class="customer-row"><span class="customer-label">Phone:</span> <span class="customer-value">{{ group.customer?.phoneNumber }}</span></div>
-          <div class="customer-row"><span class="customer-label">Address:</span> <span class="customer-value">{{ group.customer?.deliveryAddress }}</span></div>
-        </div>
-        
-        <div class="delivery-info" *ngIf="group.deliveryDate">
-          <span>📅 Due: {{ group.deliveryDate | date : 'mediumDate' }}</span>
-          <span>📅 Time: {{ group.deliveryDate | date : 'shortTime' }}</span>
-          <span *ngIf="group.deliveryNotes">📝 {{ group.deliveryNotes }}</span>
-        </div>
-      </div>
-      
-      <div class="pending-actions">
-        <button 
-          class="btn-edit" 
-          type="button"
-          (click)="openEditModal(group?.sales[0])"
-        >✏️ Edit</button>
-        
-        <button 
-          *ngIf="group.status === 'pending_confirmation'" 
-          class="btn-confirm" 
-          type="button"
-          (click)="confirmGroupReservation(group?.sales)"
-          title="Confirm Reservation"
-        >
-          📝 Confirm
-        </button>
-
-        <button 
-          class="btn-delete" 
-          type="button"
-          (click)="cancelGroupOrder(group?.sales)"
-          title="Cancel Order"
-        >
-          🗑️ Cancel
-        </button>
-
-        <button 
-          *ngIf="group.status !== 'pending_confirmation'"
-          class="btn-deliver" 
-          type="button"
-          (click)="markGroupAsDelivered(group?.sales)"
-        >
-          🚚 Mark Delivered
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Pagination Controls for Pending Deliveries -->
-  <div class="pagination" *ngIf="pendingTotalPages > 1 || allGroupedSales.length > 5">
-    <div class="pagination-size">
-      <label for="pendingPageSize">Show:</label>
-      <select 
-        id="pendingPageSize"
-        [(ngModel)]="pendingPageSize"
-        (change)="pendingPage = 1"
-        class="page-size-select"
-      >
-        <option *ngFor="let size of pendingPageSizeOptions" [value]="size">{{ size }}</option>
-      </select>
-      <span>per page</span>
-    </div>
-
-    <div class="pagination-controls" *ngIf="pendingTotalPages > 1">
-      <button 
-        class="pagination-btn" 
-        [disabled]="pendingPage === 1"
-        (click)="prevPendingPage()"
-      >
-        ← Prev
-      </button>
-      
-      <div class="pagination-pages">
-        <button 
-          *ngFor="let page of getPendingPageNumbers()"
-          class="pagination-page"
-          [class.active]="page === pendingPage"
-          (click)="goToPendingPage(page)"
-        >
-          {{ page }}
-        </button>
-      </div>
-
-      <button 
-        class="pagination-btn" 
-        [disabled]="pendingPage === pendingTotalPages"
-        (click)="nextPendingPage()"
-      >
-        Next →
+<!-- Delivery Modal -->
+<div class="modal-overlay" *ngIf="isDeliveryModalOpen" (click)="closeDeliveryModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><span class="material-icon">local_shipping</span> Delivery Options</h3>
+      <button class="modal-close" (click)="closeDeliveryModal()">
+        <span class="material-icon">close</span>
       </button>
     </div>
-  </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Delivery Date</label>
+        <input type="date" [(ngModel)]="deliveryDate" [min]="minDate" />
+      </div>
+      <div class="form-group">
+        <label>Delivery Time</label>
+        <input type="time" [(ngModel)]="deliveryTime" />
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea [(ngModel)]="deliveryNotes" rows="3" placeholder="Special instructions..."></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" (click)="closeDeliveryModal()">Cancel</button>
+      <button class="btn-save" (click)="closeDeliveryModal()">Save</button>
+    </div>
   </div>
 </div>
 
@@ -297,39 +368,72 @@
 <div class="modal-overlay" *ngIf="isEditModalOpen" (click)="closeEditModal()">
   <div class="modal-content" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h3>Edit Delivery Details</h3>
-      <button 
-        class="close-btn" 
-        type="button"
-        (click)="closeEditModal()"
-      >×</button>
+      <h3><span class="material-icon">edit</span> Edit Delivery</h3>
+      <button class="modal-close" (click)="closeEditModal()">
+        <span class="material-icon">close</span>
+      </button>
     </div>
     <div class="modal-body">
       <div class="form-group">
-        <label for="editDate">Delivery Date</label>
-        <input type="date" id="editDate" [(ngModel)]="editDeliveryDate" [min]="minDate" class="date-input" />
+        <label>Delivery Date</label>
+        <input type="date" [(ngModel)]="editDeliveryDate" [min]="minDate" />
       </div>
       <div class="form-group">
-        <label for="editTime">Delivery Time</label>
-        <input type="time" id="editTime" [(ngModel)]="editDeliveryTime" class="time-input" />
+        <label>Delivery Time</label>
+        <input type="time" [(ngModel)]="editDeliveryTime" />
       </div>
       <div class="form-group">
-        <label for="editNotes">Notes</label>
-        <textarea id="editNotes" [(ngModel)]="editDeliveryNotes" rows="3" class="textarea-input"></textarea>
+        <label>Notes</label>
+        <textarea [(ngModel)]="editDeliveryNotes" rows="3" placeholder="Notes..."></textarea>
       </div>
     </div>
-    <div class="modal-footer">
-      <button 
-        class="btn-cancel" 
-        type="button"
-        (click)="closeEditModal()"
-      >Cancel</button>
-      <button 
-        class="btn-save" 
-        type="button"
-        (click)="saveEdit()"
-      >Save Changes</button>
+    <div class="modal-actions">
+      <button class="btn-cancel" (click)="closeEditModal()">Cancel</button>
+      <button class="btn-save" (click)="saveEdit()">Save Changes</button>
     </div>
   </div>
 </div>
 
+<!-- Discount Modal -->
+<div class="modal-overlay" *ngIf="isDiscountModalOpen" (click)="closeDiscountModal()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><span class="material-icon">percent</span> Apply Discount</h3>
+      <button class="modal-close" (click)="closeDiscountModal()">
+        <span class="material-icon">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="discount-input-row">
+        <input type="number" [(ngModel)]="tempDiscount" placeholder="0" min="0" />
+        <select [(ngModel)]="tempDiscountType">
+          <option value="amount">₱ Amount</option>
+          <option value="percent">% Percent</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" (click)="closeDiscountModal()">Cancel</button>
+      <button class="btn-save" (click)="applyDiscount()">Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- Notes Modal -->
+<div class="modal-overlay" *ngIf="isNotesModalOpen" (click)="closeNotesModal()">
+  <div class="modal-content small" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><span class="material-icon">edit_note</span> Order Notes</h3>
+      <button class="modal-close" (click)="closeNotesModal()">
+        <span class="material-icon">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <textarea [(ngModel)]="deliveryNotes" rows="4" placeholder="Add notes for this order..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" (click)="closeNotesModal()">Cancel</button>
+      <button class="btn-save" (click)="closeNotesModal()">Save</button>
+    </div>
+  </div>
+</div>

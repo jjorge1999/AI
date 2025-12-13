@@ -63,6 +63,11 @@ export class AppComponent {
   showReservation = false;
   isVisionAid = false;
 
+  // Sidebar state
+  isSidebarCollapsed = false;
+  isMobileSidebarOpen = false;
+  userFullName = 'User';
+
   constructor(
     private inventoryService: InventoryService,
     private chatService: ChatService
@@ -73,6 +78,10 @@ export class AppComponent {
       this.inventoryService.reloadData();
     }
     this.userRole = localStorage.getItem('jjm_role') || 'user';
+    this.userFullName =
+      localStorage.getItem('jjm_fullname') ||
+      localStorage.getItem('jjm_username') ||
+      'User';
 
     // Load theme preference from localStorage
     const savedTheme = localStorage.getItem('jjm_theme');
@@ -83,6 +92,10 @@ export class AppComponent {
     const savedVision = localStorage.getItem('jjm_vision_aid');
     this.isVisionAid = savedVision === 'true';
     this.applyVisionAid();
+
+    // Load sidebar preference
+    const savedCollapsed = localStorage.getItem('jjm_sidebar_collapsed');
+    this.isSidebarCollapsed = savedCollapsed === 'true';
 
     // Expose service for migration
     (window as any).inventoryService = this.inventoryService;
@@ -174,5 +187,46 @@ export class AppComponent {
 
   getReservationLink(): string {
     return `${window.location.origin}${window.location.pathname}#/reservation`;
+  }
+
+  // Sidebar Methods
+  toggleSidebarCollapse(): void {
+    this.isSidebarCollapsed = !this.isSidebarCollapsed;
+    localStorage.setItem(
+      'jjm_sidebar_collapsed',
+      String(this.isSidebarCollapsed)
+    );
+  }
+
+  toggleMobileSidebar(): void {
+    this.isMobileSidebarOpen = !this.isMobileSidebarOpen;
+  }
+
+  closeMobileSidebar(): void {
+    this.isMobileSidebarOpen = false;
+  }
+
+  getUserInitials(): string {
+    const name = this.userFullName || 'U';
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  }
+
+  getPageTitle(): string {
+    const titles: { [key: string]: string } = {
+      home: 'Dashboard Overview',
+      'add-product': 'Add Product',
+      sell: 'Point of Sale',
+      inventory: 'Inventory Management',
+      customers: 'Customer Management',
+      expenses: 'Expense Tracking',
+      reports: 'Analytics & Reports',
+      logs: 'Activity Logs',
+      users: 'User Management',
+    };
+    return titles[this.activeTab] || 'Dashboard';
   }
 }

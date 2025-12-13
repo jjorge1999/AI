@@ -505,6 +505,36 @@ export class InventoryService {
     });
   }
 
+  async deleteProduct(productId: string): Promise<void> {
+    const products = this.productsSubject.value;
+    const product = products.find((p) => p.id === productId);
+
+    // 1. Try Firestore (Best Effort)
+    try {
+      await deleteDoc(doc(this.db, 'products', productId));
+    } catch (e) {
+      console.warn('Firestore delete failed (proceeding with Legacy):', e);
+    }
+
+    // 2. Legacy Backend (Direct)
+    this.http.delete(`${this.apiUrl}/products/${productId}`).subscribe({
+      next: () => {
+        // Update subject
+        const current = this.productsSubject.value;
+        this.productsSubject.next(current.filter((p) => p.id !== productId));
+
+        this.loggingService.logActivity(
+          'delete',
+          'product',
+          productId,
+          product?.name || 'Product',
+          'Deleted'
+        );
+      },
+      error: (err) => console.error('Error deleting product:', err),
+    });
+  }
+
   async recordSale(
     productId: string,
     quantitySold: number,

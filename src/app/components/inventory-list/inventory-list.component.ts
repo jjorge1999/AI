@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InventoryService } from '../../services/inventory.service';
 import { CustomerService } from '../../services/customer.service';
-import { Product, Sale } from '../../models/inventory.models';
+import { DialogService } from '../../services/dialog.service';
+import { Product, Sale, Customer } from '../../models/inventory.models';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -13,9 +14,11 @@ import { Subscription } from 'rxjs';
   templateUrl: './inventory-list.component.html',
   styleUrl: './inventory-list.component.css',
 })
+// Inventory List Component
 export class InventoryListComponent implements OnInit, OnDestroy {
   products: Product[] = [];
   sales: Sale[] = [];
+  customers: Customer[] = [];
   private subscriptions: Subscription = new Subscription();
 
   // Category filter
@@ -57,9 +60,15 @@ export class InventoryListComponent implements OnInit, OnDestroy {
   editProductImage: string = '';
   editImagePreview: string | null = null;
 
+  // Restock Modal State
+  isRestockModalOpen = false;
+  restockingProduct: Product | null = null;
+  restockQuantity: number = 0;
+
   constructor(
     private inventoryService: InventoryService,
-    private customerService: CustomerService
+    private customerService: CustomerService,
+    private dialogService: DialogService
   ) {}
 
   ngOnInit(): void {
@@ -75,6 +84,12 @@ export class InventoryListComponent implements OnInit, OnDestroy {
     this.subscriptions.add(
       this.inventoryService.getSales().subscribe((sales) => {
         this.sales = sales;
+      })
+    );
+
+    this.subscriptions.add(
+      this.customerService.getCustomers().subscribe((customers) => {
+        this.customers = customers;
       })
     );
   }
@@ -107,6 +122,7 @@ export class InventoryListComponent implements OnInit, OnDestroy {
     // Process Groups
     groups.forEach((sales, orderId) => {
       const first = sales[0];
+      const customerName = this.getCustomerName(first);
       result.push({
         isGroup: true,
         orderId: orderId,
@@ -117,12 +133,16 @@ export class InventoryListComponent implements OnInit, OnDestroy {
         items: sales,
         timestamp: first.timestamp,
         deliveryDate: first.deliveryDate,
+        deliveryNotes: first.deliveryNotes,
         pending: true,
+        customerName: customerName,
+        reservationStatus: first.reservationStatus,
       });
     });
 
     // Process Singles
     singles.forEach((sale) => {
+      const customerName = this.getCustomerName(sale);
       result.push({
         isGroup: false,
         sales: [sale],
@@ -132,7 +152,10 @@ export class InventoryListComponent implements OnInit, OnDestroy {
         items: [sale],
         timestamp: sale.timestamp,
         deliveryDate: sale.deliveryDate,
+        deliveryNotes: sale.deliveryNotes,
         pending: true,
+        customerName: customerName,
+        reservationStatus: sale.reservationStatus,
       });
     });
 
@@ -337,14 +360,24 @@ export class InventoryListComponent implements OnInit, OnDestroy {
   }
 
   onRestock(product: Product): void {
-    const quantityStr = prompt(`Enter quantity to add for ${product.name}:`);
-    if (quantityStr) {
-      const quantity = parseInt(quantityStr, 10);
-      if (!isNaN(quantity) && quantity > 0) {
-        this.inventoryService.restockProduct(product.id, quantity);
-      } else {
-        alert('Please enter a valid number greater than 0');
-      }
+    this.restockingProduct = product;
+    this.restockQuantity = 0;
+    this.isRestockModalOpen = true;
+  }
+
+  closeRestockModal(): void {
+    this.isRestockModalOpen = false;
+    this.restockingProduct = null;
+    this.restockQuantity = 0;
+  }
+
+  confirmRestock(): void {
+    if (this.restockingProduct && this.restockQuantity > 0) {
+      this.inventoryService.restockProduct(
+        this.restockingProduct.id,
+        this.restockQuantity
+      );
+      this.closeRestockModal();
     }
   }
 
@@ -454,5 +487,116 @@ export class InventoryListComponent implements OnInit, OnDestroy {
 
     this.inventoryService.updateProduct(updatedProduct);
     this.closeEditModal();
+  }
+
+  // Get customer name by ID or from sale record
+  getCustomerName(sale: Sale): string {
+    // First check if customerName is already in the sale
+    if (sale.customerName) {
+      return sale.customerName;
+    }
+
+    // If not, try to look up by customerId
+    if (sale.customerId) {
+      const customer = this.customers.find((c) => c.id === sale.customerId);
+      if (customer) {
+        return customer.name;
+      }
+    }
+
+    return '';
+  }
+
+  // Mark a pending delivery as delivered
+  markAsDelivered(group: any): void {
+    const message = group.isGroup
+      ? `Mark all ${group.quantityCount} items in this order as delivered?`
+      : `Mark "${group.productName}" as delivered?`;
+
+    this.dialogService
+      .confirm(message, 'Mark as Delivered')
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          group.sales.forEach((sale: Sale) => {
+            this.inventoryService.completePendingSale(sale.id);
+          });
+        }
+      });
+  }
+
+  // Cancel a pending delivery
+  cancelDelivery(group: any): void {
+    const message = group.isGroup
+      ? `Cancel all ${group.quantityCount} items in this order? This action cannot be undone.`
+      : `Cancel delivery for "${group.productName}"? This action cannot be undone.`;
+
+    this.dialogService
+      .confirm(message, 'Cancel Delivery')
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          group.sales.forEach((sale: Sale) => {
+            this.inventoryService.deleteSale(sale.id);
+          });
+        }
+      });
+  }
+
+  // Confirm a reservation (deducts from inventory)
+  confirmReservation(group: any): void {
+    const message = group.isGroup
+      ? `Confirm all ${group.quantityCount} items in this order? This will deduct items from inventory.`
+      : `Confirm reservation for "${group.productName}"? This will deduct items from inventory.`;
+
+    this.dialogService
+      .confirm(message, 'Confirm Reservation')
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          group.sales.forEach((sale: Sale) => {
+            this.inventoryService.confirmReservation(sale);
+          });
+        }
+      });
+  }
+
+  // Edit pending delivery modal state
+  isEditDeliveryModalOpen = false;
+  editingDeliveryGroup: any = null;
+  editDeliveryDate: string = '';
+  editDeliveryNotes: string = '';
+
+  openEditDeliveryModal(group: any): void {
+    this.editingDeliveryGroup = group;
+    const firstSale = group.sales[0];
+    this.editDeliveryDate = firstSale.deliveryDate
+      ? new Date(firstSale.deliveryDate).toISOString().split('T')[0]
+      : '';
+    this.editDeliveryNotes = firstSale.deliveryNotes || '';
+    this.isEditDeliveryModalOpen = true;
+  }
+
+  closeEditDeliveryModal(): void {
+    this.isEditDeliveryModalOpen = false;
+    this.editingDeliveryGroup = null;
+    this.editDeliveryDate = '';
+    this.editDeliveryNotes = '';
+  }
+
+  saveDeliveryEdit(): void {
+    if (!this.editingDeliveryGroup) return;
+
+    const newDate = this.editDeliveryDate
+      ? new Date(this.editDeliveryDate)
+      : null;
+
+    this.editingDeliveryGroup.sales.forEach((sale: Sale) => {
+      const updatedSale: Sale = {
+        ...sale,
+        deliveryDate: newDate || sale.deliveryDate,
+        deliveryNotes: this.editDeliveryNotes,
+      };
+      this.inventoryService.updateSale(updatedSale);
+    });
+
+    this.closeEditDeliveryModal();
   }
 }

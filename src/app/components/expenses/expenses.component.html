@@ -1,147 +1,241 @@
-<div class="expenses-section">
-  <div class="card">
-    <h3>
-      <span class="icon">💸</span>
-      Add Expense
-    </h3>
-
-    <form (ngSubmit)="addExpense()" class="form">
-      <div class="form-group">
-        <label for="productName">Product/Item Name</label>
-        <input
-          type="text"
-          id="productName"
-          [(ngModel)]="productName"
-          name="productName"
-          placeholder="e.g., Raw materials, Utilities, etc."
-          required
-        />
+<div class="expense-container">
+  <!-- Header Section -->
+  <header class="page-header">
+    <div class="header-content">
+      <div class="header-title-section">
+        <h1 class="page-title">Expense Overview</h1>
+        <p class="page-subtitle">Manage and track your business spending efficiently.</p>
       </div>
-
-      <div class="form-group">
-        <label for="price">Price/Amount</label>
-        <input
-          type="number"
-          id="price"
-          [(ngModel)]="price"
-          name="price"
-          min="0"
-          step="0.01"
-          placeholder="0.00"
-          required
-        />
+      <div class="header-actions">
+        <button class="btn-export">
+          <span class="material-icon">download</span>
+          <span class="btn-text">Export CSV</span>
+        </button>
+        <button class="btn-add" (click)="openAddModal()">
+          <span class="material-icon">add</span>
+          <span>Add Expense</span>
+        </button>
       </div>
+    </div>
+  </header>
 
-      <div class="form-group">
-        <label for="notes">Notes (Optional)</label>
-        <textarea
-          id="notes"
-          [(ngModel)]="notes"
-          name="notes"
-          placeholder="Additional details about this expense..."
-          rows="3"
-        ></textarea>
+  <!-- Stats Cards -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-header">
+        <p class="stat-label">Total Spend</p>
+        <span class="stat-icon-badge green">
+          <span class="material-icon">trending_up</span>
+        </span>
       </div>
+      <p class="stat-value">{{ formatCurrency(stats.totalSpend) }}</p>
+      <p class="stat-trend">
+        <span class="trend-value positive">+12%</span>
+        <span class="trend-label">vs last month</span>
+      </p>
+    </div>
 
-      <button type="submit" class="btn-primary" [disabled]="!productName || !price || price <= 0">
-        <span>➕</span>
-        Add Expense
-      </button>
-    </form>
+    <div class="stat-card">
+      <div class="stat-header">
+        <p class="stat-label">Top Category</p>
+        <span class="stat-icon-badge blue">
+          <span class="material-icon">pie_chart</span>
+        </span>
+      </div>
+      <p class="stat-value">{{ stats.topCategory }}</p>
+      <p class="stat-trend">
+        <span class="trend-amount">{{ formatCurrency(stats.topCategoryAmount) }}</span>
+      </p>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-header">
+        <p class="stat-label">This Month</p>
+        <span class="stat-icon-badge orange">
+          <span class="material-icon">calendar_month</span>
+        </span>
+      </div>
+      <p class="stat-value">{{ formatCurrency(monthlyTotal) }}</p>
+      <p class="stat-trend">
+        <span class="trend-label">{{ stats.expenseCount }} total expenses</span>
+      </p>
+    </div>
   </div>
 
-  <div class="card">
-    <div class="section-header">
-      <h3>
-        <span class="icon">📋</span>
-        Expense History
-        <span class="badge">{{ expenses.length }}</span>
-      </h3>
-      <div class="total-badge">
-        Total: ₱{{ totalExpenses | number:'1.2-2' }}
+  <!-- Filters Section -->
+  <div class="filters-section">
+    <div class="filter-pills">
+      <button
+        class="filter-pill"
+        [class.active]="!categoryFilter"
+        (click)="categoryFilter = ''; onSearchChange()"
+      >
+        All Expenses
+      </button>
+      <button
+        *ngFor="let cat of categories"
+        class="filter-pill"
+        [class.active]="categoryFilter === cat"
+        (click)="onFilterChange(cat)"
+      >
+        {{ cat }}
+      </button>
+    </div>
+    <div class="filter-actions">
+      <div class="search-box">
+        <span class="material-icon search-icon">search</span>
+        <input
+          type="text"
+          [(ngModel)]="searchQuery"
+          (ngModelChange)="onSearchChange()"
+          placeholder="Search expenses..."
+          class="search-input"
+        />
       </div>
     </div>
+  </div>
 
-    <div class="expenses-list" *ngIf="expenses.length > 0; else noExpenses">
-      <table class="expenses-table">
-        <thead>
-          <tr>
-            <th>Product/Item</th>
-            <th>Notes</th>
-            <th>Date</th>
-            <th class="text-right">Amount</th>
-            <th class="text-center">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let expense of paginatedExpenses">
-            <td class="expense-name">{{ expense.productName }}</td>
-            <td class="expense-notes">{{ expense.notes || '—' }}</td>
-            <td class="expense-date">{{ expense.timestamp | date:'short' }}</td>
-            <td class="expense-price text-right">₱{{ expense.price | number:'1.2-2' }}</td>
-            <td class="text-center">
-              <button 
-                class="btn-delete" 
-                (click)="deleteExpense(expense)"
-                title="Delete expense"
-              >
-                🗑️
+  <!-- Expenses Table -->
+  <div class="table-container">
+    <table class="expense-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Description</th>
+          <th>Category</th>
+          <th class="text-right">Amount</th>
+          <th>Notes</th>
+          <th class="text-center">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let exp of paginatedExpenses" class="table-row">
+          <td class="date-cell">{{ formatDate(exp.timestamp) }}</td>
+          <td class="merchant-cell">
+            <div class="merchant-info">
+              <div class="merchant-avatar">{{ getMerchantInitials(exp.productName) }}</div>
+              <span class="merchant-name">{{ exp.productName }}</span>
+            </div>
+          </td>
+          <td>
+            <span class="category-badge" [attr.data-category]="getCategoryColor('Other')">
+              Other
+            </span>
+          </td>
+          <td class="amount-cell">{{ formatCurrency(exp.price) }}</td>
+          <td class="notes-cell">{{ exp.notes || '—' }}</td>
+          <td class="actions-cell">
+            <div class="action-buttons">
+              <button class="action-btn edit" (click)="openEditModal(exp)" title="Edit">
+                <span class="material-icon">edit</span>
               </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+              <button class="action-btn delete" (click)="deleteExpense(exp)" title="Delete">
+                <span class="material-icon">delete</span>
+              </button>
+            </div>
+          </td>
+        </tr>
+        <tr *ngIf="paginatedExpenses.length === 0">
+          <td colspan="6" class="empty-row">
+            <div class="empty-state">
+              <span class="material-icon">receipt_long</span>
+              <p>No expenses found</p>
+              <button class="btn-add-small" (click)="openAddModal()">Add your first expense</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
 
-    <!-- Pagination Controls -->
-    <div class="pagination" *ngIf="totalPages > 1 || expenses.length > 5">
-      <div class="pagination-size">
-        <label for="pageSize">Show:</label>
-        <select 
-          id="pageSize"
-          [(ngModel)]="pageSize"
-          (change)="currentPage = 1"
-          class="page-size-select"
-        >
-          <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
-        </select>
-        <span>per page</span>
-      </div>
-
+    <!-- Pagination -->
+    <div class="pagination-bar">
+      <p class="pagination-info">
+        Showing <span class="bold">{{ showingFrom }}</span> to <span class="bold">{{ showingTo }}</span>
+        of <span class="bold">{{ filteredExpenses.length }}</span> results
+      </p>
       <div class="pagination-controls" *ngIf="totalPages > 1">
-        <button 
-          class="pagination-btn" 
-          [disabled]="currentPage === 1"
-          (click)="prevPage()"
-        >
-          ← Prev
+        <button class="pagination-btn" [disabled]="currentPage === 1" (click)="prevPage()">
+          <span class="material-icon">chevron_left</span>
         </button>
-        
-        <div class="pagination-pages">
-          <button 
+        <div class="page-numbers">
+          <button
             *ngFor="let page of getPageNumbers()"
-            class="pagination-page"
+            class="page-btn"
             [class.active]="page === currentPage"
             (click)="goToPage(page)"
           >
             {{ page }}
           </button>
         </div>
-
-        <button 
-          class="pagination-btn" 
-          [disabled]="currentPage === totalPages"
-          (click)="nextPage()"
-        >
-          Next →
+        <button class="pagination-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">
+          <span class="material-icon">chevron_right</span>
         </button>
       </div>
     </div>
+  </div>
+</div>
 
-    <ng-template #noExpenses>
-      <div class="empty-state">
-        <p>No expenses recorded yet</p>
+<!-- Add/Edit Expense Modal -->
+<div class="modal-overlay" *ngIf="showAddModal" (click)="closeModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>
+        <span class="material-icon">{{ isEditMode ? 'edit' : 'add_card' }}</span>
+        {{ isEditMode ? 'Edit Expense' : 'Add New Expense' }}
+      </h3>
+      <button class="modal-close" (click)="closeModal()">
+        <span class="material-icon">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="productName">Description *</label>
+        <input
+          type="text"
+          id="productName"
+          [(ngModel)]="expense.productName"
+          placeholder="e.g., Office Supplies from Staples"
+        />
       </div>
-    </ng-template>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="price">Amount *</label>
+          <div class="input-with-prefix">
+            <span class="input-prefix">₱</span>
+            <input
+              type="number"
+              id="price"
+              [(ngModel)]="expense.price"
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+            />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="category">Category</label>
+          <select id="category" [(ngModel)]="expense.category">
+            <option value="">Select category</option>
+            <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="notes">Notes</label>
+        <textarea
+          id="notes"
+          [(ngModel)]="expense.notes"
+          placeholder="Add any additional details..."
+          rows="3"
+        ></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeModal()">Cancel</button>
+      <button class="btn-save" (click)="onSubmit()" [disabled]="!isValid()">
+        <span class="material-icon">{{ isEditMode ? 'save' : 'add' }}</span>
+        {{ isEditMode ? 'Save Changes' : 'Add Expense' }}
+      </button>
+    </div>
   </div>
 </div>

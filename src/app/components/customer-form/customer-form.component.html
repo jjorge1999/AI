@@ -1,156 +1,281 @@
 <div class="customer-container">
-  <!-- Customer Registration Form -->
-  <div class="card">
-    <h3>{{ editingId ? "Edit Customer" : "Register New Customer" }}</h3>
-    <form (ngSubmit)="onSubmit()" class="form">
-      <div class="form-group">
-        <label for="customerName">Customer Name *</label>
+  <!-- Header Section -->
+  <header class="page-header">
+    <div class="header-content">
+      <div class="header-title-section">
+        <h1 class="page-title">Customer Management</h1>
+        <p class="page-subtitle">Manage customer profiles, history, and contact details.</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn-add" (click)="openAddModal()">
+          <span class="material-icon">add</span>
+          <span>Add Customer</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <div class="search-wrapper">
+        <span class="material-icon search-icon">search</span>
         <input
           type="text"
-          id="customerName"
-          [(ngModel)]="customer.name"
-          name="name"
-          placeholder="Enter customer name"
-          required
+          [(ngModel)]="searchQuery"
+          (ngModelChange)="onSearchChange()"
+          placeholder="Search customers by name, phone, or ID..."
+          class="search-input"
         />
       </div>
-
-      <div class="form-group">
-        <label for="phoneNumber">Phone Number *</label>
-        <input
-          type="tel"
-          id="phoneNumber"
-          [(ngModel)]="customer.phoneNumber"
-          name="phoneNumber"
-          placeholder="e.g., +1 234 567 8900"
-          required
-        />
+      <div class="filter-controls">
+        <select [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()" class="filter-select">
+          <option value="">Status: All</option>
+          <option value="active">Active</option>
+          <option value="lead">Lead</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <select [(ngModel)]="pageSize" (ngModelChange)="currentPage = 1" class="filter-select">
+          <option *ngFor="let size of pageSizeOptions" [value]="size">Show: {{ size }}</option>
+        </select>
       </div>
+    </div>
+  </header>
 
-      <div class="form-group">
-        <label for="deliveryAddress">Delivery Address *</label>
-        <textarea
-          id="deliveryAddress"
-          [(ngModel)]="customer.deliveryAddress"
-          name="deliveryAddress"
-          placeholder="Enter full delivery address"
-          rows="3"
-          required
-        ></textarea>
-      </div>
-
-      <div class="form-actions">
-        <button
-          type="button"
-          *ngIf="editingId"
-          (click)="cancelEdit()"
-          class="btn-secondary"
+  <!-- Customer Table -->
+  <div class="table-container">
+    <table class="customer-table">
+      <thead>
+        <tr>
+          <th class="col-name">Name</th>
+          <th class="col-phone">Phone</th>
+          <th class="col-status">Status</th>
+          <th class="col-spend">Total Spent</th>
+          <th class="col-active">Last Active</th>
+          <th class="col-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          *ngFor="let cust of paginatedCustomers"
+          class="customer-row"
+          [class.active-row]="getCustomerStatus(cust) === 'active'"
+          (click)="openProfileModal(cust)"
         >
-          Cancel
-        </button>
-        <button type="submit" [disabled]="!isValid()" class="btn-primary">
-          <span>{{ editingId ? "💾" : "👤" }}</span>
-          {{ editingId ? "Update Customer" : "Add Customer" }}
-        </button>
-      </div>
-    </form>
+          <td class="col-name">
+            <div class="customer-name-cell">
+              <div class="avatar" [ngClass]="getAvatarColor(cust.name)">
+                {{ getCustomerInitials(cust.name) }}
+              </div>
+              <span class="customer-name">{{ cust.name }}</span>
+            </div>
+          </td>
+          <td class="col-phone">{{ cust.phoneNumber || '—' }}</td>
+          <td class="col-status">
+            <span
+              class="status-badge"
+              [ngClass]="{
+                'status-active': getCustomerStatus(cust) === 'active',
+                'status-lead': getCustomerStatus(cust) === 'lead',
+                'status-inactive': getCustomerStatus(cust) === 'inactive'
+              }"
+            >
+              <span class="status-dot"></span>
+              {{ getCustomerStatus(cust) | titlecase }}
+            </span>
+          </td>
+          <td class="col-spend">{{ formatCurrency(getCustomerStats(cust).totalSpent) }}</td>
+          <td class="col-active">{{ getLastActive(cust) }}</td>
+          <td class="col-actions" (click)="$event.stopPropagation()">
+            <div class="action-buttons">
+              <button class="action-btn" (click)="openEditModal(cust)" title="Edit">
+                <span class="material-icon">edit</span>
+              </button>
+              <button class="action-btn danger" (click)="deleteCustomer(cust.id)" title="Delete">
+                <span class="material-icon">delete</span>
+              </button>
+            </div>
+          </td>
+        </tr>
+        <tr *ngIf="paginatedCustomers.length === 0">
+          <td colspan="6" class="empty-row">
+            <div class="empty-state">
+              <span class="material-icon">group_off</span>
+              <p>No customers found</p>
+              <button class="btn-add-small" (click)="openAddModal()">Add your first customer</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 
-  <!-- Customer List -->
-  <div class="card">
-    <h3>
-      <span class="icon">👥</span>
-      Registered Customers
-      <span class="badge">{{ customers.length }}</span>
-    </h3>
+  <!-- Pagination -->
+  <div class="pagination-bar" *ngIf="filteredCustomers.length > 0">
+    <p class="pagination-info">
+      Showing {{ showingFrom }}-{{ showingTo }} of {{ filteredCustomers.length }} customers
+    </p>
+    <div class="pagination-controls" *ngIf="totalPages > 1">
+      <button class="pagination-btn" [disabled]="currentPage === 1" (click)="prevPage()">
+        <span class="material-icon">chevron_left</span>
+      </button>
+      <div class="page-numbers">
+        <button
+          *ngFor="let page of getPageNumbers()"
+          class="page-btn"
+          [class.active]="page === currentPage"
+          (click)="goToPage(page)"
+        >
+          {{ page }}
+        </button>
+      </div>
+      <button class="pagination-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">
+        <span class="material-icon">chevron_right</span>
+      </button>
+    </div>
+  </div>
+</div>
 
-    <div class="customer-list" *ngIf="customers.length > 0; else noCustomers">
-      <div
-        class="customer-item"
-        *ngFor="let cust of paginatedCustomers"
-        [class.editing]="cust.id === editingId"
-      >
-        <div class="customer-info">
-          <div class="customer-name">{{ cust.name }}</div>
-          <div class="customer-details">
-            <div class="detail-row">
-              <span class="detail-icon">📞</span>
-              <span>{{ cust.phoneNumber }}</span>
+<!-- Add/Edit Customer Modal -->
+<div class="modal-overlay" *ngIf="showAddModal" (click)="closeAddModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>
+        <span class="material-icon">{{ editingId ? 'edit' : 'person_add' }}</span>
+        {{ editingId ? 'Edit Customer' : 'Add New Customer' }}
+      </h3>
+      <button class="modal-close" (click)="closeAddModal()">
+        <span class="material-icon">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="name">Full Name *</label>
+        <input
+          type="text"
+          id="name"
+          [(ngModel)]="customer.name"
+          placeholder="Enter customer name"
+        />
+      </div>
+      <div class="form-group">
+        <label for="phone">Phone Number *</label>
+        <input
+          type="tel"
+          id="phone"
+          [(ngModel)]="customer.phoneNumber"
+          placeholder="e.g., +63 912 345 6789"
+        />
+      </div>
+      <div class="form-group">
+        <label for="address">Delivery Address *</label>
+        <textarea
+          id="address"
+          [(ngModel)]="customer.deliveryAddress"
+          placeholder="Enter full delivery address"
+          rows="3"
+        ></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeAddModal()">Cancel</button>
+      <button class="btn-save" (click)="onSubmit()" [disabled]="!isValid()">
+        {{ editingId ? 'Update Customer' : 'Add Customer' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Customer Profile Modal -->
+<div class="modal-overlay large" *ngIf="showProfileModal && selectedCustomer" (click)="closeProfileModal()">
+  <div class="modal-content profile-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>
+        <span class="material-icon">person</span>
+        Customer Profile
+      </h3>
+      <div class="modal-header-actions">
+        <button class="header-action-btn" (click)="openEditModal(selectedCustomer)">
+          <span class="material-icon">edit</span>
+          Edit
+        </button>
+        <button class="modal-close" (click)="closeProfileModal()">
+          <span class="material-icon">close</span>
+        </button>
+      </div>
+    </div>
+    <div class="modal-body profile-body">
+      <div class="profile-layout">
+        <!-- Left: Profile Card -->
+        <div class="profile-sidebar">
+          <div class="profile-card">
+            <div class="profile-avatar-large" [ngClass]="getAvatarColor(selectedCustomer.name)">
+              {{ getCustomerInitials(selectedCustomer.name) }}
             </div>
-            <div class="detail-row">
-              <span class="detail-icon">📍</span>
-              <span>{{ cust.deliveryAddress }}</span>
+            <h2 class="profile-name">{{ selectedCustomer.name }}</h2>
+            <p class="profile-id">ID: {{ selectedCustomer.id | slice:0:8 }}...</p>
+            
+            <div class="profile-stats">
+              <div class="stat-item">
+                <span class="stat-value">{{ formatCurrency(getCustomerStats(selectedCustomer).totalSpent) }}</span>
+                <span class="stat-label">Total Spent</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-value">{{ getCustomerStats(selectedCustomer).orderCount }}</span>
+                <span class="stat-label">Orders</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="contact-card">
+            <h4>Contact Details</h4>
+            <div class="contact-item">
+              <span class="material-icon">call</span>
+              <div>
+                <p class="contact-label">Phone</p>
+                <p class="contact-value">{{ selectedCustomer.phoneNumber || '—' }}</p>
+              </div>
+            </div>
+            <div class="contact-item">
+              <span class="material-icon">location_on</span>
+              <div>
+                <p class="contact-label">Address</p>
+                <p class="contact-value">{{ selectedCustomer.deliveryAddress || '—' }}</p>
+              </div>
             </div>
           </div>
         </div>
-        <div class="customer-actions">
-          <button
-            class="btn-edit"
-            (click)="editCustomer(cust)"
-            [disabled]="!!editingId && editingId !== cust.id"
-          >
-            ✏️
-          </button>
-          <button
-            class="btn-delete"
-            (click)="deleteCustomer(cust.id)"
-            [disabled]="!!editingId"
-          >
-            🗑️
-          </button>
+
+        <!-- Right: Activity/Orders -->
+        <div class="profile-main">
+          <div class="activity-card">
+            <div class="activity-header">
+              <h4>Recent Orders</h4>
+            </div>
+            <div class="order-list">
+              <div *ngFor="let order of getCustomerOrders(selectedCustomer)" class="order-item">
+                <div class="order-icon" [class.pending]="order.pending">
+                  <span class="material-icon">{{ order.pending ? 'schedule' : 'check_circle' }}</span>
+                </div>
+                <div class="order-details">
+                  <p class="order-product">{{ order.productName }}</p>
+                  <p class="order-meta">Qty: {{ order.quantitySold }} • {{ order.timestamp | date:'short' }}</p>
+                </div>
+                <span class="order-amount">{{ formatCurrency(order.total) }}</span>
+              </div>
+              <div *ngIf="getCustomerOrders(selectedCustomer).length === 0" class="no-orders">
+                <span class="material-icon">inbox</span>
+                <p>No orders yet</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-    
-    <!-- Pagination Controls -->
-    <div class="pagination" *ngIf="totalPages > 1 || customers.length > 5">
-      <div class="pagination-size">
-        <label for="pageSize">Show:</label>
-        <select 
-          id="pageSize"
-          [(ngModel)]="pageSize"
-          (change)="currentPage = 1"
-          class="page-size-select"
-        >
-          <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
-        </select>
-        <span>per page</span>
-      </div>
-
-      <div class="pagination-controls" *ngIf="totalPages > 1">
-        <button 
-          class="pagination-btn" 
-          [disabled]="currentPage === 1"
-          (click)="prevPage()"
-        >
-          ← Prev
-        </button>
-        
-        <div class="pagination-pages">
-          <button 
-            *ngFor="let page of getPageNumbers()"
-            class="pagination-page"
-            [class.active]="page === currentPage"
-            (click)="goToPage(page)"
-          >
-            {{ page }}
-          </button>
-        </div>
-
-        <button 
-          class="pagination-btn" 
-          [disabled]="currentPage === totalPages"
-          (click)="nextPage()"
-        >
-          Next →
-        </button>
-      </div>
+    <div class="modal-footer">
+      <button class="btn-danger" (click)="deleteCustomer(selectedCustomer.id)">
+        <span class="material-icon">delete</span>
+        Delete Customer
+      </button>
+      <button class="btn-cancel" (click)="closeProfileModal()">Close</button>
     </div>
-
-    <ng-template #noCustomers>
-      <div class="empty-state">
-        <p>No customers registered yet</p>
-      </div>
-    </ng-template>
   </div>
 </div>

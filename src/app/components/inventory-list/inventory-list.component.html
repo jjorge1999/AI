@@ -1,479 +1,398 @@
-<div class="inventory-section">
-  <div class="inventory-content">
-    <!-- Sales Analytics -->
-    <div class="card analytics-card">
-      <h3>
-        <span class="icon">📈</span>
-        Sales Analytics
-      </h3>
+<div class="inventory-container">
+  <!-- Header Section -->
+  <header class="page-header">
+    <div class="header-content">
+      <div class="header-title-section">
+        <h2 class="page-title">Inventory Overview</h2>
+        <p class="page-subtitle">Manage your stock, track sales, and monitor deliveries.</p>
+      </div>
+      <div class="header-search">
+        <div class="search-box">
+          <span class="material-icon search-icon">search</span>
+          <input type="text" placeholder="Search SKU, product, or category..." class="search-input" />
+        </div>
+      </div>
+    </div>
+  </header>
 
-      <div class="analytics-grid">
-        <div class="chart-container">
-          <h4>Sales by Category</h4>
-          <div class="bar-chart">
-            <div class="bar-item" *ngFor="let item of salesByCategory">
-              <div class="bar-label">{{ item.category }}</div>
-              <div class="bar-wrapper">
-                <div 
-                  class="bar-fill" 
-                  [style.width.%]="(item.total / totalSalesValue * 100)"
-                  [title]="'₱' + (item.total | number:'1.2-2')"
-                ></div>
+  <!-- Stats Cards -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-content">
+        <div class="stat-info">
+          <span class="stat-label">Total Products</span>
+          <span class="stat-value">{{ products.length | number }}</span>
+        </div>
+        <div class="stat-icon-container blue">
+          <span class="material-icon">inventory_2</span>
+        </div>
+      </div>
+      <div class="stat-trend trend-up">
+        <span class="material-icon">trending_up</span>
+        +{{ availableProducts.length }}
+        <span class="trend-label">available items</span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-content">
+        <div class="stat-info">
+          <span class="stat-label">Low Stock Alerts</span>
+          <span class="stat-value">{{ outOfStockProducts.length }}</span>
+        </div>
+        <div class="stat-icon-container orange">
+          <span class="material-icon">warning</span>
+        </div>
+      </div>
+      <div class="stat-trend trend-warning">
+        <span class="trend-label">{{ outOfStockProducts.length > 0 ? 'Require attention' : 'All stocked' }}</span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-content">
+        <div class="stat-info">
+          <span class="stat-label">Pending Deliveries</span>
+          <span class="stat-value">{{ pendingSales.length }}</span>
+        </div>
+        <div class="stat-icon-container purple">
+          <span class="material-icon">local_shipping</span>
+        </div>
+      </div>
+      <div class="stat-trend">
+        <span class="trend-label">{{ pendingSales.length > 0 ? 'Awaiting delivery' : 'None pending' }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Available Inventory Table -->
+  <div class="table-card">
+    <div class="table-header">
+      <h3 class="table-title">Available Inventory</h3>
+      <div class="table-actions">
+        <select class="filter-select" [(ngModel)]="availableProductsPageSize" (change)="onAvailablePageSizeChange()">
+          <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }} / page</option>
+        </select>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Product Name</th>
+            <th>Category</th>
+            <th>Stock Level</th>
+            <th>Price</th>
+            <th>Status</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of paginatedAvailableProducts" class="table-row">
+            <td>
+              <div class="product-cell">
+                <div class="product-image" [style.backgroundImage]="p.imageUrl ? 'url(' + p.imageUrl + ')' : 'none'">
+                  <span *ngIf="!p.imageUrl" class="material-icon no-image">inventory_2</span>
+                </div>
+                <span class="product-name">{{ p.name }}</span>
               </div>
-              <div class="bar-value">₱{{ item.total | number:'1.2-2' }} ({{ item.count }})</div>
-            </div>
-            <div class="empty-chart" *ngIf="salesByCategory.length === 0">
-              No sales data yet
-            </div>
-          </div>
+            </td>
+            <td>
+              <span class="category-badge">{{ p.category }}</span>
+            </td>
+            <td>
+              <div class="stock-level">
+                <div class="stock-info">
+                  <span class="stock-count" [class.low]="p.quantity < 10">{{ p.quantity }}</span>
+                  <span class="stock-max">/ 100</span>
+                </div>
+                <div class="stock-bar-bg">
+                  <div class="stock-bar" [style.width.%]="(p.quantity / 100) * 100" [class.low]="p.quantity < 10"></div>
+                </div>
+              </div>
+            </td>
+            <td class="price-cell">₱{{ p.price | number:'1.2-2' }}</td>
+            <td>
+              <span class="status-badge active" *ngIf="p.quantity > 10">
+                <span class="status-dot"></span> In Stock
+              </span>
+              <span class="status-badge low-stock" *ngIf="p.quantity <= 10 && p.quantity > 0">
+                <span class="status-dot"></span> Low Stock
+              </span>
+            </td>
+            <td class="text-right">
+              <div class="action-buttons">
+                <button class="action-btn" (click)="openEditModal(p)" title="Edit">
+                  <span class="material-icon">edit</span>
+                </button>
+                <button class="action-btn" (click)="onRestock(p)" title="Restock">
+                  <span class="material-icon">add_circle</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="paginatedAvailableProducts.length === 0">
+            <td colspan="6" class="empty-row">
+              <div class="empty-state">
+                <span class="material-icon">inventory_2</span>
+                <p>No available products</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-footer" *ngIf="availableProductsTotalPages > 1">
+      <p class="page-info">
+        Page {{ availableProductsPage }} of {{ availableProductsTotalPages }}
+      </p>
+      <div class="pagination-controls">
+        <button class="pagination-btn" [disabled]="availableProductsPage === 1" (click)="prevAvailablePage()">Previous</button>
+        <button class="pagination-btn" [disabled]="availableProductsPage === availableProductsTotalPages" (click)="nextAvailablePage()">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Grid: Sales History & Pending Deliveries -->
+  <div class="bottom-grid">
+    <!-- Sales History -->
+    <div class="table-card">
+      <div class="table-header">
+        <h3 class="table-title">Sales History</h3>
+        <select class="filter-select" [(ngModel)]="selectedCategory" (change)="salesPage = 1">
+          <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+        </select>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table compact">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Customer</th>
+              <th>Qty</th>
+              <th>Total</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let s of paginatedSales" class="table-row">
+              <td>{{ s.productName }}</td>
+              <td class="customer-cell">
+                <span *ngIf="getCustomerName(s)" class="customer-name">{{ getCustomerName(s) }}</span>
+                <span *ngIf="!getCustomerName(s)" class="no-customer">Walk-in</span>
+              </td>
+              <td>{{ s.quantitySold }}</td>
+              <td class="price-cell">₱{{ s.total | number:'1.2-2' }}</td>
+              <td class="date-cell">{{ s.timestamp | date:'short' }}</td>
+            </tr>
+            <tr *ngIf="paginatedSales.length === 0">
+              <td colspan="5" class="empty-row">
+                <div class="empty-state small">
+                  <span class="material-icon">receipt_long</span>
+                  <p>No sales yet</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-footer" *ngIf="salesTotalPages > 1">
+        <p class="page-info">Page {{ salesPage }} of {{ salesTotalPages }}</p>
+        <div class="pagination-controls">
+          <button class="pagination-btn" [disabled]="salesPage === 1" (click)="prevSalesPage()">Prev</button>
+          <button class="pagination-btn" [disabled]="salesPage === salesTotalPages" (click)="nextSalesPage()">Next</button>
         </div>
       </div>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="stats-grid">
-      <!-- <div class="stat-card">
-        <div class="stat-icon">💰</div>
-        <div class="stat-info">
-          <div class="stat-label">Total Inventory Value</div>
-          <div class="stat-value">₱{{ totalInventoryValue | number:'1.2-2' }}</div>
-        </div>
-      </div> -->
-
-      <div class="stat-card success">
-        <div class="stat-icon">📊</div>
-        <div class="stat-info">
-          <div class="stat-label">Total Sales</div>
-          <div class="stat-value">₱{{ totalSalesValue | number:'1.2-2' }}</div>
-        </div>
+    <!-- Pending Deliveries -->
+    <div class="table-card">
+      <div class="table-header">
+        <h3 class="table-title">Pending Deliveries</h3>
+        <span class="badge">{{ pendingSales.length }}</span>
       </div>
-    </div>
-
-    <div class="lists-container">
-      <!-- Available Products -->
-      <div class="card">
-        <h3>
-          <span class="icon">📦</span>
-          Available Inventory
-          <span class="badge">{{ availableProducts.length }}</span>
-        </h3>
-
-        <div class="product-list" *ngIf="availableProducts.length > 0; else noAvailable">
-          <div class="product-item" *ngFor="let product of paginatedAvailableProducts">
-            <div class="product-image-wrapper" *ngIf="product.imageUrl">
-              <img 
-                [src]="product.imageUrl" 
-                [alt]="product.name" 
-                class="product-image"
-                loading="lazy"
-              />
-            </div>
-            <div class="product-image-wrapper placeholder" *ngIf="!product.imageUrl">
-              <span class="placeholder-icon">📦</span>
-            </div>
-            <div class="product-info">
-              <div class="product-name">{{ product.name }}</div>
-              <div class="product-category">{{ product.category }}</div>
-            </div>
-            <div class="product-details">
-              <div class="product-price">₱{{ product.price | number:'1.2-2' }}</div>
-              <div class="product-stock">Stock: {{ product.quantity }}</div>
-              <button class="btn-edit-sm" (click)="openEditModal(product)">
-                ✏️ Edit
-              </button>
-            </div>
+      <div class="delivery-list">
+        <div *ngFor="let group of paginatedPendingSales" class="delivery-item" [class.reservation]="group.reservationStatus === 'pending_confirmation'">
+          <div class="delivery-icon">
+            <span class="material-icon">{{ group.isGroup ? 'inventory' : 'local_shipping' }}</span>
           </div>
-        </div>
-
-        <!-- Pagination for Available Products -->
-        <div class="pagination" *ngIf="availableProductsTotalPages > 1 || availableProducts.length > 10">
-          <div class="pagination-size">
-            <label for="availablePageSize">Show:</label>
-            <select 
-              id="availablePageSize"
-              [(ngModel)]="availableProductsPageSize"
-              (change)="onAvailablePageSizeChange()"
-              class="page-size-select"
-            >
-              <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
-            </select>
-            <span>per page</span>
-          </div>
-
-          <div class="pagination-controls" *ngIf="availableProductsTotalPages > 1">
-            <button 
-              class="pagination-btn" 
-              [disabled]="availableProductsPage === 1"
-              (click)="prevAvailablePage()"
-            >
-              ← Prev
-            </button>
+          <div class="delivery-info">
+            <div class="delivery-header-row">
+              <span class="delivery-name">{{ group.productName }}</span>
+              <span class="reservation-badge" *ngIf="group.reservationStatus === 'pending_confirmation'">RESERVATION</span>
+            </div>
             
-            <div class="pagination-pages">
-              <button 
-                *ngFor="let page of getPageNumbers(availableProductsTotalPages)"
-                class="pagination-page"
-                [class.active]="page === availableProductsPage"
-                (click)="goToAvailablePage(page)"
-              >
-                {{ page }}
-              </button>
+            <div class="delivery-items-preview" *ngIf="group.isGroup">
+              <span *ngFor="let s of group.sales; let last = last">
+                {{ s.productName }} (x{{ s.quantitySold }}){{ last ? '' : ', ' }}
+              </span>
             </div>
 
-            <button 
-              class="pagination-btn" 
-              [disabled]="availableProductsPage === availableProductsTotalPages"
-              (click)="nextAvailablePage()"
-            >
-              Next →
-            </button>
-          </div>
-        </div>
-
-        <ng-template #noAvailable>
-          <div class="empty-state">
-            <p>No available products</p>
-          </div>
-        </ng-template>
-      </div>
-
-      <!-- Pending Deliveries -->
-      <div class="card pending-section" *ngIf="pendingSales.length > 0">
-        <h3>
-          <span class="icon">🚚</span>
-          Pending Deliveries
-          <span class="badge warning">{{ pendingSales.length }}</span>
-        </h3>
-
-        <div class="sales-list">
-          <div class="sale-item" *ngFor="let group of paginatedPendingSales">
-            <div class="sale-info">
-              <div class="sale-name">
-                 {{ group.productName }}
-                 <span *ngIf="group.isGroup" style="font-size:0.8em; color:gray">({{ group.quantityCount }} items)</span>
+            <div class="delivery-meta-row">
+              <div class="meta-item" *ngIf="group.customerName">
+                <span class="material-icon">person</span> {{ group.customerName }}
               </div>
-              
-              <div class="sale-details-text" *ngIf="!group.isGroup">
-                 {{ group.items?.[0]?.quantitySold }} × ₱{{ group.items?.[0]?.price | number:'1.2-2' }}
+              <div class="meta-item">
+                <span class="material-icon">event</span> {{ group.deliveryDate | date:'MMM d, h:mm a' }}
               </div>
-               <div class="sale-details-text" *ngIf="group.isGroup">
-                 <div *ngFor="let item of group.items" style="font-size:0.9em; margin-bottom:2px">
-                   • {{ item.productName }} (x{{ item.quantitySold }})
-                 </div>
+              <div class="meta-item" *ngIf="group.deliveryNotes">
+                <span class="material-icon">notes</span> {{ group.deliveryNotes }}
               </div>
-
-              <div class="delivery-badge warning">
-                Pending Delivery <span *ngIf="group.deliveryDate">({{ group.deliveryDate | date:'shortDate' }})</span>
+              <div class="meta-item price">
+                ₱{{ group.total | number:'1.2-2' }}
               </div>
             </div>
-            <div class="sale-amount">
-              <div class="sale-total">₱{{ group.total | number:'1.2-2' }}</div>
-              <div class="sale-date">{{ group.timestamp | date:'short' }}</div>
-            </div>
           </div>
-        </div>
-
-        <!-- Pagination for Pending Deliveries -->
-        <div class="pagination" *ngIf="pendingTotalPages > 1 || groupedPendingSales.length > 10">
-          <div class="pagination-size">
-            <label for="pendingPageSize">Show:</label>
-            <select 
-              id="pendingPageSize"
-              [(ngModel)]="pendingPageSize"
-              (change)="onPendingPageSizeChange()"
-              class="page-size-select"
-            >
-              <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
-            </select>
-            <span>per page</span>
-          </div>
-
-          <div class="pagination-controls" *ngIf="pendingTotalPages > 1">
-            <button 
-              class="pagination-btn" 
-              [disabled]="pendingPage === 1"
-              (click)="prevPendingPage()"
-            >
-              ← Prev
-            </button>
-            
-            <div class="pagination-pages">
-              <button 
-                *ngFor="let page of getPageNumbers(pendingTotalPages)"
-                class="pagination-page"
-                [class.active]="page === pendingPage"
-                (click)="goToPendingPage(page)"
-              >
-                {{ page }}
-              </button>
-            </div>
-
-            <button 
-              class="pagination-btn" 
-              [disabled]="pendingPage === pendingTotalPages"
-              (click)="nextPendingPage()"
-            >
-              Next →
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Sales History -->
-      <div class="card">
-        <div class="section-header">
-          <h3>
-            <span class="icon">💰</span>
-            Sales History
-            <span class="badge">{{ filteredSales.length }}</span>
-          </h3>
           
-          <div class="filter-group">
-            <label for="categoryFilter">Filter by Category:</label>
-            <select 
-              id="categoryFilter" 
-              [(ngModel)]="selectedCategory"
-              (change)="salesPage = 1"
-              class="category-filter"
-            >
-              <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="sales-list" *ngIf="sales.length > 0; else noSales">
-          <div class="sale-item" *ngFor="let sale of paginatedSales">
-            <div class="sale-info">
-              <div class="sale-name">{{ sale.productName }}</div>
-              <div class="sale-details-text">
-                {{ sale.quantitySold }} × ₱{{ sale.price | number:'1.2-2' }}
-              </div>
-              <div class="delivery-badge" *ngIf="sale.deliveryDate">
-                🚚 {{ sale.deliveryDate | date:'MMM d, y' }}
-              </div>
-            </div>
-            <div class="sale-amount">
-              <div class="sale-total">₱{{ sale.total | number:'1.2-2' }}</div>
-              <div class="sale-date">{{ sale.timestamp | date:'short' }}</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Pagination for Sales -->
-        <div class="pagination" *ngIf="salesTotalPages > 1 || filteredSales.length > 10">
-          <div class="pagination-size">
-            <label for="salesPageSize">Show:</label>
-            <select 
-              id="salesPageSize"
-              [(ngModel)]="salesPageSize"
-              (change)="onSalesPageSizeChange()"
-              class="page-size-select"
-            >
-              <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
-            </select>
-            <span>per page</span>
-          </div>
-
-          <div class="pagination-controls" *ngIf="salesTotalPages > 1">
-            <button 
-              class="pagination-btn" 
-              [disabled]="salesPage === 1"
-              (click)="prevSalesPage()"
-            >
-              ← Prev
+          <div class="delivery-actions">
+            <button class="action-btn confirm" *ngIf="group.reservationStatus === 'pending_confirmation'" (click)="confirmReservation(group)" title="Confirm Reservation">
+              <span class="material-icon">check_circle</span>
             </button>
-            
-            <div class="pagination-pages">
-              <button 
-                *ngFor="let page of getPageNumbers(salesTotalPages)"
-                class="pagination-page"
-                [class.active]="page === salesPage"
-                (click)="goToSalesPage(page)"
-              >
-                {{ page }}
-              </button>
-            </div>
-
-            <button 
-              class="pagination-btn" 
-              [disabled]="salesPage === salesTotalPages"
-              (click)="nextSalesPage()"
-            >
-              Next →
+            <button class="action-btn deliver" *ngIf="group.reservationStatus !== 'pending_confirmation'" (click)="markAsDelivered(group)" title="Mark as Delivered">
+              <span class="material-icon">local_shipping</span>
+            </button>
+            <button class="action-btn edit" (click)="openEditDeliveryModal(group)" title="Edit">
+              <span class="material-icon">edit</span>
+            </button>
+            <button class="action-btn cancel" (click)="cancelDelivery(group)" title="Cancel">
+              <span class="material-icon">cancel</span>
             </button>
           </div>
         </div>
-
-        <ng-template #noSales>
-          <div class="empty-state">
-            <p>No sales yet</p>
-          </div>
-        </ng-template>
-      </div>
-
-    <!-- Out of Stock -->
-    <div class="card out-of-stock-section" *ngIf="outOfStockProducts.length > 0">
-      <h3>
-        <span class="icon">⚠️</span>
-        Out of Stock
-        <span class="badge warning">{{ outOfStockProducts.length }}</span>
-      </h3>
-
-      <div class="product-list">
-        <div class="product-item dimmed" *ngFor="let product of paginatedOutOfStockProducts">
-          <div class="product-image-wrapper" *ngIf="product.imageUrl">
-            <img 
-              [src]="product.imageUrl" 
-              [alt]="product.name" 
-              class="product-image"
-              loading="lazy"
-            />
-          </div>
-          <div class="product-image-wrapper placeholder" *ngIf="!product.imageUrl">
-            <span class="placeholder-icon">📦</span>
-          </div>
-          <div class="product-info">
-            <div class="product-name"> {{ product.name }}<div>
-            <div class="product-category">{{ product.category }}</div>
-          </div>
-          <div class="product-details">
-            <div class="product-price">₱{{ product.price | number:'1.2-2' }}</div>
-            <div class="product-stock out">Out of Stock</div>
-            <div class="product-actions">
-              <!-- <button class="btn-edit-sm" (click)="openEditModal(product)">
-                ✏️ Edit
-              </button> -->
-              <button class="btn-restock" (click)="onRestock(product)">
-                ➕ Restock
-              </button>
-            </div>
-          </div>
+        <div *ngIf="paginatedPendingSales.length === 0" class="empty-state small">
+          <span class="material-icon">local_shipping</span>
+          <p>No pending deliveries</p>
         </div>
       </div>
-
-      <!-- Pagination for Out of Stock -->
-      <div class="pagination" *ngIf="outOfStockTotalPages > 1 || outOfStockProducts.length > 10">
-        <div class="pagination-size">
-          <label for="outOfStockPageSize">Show:</label>
-          <select 
-            id="outOfStockPageSize"
-            [(ngModel)]="outOfStockPageSize"
-            (change)="onOutOfStockPageSizeChange()"
-            class="page-size-select"
-          >
-            <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
-          </select>
-          <span>per page</span>
-        </div>
-
-        <div class="pagination-controls" *ngIf="outOfStockTotalPages > 1">
-          <button 
-            class="pagination-btn" 
-            [disabled]="outOfStockPage === 1"
-            (click)="prevOutOfStockPage()"
-          >
-            ← Prev
-          </button>
-          
-          <div class="pagination-pages">
-            <button 
-              *ngFor="let page of getPageNumbers(outOfStockTotalPages)"
-              class="pagination-page"
-              [class.active]="page === outOfStockPage"
-              (click)="goToOutOfStockPage(page)"
-            >
-              {{ page }}
-            </button>
-          </div>
-
-          <button 
-            class="pagination-btn" 
-            [disabled]="outOfStockPage === outOfStockTotalPages"
-            (click)="nextOutOfStockPage()"
-          >
-            Next →
-          </button>
+      <div class="table-footer" *ngIf="pendingTotalPages > 1">
+        <p class="page-info">Page {{ pendingPage }} of {{ pendingTotalPages }}</p>
+        <div class="pagination-controls">
+          <button class="pagination-btn" [disabled]="pendingPage === 1" (click)="prevPendingPage()">Prev</button>
+          <button class="pagination-btn" [disabled]="pendingPage === pendingTotalPages" (click)="nextPendingPage()">Next</button>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Edit Modal -->
+<!-- Edit Product Modal -->
 <div class="modal-overlay" *ngIf="isEditModalOpen" (click)="closeEditModal()">
   <div class="modal-content" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h3>Edit Product</h3>
-      <button class="close-btn" (click)="closeEditModal()">×</button>
+      <h3>
+        <span class="material-icon">edit</span>
+        Edit Product
+      </h3>
+      <button class="modal-close" (click)="closeEditModal()">
+        <span class="material-icon">close</span>
+      </button>
     </div>
-    
     <div class="modal-body">
-      <!-- Edit Image Section -->
-      <div class="edit-image-section">
-        <label class="edit-label">Product Image</label>
-        
-        <div class="edit-image-preview-container" *ngIf="editImagePreview">
-          <img 
-            [src]="editImagePreview" 
-            alt="Product preview" 
-            class="edit-image-preview"
-          />
-          <button type="button" class="remove-edit-image-btn" (click)="removeEditImage()">
-            Remove Image
-          </button>
+      <div class="form-group">
+        <label>Product Name</label>
+        <input type="text" [(ngModel)]="editProductName" placeholder="Enter product name" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Quantity</label>
+          <input type="number" [(ngModel)]="editProductQuantity" min="0" />
         </div>
-
-        <div class="edit-image-upload" *ngIf="!editImagePreview">
-          <input 
-            type="file" 
-            id="editProductImage" 
-            accept="image/*"
-            (change)="onEditImageChange($event)"
-            class="file-input"
-          />
-          <label for="editProductImage" class="btn-upload">
-            📷 Upload Image
-          </label>
+        <div class="form-group">
+          <label>Price</label>
+          <input type="number" [(ngModel)]="editProductPrice" min="0" step="0.01" />
         </div>
       </div>
-
       <div class="form-group">
-        <label for="editName">Product Name</label>
-        <input 
-          type="text" 
-          id="editName" 
-          [(ngModel)]="editProductName"
-          class="text-input"
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="editQuantity">Stock Quantity</label>
-        <input 
-          type="number" 
-          id="editQuantity" 
-          [(ngModel)]="editProductQuantity"
-          min="0"
-          class="number-input"
-        />
-      </div>
-
-      <div class="form-group">
-        <label for="editPrice">Price</label>
-        <input 
-          type="number" 
-          id="editPrice" 
-          [(ngModel)]="editProductPrice"
-          min="0"
-          step="0.01"
-          class="number-input"
-        />
+        <label>Product Image</label>
+        <div class="image-upload">
+          <img *ngIf="editImagePreview" [src]="editImagePreview" class="image-preview" />
+          <div *ngIf="!editImagePreview" class="image-placeholder">
+            <span class="material-icon">add_photo_alternate</span>
+          </div>
+          <input type="file" accept="image/*" (change)="onEditImageChange($event)" class="file-input" />
+        </div>
+        <button *ngIf="editImagePreview" class="btn-remove-image" (click)="removeEditImage()">Remove Image</button>
       </div>
     </div>
-
     <div class="modal-footer">
       <button class="btn-cancel" (click)="closeEditModal()">Cancel</button>
       <button class="btn-save" (click)="saveProductEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Restock Modal -->
+<div class="modal-overlay" *ngIf="isRestockModalOpen" (click)="closeRestockModal()">
+  <div class="modal-content restock-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>
+        <span class="material-icon">add_circle</span>
+        Restock Product
+      </h3>
+      <button class="modal-close" (click)="closeRestockModal()">
+        <span class="material-icon">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p class="restock-product-name">{{ restockingProduct?.name }}</p>
+      <p class="restock-current">Current stock: <strong>{{ restockingProduct?.quantity }}</strong></p>
+      <div class="form-group">
+        <label>Quantity to Add</label>
+        <input
+          type="number"
+          [(ngModel)]="restockQuantity"
+          min="1"
+          placeholder="Enter quantity"
+          class="restock-input"
+        />
+      </div>
+      <p class="restock-result" *ngIf="restockQuantity > 0">
+        New stock will be: <strong>{{ (restockingProduct?.quantity || 0) + restockQuantity }}</strong>
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeRestockModal()">Cancel</button>
+      <button class="btn-save" (click)="confirmRestock()" [disabled]="restockQuantity <= 0">
+        <span class="material-icon">add</span>
+        Add Stock
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Delivery Modal -->
+<div class="modal-overlay" *ngIf="isEditDeliveryModalOpen" (click)="closeEditDeliveryModal()">
+  <div class="modal-content edit-delivery-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>
+        <span class="material-icon">edit_calendar</span>
+        Edit Delivery
+      </h3>
+      <button class="modal-close" (click)="closeEditDeliveryModal()">
+        <span class="material-icon">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p class="edit-delivery-title">{{ editingDeliveryGroup?.productName }}</p>
+      <p class="edit-delivery-customer" *ngIf="editingDeliveryGroup?.customerName">
+        <span class="material-icon">person</span>
+        {{ editingDeliveryGroup?.customerName }}
+      </p>
+      <div class="form-group">
+        <label>Delivery Date</label>
+        <input type="date" [(ngModel)]="editDeliveryDate" />
+      </div>
+      <div class="form-group">
+        <label>Delivery Notes</label>
+        <textarea [(ngModel)]="editDeliveryNotes" rows="3" placeholder="Add notes..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeEditDeliveryModal()">Cancel</button>
+      <button class="btn-save" (click)="saveDeliveryEdit()">
+        <span class="material-icon">save</span>
+        Save Changes
+      </button>
     </div>
   </div>
 </div>

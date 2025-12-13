@@ -1,51 +1,187 @@
-<div class="landing-page">
-  <div class="hero-section">
-    <div class="hero-content">
-      <div class="hero-icon">📦</div>
-      <h1 class="hero-title">Welcome to JJM Inventory</h1>
-      <p class="hero-subtitle">Your complete business management solution</p>
-      <p class="hero-description">
-        Streamline your inventory, sales, and customer management all in one place.
-        Track expenses, monitor profits, and grow your business with confidence.
-      </p>
-      <div class="hero-stats">
-        <div class="stat-item">
-          <div class="stat-icon">⚡</div>
-          <div class="stat-text">Fast & Efficient</div>
+<div class="dashboard-container">
+  <!-- Dashboard Header -->
+  <div class="dashboard-header">
+    <div class="header-left">
+      <h1 class="dashboard-title">Dashboard Overview</h1>
+      <p class="dashboard-subtitle">Welcome back, {{ userName }}</p>
+    </div>
+    <div class="header-right">
+      <div class="search-container">
+        <span class="material-icon search-icon">search</span>
+        <input type="text" class="search-input" placeholder="Search SKU, Product..." />
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI Cards Grid -->
+  <div class="kpi-grid">
+    <div class="kpi-card" *ngFor="let kpi of kpiCards">
+      <div class="kpi-background-icon">
+        <span class="material-icon" [style.color]="kpi.iconColor">{{ kpi.icon }}</span>
+      </div>
+      <p class="kpi-label">{{ kpi.title }}</p>
+      <h3 class="kpi-value">{{ kpi.value }}</h3>
+      <div
+        class="kpi-trend"
+        [ngClass]="{
+          'trend-up': kpi.trend === 'up',
+          'trend-down': kpi.trend === 'down',
+          'trend-neutral': kpi.trend === 'neutral'
+        }"
+      >
+        <span class="material-icon trend-icon" *ngIf="kpi.trend === 'up'">trending_up</span>
+        <span class="material-icon trend-icon" *ngIf="kpi.trend === 'down'">trending_down</span>
+        <span class="material-icon trend-icon" *ngIf="kpi.trend === 'neutral'">priority_high</span>
+        <span class="trend-value">{{ kpi.trendValue }}</span>
+        <span class="trend-label" *ngIf="kpi.trendLabel">{{ kpi.trendLabel }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Section -->
+  <div class="charts-grid">
+    <!-- Main Area Chart -->
+    <div class="chart-card chart-main">
+      <div class="chart-header">
+        <div>
+          <h3 class="chart-title">Sales vs Restock Costs</h3>
+          <p class="chart-subtitle">Overview of income against expenses over the last month</p>
         </div>
-        <div class="stat-item">
-          <div class="stat-icon">🔒</div>
-          <div class="stat-text">Secure & Reliable</div>
+        <select class="chart-select">
+          <option>Last 30 Days</option>
+          <option>Last 90 Days</option>
+          <option>This Year</option>
+        </select>
+      </div>
+      <!-- SVG Chart -->
+      <div class="chart-container">
+        <svg class="chart-svg" viewBox="0 0 100 50" preserveAspectRatio="none">
+          <!-- Grid lines -->
+          <line x1="0" y1="40" x2="100" y2="40" class="chart-grid-line"></line>
+          <line x1="0" y1="30" x2="100" y2="30" class="chart-grid-line"></line>
+          <line x1="0" y1="20" x2="100" y2="20" class="chart-grid-line"></line>
+          <line x1="0" y1="10" x2="100" y2="10" class="chart-grid-line"></line>
+          <!-- Gradient definition -->
+          <defs>
+            <linearGradient id="salesGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="var(--color-primary)" />
+              <stop offset="100%" stop-color="var(--color-primary)" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+          <!-- Area Fill -->
+          <path
+            d="M0,40 Q10,35 20,25 T40,20 T60,15 T80,25 T100,10 V50 H0 Z"
+            fill="url(#salesGradient)"
+            opacity="0.2"
+          />
+          <!-- Sales Line -->
+          <path
+            [attr.d]="salesChartPath"
+            fill="none"
+            stroke="var(--color-primary)"
+            stroke-width="0.8"
+            stroke-linecap="round"
+            class="chart-line-animate"
+          />
+          <!-- Costs Line -->
+          <path
+            [attr.d]="costsChartPath"
+            fill="none"
+            stroke="var(--color-secondary)"
+            stroke-width="0.5"
+            stroke-dasharray="2,1"
+          />
+        </svg>
+        <!-- X-Axis Labels -->
+        <div class="chart-labels">
+          <span>Week 1</span>
+          <span>Week 2</span>
+          <span>Week 3</span>
+          <span>Week 4</span>
         </div>
-        <div class="stat-item">
-          <div class="stat-icon">📱</div>
-          <div class="stat-text">Fully Responsive</div>
+      </div>
+    </div>
+
+    <!-- Top Categories -->
+    <div class="chart-card chart-categories">
+      <h3 class="chart-title">Top Categories</h3>
+      <div class="categories-list">
+        <div class="category-item" *ngFor="let category of categories">
+          <div class="category-header">
+            <span class="category-name">{{ category.name }}</span>
+            <span class="category-percent">{{ category.percentage }}%</span>
+          </div>
+          <div class="category-bar-bg">
+            <div class="category-bar" [style.width.%]="category.percentage" [style.background]="category.color"></div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="features-section">
-    <h2 class="section-title">Powerful Features</h2>
-    <p class="section-subtitle">Everything you need to manage your business effectively</p>
-    
-    <div class="features-grid">
-      <div class="feature-card" *ngFor="let feature of features">
-        <div class="feature-icon">{{ feature.icon }}</div>
-        <h3 class="feature-title">{{ feature.title }}</h3>
-        <p class="feature-description">{{ feature.description }}</p>
+  <!-- Bottom Grid: Tables -->
+  <div class="tables-grid">
+    <!-- Recent Orders Table -->
+    <div class="table-card">
+      <div class="table-header">
+        <h3 class="table-title">Recent Orders</h3>
+        <button class="table-action-btn">View All</button>
+      </div>
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Customer</th>
+              <th>Status</th>
+              <th class="text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let order of recentOrders" class="table-row">
+              <td class="order-id">{{ order.id }}</td>
+              <td>
+                <div class="customer-cell">
+                  <div class="customer-avatar">{{ order.customer.charAt(0) }}</div>
+                  <span>{{ order.customer }}</span>
+                </div>
+              </td>
+              <td>
+                <span class="status-badge" [ngClass]="getStatusClass(order.status)">
+                  {{ getStatusLabel(order.status) }}
+                </span>
+              </td>
+              <td class="text-right amount">₱{{ order.amount | number : '1.2-2' }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
-  </div>
 
-  <div class="cta-section">
-    <div class="cta-content">
-      <h2 class="cta-title">Ready to Get Started?</h2>
-      <p class="cta-description">
-        Choose a tab above to begin managing your inventory, processing sales, or viewing reports.
-      </p>
-      <div class="cta-arrow">
-        <span class="arrow-icon">↑</span>
+    <!-- Low Stock Alerts -->
+    <div class="table-card">
+      <div class="table-header">
+        <h3 class="table-title">Low Stock Alerts</h3>
+        <button class="table-action-btn">Reorder All</button>
+      </div>
+      <div class="alerts-list">
+        <div class="alert-item" *ngFor="let item of lowStockItems">
+          <div class="alert-left">
+            <div class="alert-icon-container">
+              <span class="material-icon">{{ item.icon }}</span>
+            </div>
+            <div class="alert-info">
+              <p class="alert-name">{{ item.name }}</p>
+              <p class="alert-sku">SKU: {{ item.sku }}</p>
+            </div>
+          </div>
+          <div class="alert-right">
+            <p class="alert-stock" [ngClass]="{ critical: item.critical, warning: !item.critical }">
+              {{ item.stockLeft }} Left
+            </p>
+            <p class="alert-reorder">Reorder: {{ item.reorderPoint }}</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -18,14 +18,15 @@ export class ActivityLogsComponent implements OnInit, OnDestroy {
   filteredLogs: ActivityLog[] = [];
   private subscriptions: Subscription = new Subscription();
 
-  // Filters
+  // Search and Filters
+  searchQuery = '';
   selectedEntityType: string = 'all';
   selectedAction: string = 'all';
 
   // Pagination
   currentPage = 1;
-  pageSize = 20;
-  pageSizeOptions = [10, 20, 50, 100];
+  pageSize = 10;
+  pageSizeOptions = [10, 25, 50, 100];
 
   entityTypes = ['all', 'product', 'sale', 'expense', 'customer'];
   actions = ['all', 'create', 'update', 'delete', 'restock', 'complete'];
@@ -60,9 +61,30 @@ export class ActivityLogsComponent implements OnInit, OnDestroy {
         log.entityType === this.selectedEntityType;
       const matchesAction =
         this.selectedAction === 'all' || log.action === this.selectedAction;
-      return matchesEntity && matchesAction;
+
+      let matchesSearch = true;
+      if (this.searchQuery) {
+        const query = this.searchQuery.toLowerCase();
+        matchesSearch = !!(
+          log.entityId?.toLowerCase().includes(query) ||
+          log.entityType?.toLowerCase().includes(query) ||
+          log.action?.toLowerCase().includes(query) ||
+          (log.details &&
+            JSON.stringify(log.details).toLowerCase().includes(query))
+        );
+      }
+
+      return matchesEntity && matchesAction && matchesSearch;
     });
     this.currentPage = 1;
+  }
+
+  onSearchChange(): void {
+    this.applyFilters();
+  }
+
+  onFilterChange(): void {
+    this.applyFilters();
   }
 
   get paginatedLogs(): ActivityLog[] {
@@ -72,7 +94,17 @@ export class ActivityLogsComponent implements OnInit, OnDestroy {
   }
 
   get totalPages(): number {
-    return Math.ceil(this.filteredLogs.length / this.pageSize);
+    return Math.ceil(this.filteredLogs.length / this.pageSize) || 1;
+  }
+
+  get showingFrom(): number {
+    return this.filteredLogs.length > 0
+      ? (this.currentPage - 1) * this.pageSize + 1
+      : 0;
+  }
+
+  get showingTo(): number {
+    return Math.min(this.currentPage * this.pageSize, this.filteredLogs.length);
   }
 
   nextPage(): void {
@@ -92,9 +124,22 @@ export class ActivityLogsComponent implements OnInit, OnDestroy {
   }
 
   getPageNumbers(): number[] {
-    return Array(this.totalPages)
-      .fill(0)
-      .map((x, i) => i + 1);
+    const pages: number[] = [];
+    const total = this.totalPages;
+    const current = this.currentPage;
+
+    if (total <= 5) {
+      for (let i = 1; i <= total; i++) pages.push(i);
+    } else {
+      if (current <= 3) {
+        pages.push(1, 2, 3, -1, total);
+      } else if (current >= total - 2) {
+        pages.push(1, -1, total - 2, total - 1, total);
+      } else {
+        pages.push(1, -1, current, -2, total);
+      }
+    }
+    return pages;
   }
 
   refreshLogs(): void {
@@ -111,7 +156,7 @@ export class ActivityLogsComponent implements OnInit, OnDestroy {
         if (confirmed) {
           this.subscriptions.add(
             this.loggingService.cleanupOldLogs().subscribe({
-              next: async (result) => {
+              next: (result) => {
                 this.dialogService
                   .success(
                     `Cleanup completed! Deleted ${result.deletedCount} logs.`
@@ -119,7 +164,7 @@ export class ActivityLogsComponent implements OnInit, OnDestroy {
                   .subscribe();
                 this.refreshLogs();
               },
-              error: async (err) => {
+              error: (err) => {
                 console.error('Cleanup error:', err);
                 this.dialogService.error('Failed to cleanup logs').subscribe();
               },
@@ -129,24 +174,91 @@ export class ActivityLogsComponent implements OnInit, OnDestroy {
       });
   }
 
+  // Material icon mappings
   getActionIcon(action: string): string {
     const icons: { [key: string]: string } = {
-      create: '➕',
-      update: '✏️',
-      delete: '🗑️',
-      restock: '📦',
-      complete: '✅',
+      create: 'add_circle',
+      update: 'edit',
+      delete: 'delete',
+      restock: 'inventory',
+      complete: 'check_circle',
+      login: 'login',
     };
-    return icons[action] || '📝';
+    return icons[action] || 'article';
+  }
+
+  getActionColor(action: string): string {
+    const colors: { [key: string]: string } = {
+      create: 'green',
+      update: 'blue',
+      delete: 'red',
+      restock: 'blue',
+      complete: 'green',
+      login: 'amber',
+    };
+    return colors[action] || 'gray';
   }
 
   getEntityIcon(entityType: string): string {
     const icons: { [key: string]: string } = {
-      product: '📦',
-      sale: '💰',
-      expense: '💸',
-      customer: '👤',
+      product: 'inventory_2',
+      sale: 'receipt_long',
+      expense: 'payments',
+      customer: 'person',
     };
-    return icons[entityType] || '📄';
+    return icons[entityType] || 'description';
+  }
+
+  formatTimestamp(date: Date): string {
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  getLogDetails(log: ActivityLog): string {
+    if (!log.details) return '';
+
+    if (typeof log.details === 'string') return log.details;
+
+    // Extract meaningful info from details object
+    const details = log.details as any;
+    if (details.productName) return details.productName;
+    if (details.name) return details.name;
+    if (details.quantity) return `Qty: ${details.quantity}`;
+
+    return '';
+  }
+
+  getUserInitials(log: ActivityLog): string {
+    // Use entityType as fallback for user display
+    const name = log.entityType || 'U';
+    return name.charAt(0).toUpperCase();
+  }
+
+  exportLogs(): void {
+    // Create CSV content
+    const headers = ['Timestamp', 'Action', 'Module', 'Entity ID', 'Details'];
+    const rows = this.filteredLogs.map((log) => [
+      this.formatTimestamp(log.timestamp),
+      log.action,
+      log.entityType,
+      log.entityId,
+      this.getLogDetails(log),
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${cell}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `activity-logs-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   }
 }

@@ -1,99 +1,335 @@
-<div class="card">
-  <h3>Add New Product</h3>
-  <form (ngSubmit)="onSubmit()" class="form">
-    <!-- Image Upload Section -->
-    <div class="image-upload-section">
-      <label class="image-upload-label">Product Image (Optional)</label>
-      
-      <div class="image-preview-container" *ngIf="imagePreview">
-        <img 
-          [src]="imagePreview" 
-          alt="Product preview" 
-          class="image-preview"
-          loading="lazy"
-        />
-        <button type="button" class="remove-image-btn" (click)="removeImage()">
-          ✕
-        </button>
+<div class="products-page">
+  <!-- Header Section -->
+  <div class="page-header">
+    <div class="header-content">
+      <div class="header-title-section">
+        <h2 class="page-title">Inventory Overview</h2>
+        <p class="page-subtitle">Manage your stock, track sales, and monitor deliveries.</p>
       </div>
+    </div>
+  </div>
 
-      <div class="image-upload-area" *ngIf="!imagePreview">
-        <input 
-          type="file" 
-          id="productImage" 
-          accept="image/*"
-          (change)="onImageChange($event)"
-          class="file-input"
-        />
-        <label for="productImage" class="file-input-label">
-          <span class="upload-icon">📷</span>
-          <span class="upload-text">Click to upload image</span>
-          <span class="upload-hint">PNG, JPG, GIF up to 5MB</span>
-        </label>
+  <!-- Stats Cards -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-content">
+        <div class="stat-info">
+          <p class="stat-label">Total Products</p>
+          <h3 class="stat-value">{{ formatNumber(stats.totalProducts) }}</h3>
+        </div>
+        <div class="stat-icon-container blue">
+          <span class="material-icon">inventory_2</span>
+        </div>
+      </div>
+      <div class="stat-trend trend-up">
+        <span class="material-icon">trending_up</span>
+        <span class="trend-value">+12%</span>
+        <span class="trend-label">vs last month</span>
       </div>
     </div>
 
-    <div class="form-group">
-      <label for="productName">Product Name</label>
-      <input
-        type="text"
-        id="productName"
-        [(ngModel)]="product.name"
-        name="name"
-        placeholder="Enter product name"
-        required
-      />
+    <div class="stat-card">
+      <div class="stat-content">
+        <div class="stat-info">
+          <p class="stat-label">Low Stock</p>
+          <h3 class="stat-value">{{ stats.lowStockCount }}</h3>
+        </div>
+        <div class="stat-icon-container orange">
+          <span class="material-icon">warning</span>
+        </div>
+      </div>
+      <div class="stat-trend trend-warning">
+        <span class="material-icon">trending_up</span>
+        <span class="trend-value">+{{ stats.lowStockCount > 0 ? stats.lowStockCount : 0 }}</span>
+        <span class="trend-label">items need attention</span>
+      </div>
     </div>
 
-    <div class="form-group">
-      <label for="category">Category</label>
-      <select
-        id="category"
-        [(ngModel)]="product.category"
-        name="category"
-        required
-      >
-        <option value="">-- Select Category --</option>
-        <option value="Lechon">Lechon</option>
-        <option value="Hollow blocks">Hollow blocks</option>
-        <option value="Sand and Gravel">Sand and Gravel</option>
-        <option value="Copra">Copra</option>
-        <option value="Others">Others</option>
-      </select>
+    <div class="stat-card">
+      <div class="stat-content">
+        <div class="stat-info">
+          <p class="stat-label">Total Value</p>
+          <h3 class="stat-value">{{ formatCurrency(stats.totalValue) }}</h3>
+        </div>
+        <div class="stat-icon-container green">
+          <span class="material-icon">attach_money</span>
+        </div>
+      </div>
+      <div class="stat-trend trend-up">
+        <span class="material-icon">trending_up</span>
+        <span class="trend-value">+5%</span>
+        <span class="trend-label">vs last month</span>
+      </div>
     </div>
+  </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label for="price">Price</label>
+  <!-- Filters and Actions -->
+  <div class="filters-bar">
+    <div class="filters-left">
+      <!-- Search (mobile) -->
+      <div class="search-container mobile-only">
+        <span class="material-icon search-icon">search</span>
         <input
-          type="number"
-          id="price"
-          [(ngModel)]="product.price"
-          name="price"
-          placeholder="0.00"
-          min="0"
-          step="0.01"
-          required
+          type="text"
+          class="search-input"
+          placeholder="Search..."
+          [(ngModel)]="searchQuery"
+          (input)="onSearchChange()"
         />
       </div>
-
-      <div class="form-group">
-        <label for="quantity">Quantity</label>
-        <input
-          type="number"
-          id="quantity"
-          [(ngModel)]="product.quantity"
-          name="quantity"
-          placeholder="0"
-          min="1"
-          required
-        />
+      <!-- Filter buttons -->
+      <div class="filter-buttons">
+        <select
+          class="filter-select"
+          [(ngModel)]="categoryFilter"
+          (change)="onFilterChange()"
+        >
+          <option value="">All Categories</option>
+          <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+        </select>
+        <select
+          class="filter-select"
+          [(ngModel)]="stockFilter"
+          (change)="onFilterChange()"
+        >
+          <option value="">Stock Status</option>
+          <option value="in-stock">In Stock</option>
+          <option value="low-stock">Low Stock</option>
+          <option value="out-of-stock">Out of Stock</option>
+        </select>
       </div>
     </div>
-
-    <button type="submit" [disabled]="!isValid()" class="btn-primary">
-      <span>➕</span>
+    <button class="add-product-btn" (click)="openAddModal()">
+      <span class="material-icon">add</span>
       Add Product
     </button>
-  </form>
+  </div>
+
+  <!-- Products Table -->
+  <div class="table-container">
+    <div class="table-wrapper">
+      <table class="products-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>SKU</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th>Stock Level</th>
+            <th>Status</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of filteredProducts" class="table-row">
+            <td>
+              <div class="product-cell">
+                <div
+                  class="product-image"
+                  [style.backgroundImage]="p.imageUrl ? 'url(' + p.imageUrl + ')' : 'none'"
+                >
+                  <span *ngIf="!p.imageUrl" class="material-icon no-image">inventory_2</span>
+                </div>
+                <span class="product-name">{{ p.name }}</span>
+              </div>
+            </td>
+            <td class="sku-cell">{{ p.id.slice(0, 8).toUpperCase() }}</td>
+            <td>
+              <span class="category-badge">{{ p.category }}</span>
+            </td>
+            <td class="price-cell">{{ formatCurrency(p.price) }}</td>
+            <td>
+              <div class="stock-level">
+                <div class="stock-info">
+                  <span
+                    class="stock-count"
+                    [class.low]="getStockStatus(p.quantity) === 'low-stock'"
+                    [class.out]="getStockStatus(p.quantity) === 'out-of-stock'"
+                  >
+                    {{ p.quantity }} left
+                  </span>
+                </div>
+                <div class="stock-bar-bg">
+                  <div
+                    class="stock-bar"
+                    [style.width.%]="getStockPercent(p.quantity)"
+                    [class.low]="getStockStatus(p.quantity) === 'low-stock'"
+                    [class.out]="getStockStatus(p.quantity) === 'out-of-stock'"
+                  ></div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span
+                class="status-badge"
+                [class.active]="getStockStatus(p.quantity) === 'active'"
+                [class.low-stock]="getStockStatus(p.quantity) === 'low-stock'"
+                [class.out-of-stock]="getStockStatus(p.quantity) === 'out-of-stock'"
+              >
+                <span class="status-dot"></span>
+                {{ getStockStatusLabel(p.quantity) }}
+              </span>
+            </td>
+            <td class="text-right">
+              <div class="action-buttons">
+                <button class="action-btn edit" (click)="openEditModal(p)" title="Edit">
+                  <span class="material-icon">edit</span>
+                </button>
+                <button class="action-btn delete" (click)="deleteProduct(p)" title="Delete">
+                  <span class="material-icon">delete</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="filteredProducts.length === 0">
+            <td colspan="7" class="empty-state">
+              <div class="empty-content">
+                <span class="material-icon empty-icon">inventory_2</span>
+                <p>No products found</p>
+                <button class="add-product-btn small" (click)="openAddModal()">
+                  <span class="material-icon">add</span>
+                  Add Your First Product
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- Pagination -->
+    <div class="table-footer">
+      <span class="pagination-info">
+        Showing {{ showingFrom }} to {{ showingTo }} of {{ formatNumber(products.length) }} results
+      </span>
+      <div class="pagination-buttons">
+        <button
+          class="pagination-btn"
+          [disabled]="currentPage === 1"
+          (click)="prevPage()"
+        >
+          Previous
+        </button>
+        <button
+          class="pagination-btn"
+          [disabled]="currentPage >= totalPages"
+          (click)="nextPage()"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Product Modal -->
+<div class="modal-overlay" *ngIf="showAddModal" (click)="closeModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3 class="modal-title">{{ isEditMode ? 'Edit Product' : 'Add New Product' }}</h3>
+      <button class="modal-close" (click)="closeModal()">
+        <span class="material-icon">close</span>
+      </button>
+    </div>
+    <form (ngSubmit)="onSubmit()" class="modal-form">
+      <!-- Image Upload -->
+      <div class="form-section">
+        <label class="form-label">Product Image (Optional)</label>
+        <div class="image-preview-container" *ngIf="imagePreview">
+          <img [src]="imagePreview" alt="Product preview" class="image-preview" />
+          <button type="button" class="remove-image-btn" (click)="removeImage()">
+            <span class="material-icon">close</span>
+          </button>
+        </div>
+        <div class="image-upload-area" *ngIf="!imagePreview">
+          <input
+            type="file"
+            id="productImage"
+            accept="image/*"
+            (change)="onImageChange($event)"
+            class="file-input"
+          />
+          <label for="productImage" class="file-input-label">
+            <span class="material-icon upload-icon">cloud_upload</span>
+            <span class="upload-text">Click to upload image</span>
+            <span class="upload-hint">PNG, JPG up to 10MB</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Product Name -->
+      <div class="form-section">
+        <label for="productName" class="form-label">Product Name</label>
+        <input
+          type="text"
+          id="productName"
+          [(ngModel)]="product.name"
+          name="name"
+          placeholder="Enter product name"
+          class="form-input"
+          required
+        />
+      </div>
+
+      <!-- Category -->
+      <div class="form-section">
+        <label for="category" class="form-label">Category</label>
+        <select
+          id="category"
+          [(ngModel)]="product.category"
+          name="category"
+          class="form-select"
+          required
+        >
+          <option value="">-- Select Category --</option>
+          <option value="Lechon">Lechon</option>
+          <option value="Hollow blocks">Hollow blocks</option>
+          <option value="Sand and Gravel">Sand and Gravel</option>
+          <option value="Copra">Copra</option>
+          <option value="Electronics">Electronics</option>
+          <option value="Furniture">Furniture</option>
+          <option value="Others">Others</option>
+        </select>
+      </div>
+
+      <!-- Price & Quantity -->
+      <div class="form-row">
+        <div class="form-section">
+          <label for="price" class="form-label">Price</label>
+          <input
+            type="number"
+            id="price"
+            [(ngModel)]="product.price"
+            name="price"
+            placeholder="0.00"
+            min="0"
+            step="0.01"
+            class="form-input"
+            required
+          />
+        </div>
+        <div class="form-section">
+          <label for="quantity" class="form-label">Quantity</label>
+          <input
+            type="number"
+            id="quantity"
+            [(ngModel)]="product.quantity"
+            name="quantity"
+            placeholder="0"
+            min="0"
+            class="form-input"
+            required
+          />
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" (click)="closeModal()">Cancel</button>
+        <button type="submit" [disabled]="!isValid()" class="btn-submit">
+          <span class="material-icon">{{ isEditMode ? 'save' : 'add' }}</span>
+          {{ isEditMode ? 'Save Changes' : 'Add Product' }}
+        </button>
+      </div>
+    </form>
+  </div>
 </div>

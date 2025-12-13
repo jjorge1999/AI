@@ -25,10 +25,31 @@ interface CartItem {
 export class PosCalculatorComponent implements OnInit, OnDestroy {
   // Data collections
   products: Product[] = [];
+  allProducts: Product[] = [];
   customers: Customer[] = [];
   pendingSales: Sale[] = [];
   allGroupedSales: any[] = [];
   isPendingCollapsed = false;
+
+  // Category filtering
+  categories: string[] = [];
+  categoryFilter: string = '';
+
+  // New UI state
+  isPendingPanelOpen = false;
+  isDeliveryModalOpen = false;
+  isDiscountModalOpen = false;
+  isNotesModalOpen = false;
+  orderNumber = 1000 + Math.floor(Math.random() * 9000);
+  currentDate = new Date();
+  currentTime = new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  // Discount modal temp values
+  tempDiscount = 0;
+  tempDiscountType: 'amount' | 'percent' = 'amount';
 
   togglePending(): void {
     this.isPendingCollapsed = !this.isPendingCollapsed;
@@ -133,7 +154,13 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
 
     this.subscriptions.add(
       this.inventoryService.getProducts().subscribe((products) => {
+        this.allProducts = products;
         this.products = products.filter((p) => p.quantity > 0);
+        // Extract categories
+        const cats = new Set(products.map((p) => p.category));
+        this.categories = Array.from(cats)
+          .filter((c) => c)
+          .sort();
       })
     );
     this.subscriptions.add(
@@ -782,5 +809,177 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
           sales.forEach((s) => this.inventoryService.deleteSale(s.id));
         }
       });
+  }
+
+  // ========================================
+  // New UI Methods
+  // ========================================
+
+  get filteredProducts(): Product[] {
+    if (!this.categoryFilter) {
+      return this.products;
+    }
+    return this.products.filter((p) => p.category === this.categoryFilter);
+  }
+
+  getCategoryIcon(category: string): string {
+    const icons: { [key: string]: string } = {
+      Lechon: 'restaurant',
+      'Hollow blocks': 'construction',
+      'Sand and Gravel': 'landscape',
+      Copra: 'eco',
+      Electronics: 'devices',
+      Furniture: 'chair',
+      'Hot Drinks': 'local_cafe',
+      'Cold Drinks': 'ac_unit',
+      Pastries: 'bakery_dining',
+      Others: 'category',
+    };
+    return icons[category] || 'category';
+  }
+
+  isInCart(productId: string): boolean {
+    return this.cart.some((item) => item.product.id === productId);
+  }
+
+  getCartQuantity(productId: string): number {
+    return this.cart
+      .filter((item) => item.product.id === productId)
+      .reduce((sum, item) => sum + item.quantity, 0);
+  }
+
+  addProductToCart(product: Product): void {
+    this.errorMessage = '';
+
+    // Check if already in cart
+    const existingIndex = this.cart.findIndex(
+      (item) => item.product.id === product.id
+    );
+    if (existingIndex >= 0) {
+      // Increment quantity
+      const item = this.cart[existingIndex];
+      if (item.quantity < product.quantity) {
+        item.quantity++;
+        item.total = this.calculateItemTotal(item);
+      } else {
+        this.errorMessage = `Cannot add more. Already at max stock (${product.quantity})`;
+      }
+      return;
+    }
+
+    // Add new item
+    const newItem: CartItem = {
+      product,
+      quantity: 1,
+      discount: 0,
+      discountType: 'amount',
+      total: product.price,
+    };
+    this.cart.push(newItem);
+  }
+
+  private calculateItemTotal(item: CartItem): number {
+    let total = item.product.price * item.quantity;
+    if (item.discount > 0) {
+      if (item.discountType === 'percent') {
+        total = total - total * (item.discount / 100);
+      } else {
+        total = total - item.discount;
+      }
+    }
+    return Math.max(0, Math.round(total * 100) / 100);
+  }
+
+  incrementItem(index: number): void {
+    const item = this.cart[index];
+    if (item && item.quantity < item.product.quantity) {
+      item.quantity++;
+      item.total = this.calculateItemTotal(item);
+    }
+  }
+
+  decrementItem(index: number): void {
+    const item = this.cart[index];
+    if (item) {
+      if (item.quantity > 1) {
+        item.quantity--;
+        item.total = this.calculateItemTotal(item);
+      } else {
+        this.removeFromCart(index);
+      }
+    }
+  }
+
+  clearCart(): void {
+    this.cart = [];
+    this.cashReceived = 0;
+    this.cashDisplayValue = '';
+    this.errorMessage = '';
+  }
+
+  formatCurrency(value: number): string {
+    return new Intl.NumberFormat('en-PH', {
+      style: 'currency',
+      currency: 'PHP',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
+
+  // Panel/Modal controls
+  togglePendingPanel(): void {
+    this.isPendingPanelOpen = !this.isPendingPanelOpen;
+    if (this.isPendingPanelOpen) {
+      this.updateGroupedSales();
+    }
+  }
+
+  closePendingPanel(): void {
+    this.isPendingPanelOpen = false;
+  }
+
+  openDeliveryModal(): void {
+    this.isDeliveryModalOpen = true;
+  }
+
+  closeDeliveryModal(): void {
+    this.isDeliveryModalOpen = false;
+  }
+
+  openDiscountModal(): void {
+    this.tempDiscount = 0;
+    this.tempDiscountType = 'amount';
+    this.isDiscountModalOpen = true;
+  }
+
+  closeDiscountModal(): void {
+    this.isDiscountModalOpen = false;
+  }
+
+  applyDiscount(): void {
+    // Apply discount to all cart items proportionally
+    if (this.cart.length > 0 && this.tempDiscount > 0) {
+      const discountPerItem = this.tempDiscount / this.cart.length;
+      this.cart.forEach((item) => {
+        item.discount = discountPerItem;
+        item.discountType = this.tempDiscountType;
+        item.total = this.calculateItemTotal(item);
+      });
+    }
+    this.closeDiscountModal();
+  }
+
+  openNotesModal(): void {
+    this.isNotesModalOpen = true;
+  }
+
+  closeNotesModal(): void {
+    this.isNotesModalOpen = false;
+  }
+
+  clearDelivery(): void {
+    this.deliveryDate = '';
+    this.deliveryTime = '';
+    this.deliveryNotes = '';
   }
 }

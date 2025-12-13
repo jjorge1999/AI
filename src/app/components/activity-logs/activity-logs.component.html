@@ -1,127 +1,169 @@
-<div class="activity-logs-section">
-  <div class="card">
-    <div class="header-section">
-      <h3>
-        <span class="icon">📋</span>
-        Activity Logs
-        <span class="badge">{{ filteredLogs.length }}</span>
-      </h3>
-      
+<div class="logs-container">
+  <!-- Header Section -->
+  <header class="page-header">
+    <div class="breadcrumbs">
+      <a class="breadcrumb-link">Home</a>
+      <span class="material-icon breadcrumb-separator">chevron_right</span>
+      <span class="breadcrumb-current">Activity Logs</span>
+    </div>
+    <div class="header-content">
+      <div class="header-title-section">
+        <h1 class="page-title">Activity Logs</h1>
+        <p class="page-subtitle">Track and audit all system modifications over time.</p>
+      </div>
       <div class="header-actions">
-        <button class="btn-refresh" (click)="refreshLogs()">
-          🔄 Refresh
+        <button class="btn-secondary" (click)="refreshLogs()">
+          <span class="material-icon">refresh</span>
+          <span class="btn-text">Refresh</span>
         </button>
-        <button class="btn-cleanup" (click)="cleanupOldLogs()">
-          🗑️ Cleanup Old Logs
+        <button class="btn-primary" (click)="exportLogs()">
+          <span class="material-icon">download</span>
+          <span class="btn-text">Export Log</span>
         </button>
       </div>
     </div>
+  </header>
 
-    <!-- Filters -->
-    <div class="filters-section">
-      <div class="filter-group">
-        <label for="entityFilter">Entity Type:</label>
-        <select 
-          id="entityFilter" 
-          [(ngModel)]="selectedEntityType"
-          (change)="applyFilters()"
-          class="filter-select"
-        >
-          <option *ngFor="let type of entityTypes" [value]="type">
-            {{ type | titlecase }}
-          </option>
-        </select>
+  <!-- Filters Toolbar -->
+  <div class="filters-toolbar">
+    <div class="filters-left">
+      <div class="search-box">
+        <span class="material-icon search-icon">search</span>
+        <input
+          type="text"
+          [(ngModel)]="searchQuery"
+          (ngModelChange)="onSearchChange()"
+          placeholder="Search by ID, User, or Action..."
+          class="search-input"
+        />
       </div>
-
-      <div class="filter-group">
-        <label for="actionFilter">Action:</label>
-        <select 
-          id="actionFilter" 
-          [(ngModel)]="selectedAction"
-          (change)="applyFilters()"
-          class="filter-select"
-        >
-          <option *ngFor="let action of actions" [value]="action">
-            {{ action | titlecase }}
-          </option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Logs List -->
-    <div class="logs-list" *ngIf="paginatedLogs.length > 0; else noLogs">
-      <div class="log-item" *ngFor="let log of paginatedLogs">
-        <div class="log-icon">
-          <span class="entity-icon">{{ getEntityIcon(log.entityType) }}</span>
-          <span class="action-icon">{{ getActionIcon(log.action) }}</span>
+      <div class="filter-chips">
+        <div class="filter-dropdown">
+          <select [(ngModel)]="selectedEntityType" (ngModelChange)="onFilterChange()" class="filter-select">
+            <option value="all">Module: All</option>
+            <ng-container *ngFor="let type of entityTypes">
+              <option *ngIf="type !== 'all'" [value]="type">
+                {{ type | titlecase }}
+              </option>
+            </ng-container>
+          </select>
         </div>
-        
-        <div class="log-info">
-          <div class="log-header">
-            <span class="log-entity">{{ log.entityName }}</span>
-            <span class="log-action-badge">{{ log.action }}</span>
-          </div>
-          <div class="log-details">
-            <span class="log-type">{{ log.entityType }}</span>
-            <span *ngIf="log.details" class="log-description">• {{ log.details }}</span>
-          </div>
-        </div>
-        
-        <div class="log-timestamp">
-          {{ log?.timestamp | date:'medium' }}
+        <div class="filter-dropdown">
+          <select [(ngModel)]="selectedAction" (ngModelChange)="onFilterChange()" class="filter-select">
+            <option value="all">Action: All</option>
+            <ng-container *ngFor="let action of actions">
+              <option *ngIf="action !== 'all'" [value]="action">
+                {{ action | titlecase }}
+              </option>
+            </ng-container>
+          </select>
         </div>
       </div>
     </div>
+    <div class="results-count">
+      Showing <span class="bold">{{ showingFrom }}-{{ showingTo }}</span> of <span class="bold">{{ filteredLogs.length }}</span> events
+    </div>
+  </div>
 
-    <ng-template #noLogs>
-      <div class="empty-state">
-        <p>No activity logs found</p>
-      </div>
-    </ng-template>
+  <!-- Logs Table -->
+  <div class="table-container">
+    <table class="logs-table">
+      <thead>
+        <tr>
+          <th class="col-timestamp">Timestamp</th>
+          <th class="col-user">Module</th>
+          <th class="col-action">Action</th>
+          <th class="col-target">Entity ID</th>
+          <th class="col-details">Details</th>
+          <th class="col-view">View</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let log of paginatedLogs" class="log-row">
+          <td class="timestamp-cell">
+            <span class="timestamp">{{ formatTimestamp(log.timestamp) }}</span>
+          </td>
+          <td class="user-cell">
+            <div class="user-info">
+              <div class="user-avatar">
+                <span class="material-icon">{{ getEntityIcon(log.entityType) }}</span>
+              </div>
+              <div class="user-details">
+                <span class="user-name">{{ log.entityType | titlecase }}</span>
+              </div>
+            </div>
+          </td>
+          <td class="action-cell">
+            <span
+              class="action-badge"
+              [attr.data-action]="getActionColor(log.action)"
+            >
+              {{ log.action | titlecase }}
+            </span>
+          </td>
+          <td class="target-cell">
+            <span class="entity-id">{{ log.entityId | slice:0:12 }}...</span>
+          </td>
+          <td class="details-cell">
+            <div class="details-content">
+              <span class="details-text">{{ getLogDetails(log) || '—' }}</span>
+            </div>
+          </td>
+          <td class="view-cell">
+            <button class="view-btn">
+              <span class="material-icon">chevron_right</span>
+            </button>
+          </td>
+        </tr>
+        <tr *ngIf="paginatedLogs.length === 0">
+          <td colspan="6" class="empty-row">
+            <div class="empty-state">
+              <span class="material-icon">history</span>
+              <p>No activity logs found</p>
+              <button class="btn-refresh" (click)="refreshLogs()">Refresh Logs</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
-    <!-- Pagination -->
-    <div class="pagination" *ngIf="totalPages > 1 || filteredLogs.length > 20">
-      <div class="pagination-size">
-        <label for="pageSize">Show:</label>
-        <select 
-          id="pageSize"
-          [(ngModel)]="pageSize"
-          (change)="currentPage = 1"
-          class="page-size-select"
-        >
-          <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
-        </select>
-        <span>per page</span>
-      </div>
-
-      <div class="pagination-controls" *ngIf="totalPages > 1">
-        <button 
-          class="pagination-btn" 
-          [disabled]="currentPage === 1"
-          (click)="prevPage()"
-        >
-          ← Prev
-        </button>
-        
-        <div class="pagination-pages">
-          <button 
-            *ngFor="let page of getPageNumbers()"
-            class="pagination-page"
+  <!-- Pagination -->
+  <div class="pagination-bar">
+    <div class="page-size-control">
+      <span class="page-size-label">Rows per page:</span>
+      <select [(ngModel)]="pageSize" (ngModelChange)="applyFilters()" class="page-size-select">
+        <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+      </select>
+    </div>
+    <div class="pagination-controls">
+      <button class="pagination-btn" [disabled]="currentPage === 1" (click)="prevPage()">
+        <span class="material-icon">chevron_left</span>
+      </button>
+      <div class="page-numbers">
+        <ng-container *ngFor="let page of getPageNumbers()">
+          <span *ngIf="page < 0" class="page-ellipsis">...</span>
+          <button
+            *ngIf="page > 0"
+            class="page-btn"
             [class.active]="page === currentPage"
             (click)="goToPage(page)"
           >
             {{ page }}
           </button>
-        </div>
-
-        <button 
-          class="pagination-btn" 
-          [disabled]="currentPage === totalPages"
-          (click)="nextPage()"
-        >
-          Next →
-        </button>
+        </ng-container>
       </div>
+      <button class="pagination-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">
+        <span class="material-icon">chevron_right</span>
+      </button>
     </div>
+  </div>
+
+  <!-- Cleanup Action -->
+  <div class="cleanup-section">
+    <button class="btn-cleanup" (click)="cleanupOldLogs()">
+      <span class="material-icon">auto_delete</span>
+      Cleanup Old Logs (30+ days)
+    </button>
   </div>
 </div>

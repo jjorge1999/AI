@@ -1,6 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { UserService } from '../../services/user.service';
 import { DialogService } from '../../services/dialog.service';
 import { SettingsService } from '../../services/settings.service';
@@ -13,9 +14,17 @@ import { User } from '../../models/inventory.models';
   templateUrl: './user-management.component.html',
   styleUrl: './user-management.component.css',
 })
-export class UserManagementComponent implements OnInit {
+export class UserManagementComponent implements OnInit, OnDestroy {
   users: User[] = [];
+  filteredUsers: User[] = [];
   isLoading = false;
+  private subscriptions: Subscription[] = [];
+
+  // Search and filters
+  searchQuery = '';
+  roleFilter = 'all';
+  statusFilter = 'all';
+  roles = ['all', 'admin', 'editor', 'user'];
 
   // Modal state
   isModalOpen = false;
@@ -26,7 +35,11 @@ export class UserManagementComponent implements OnInit {
     fullName: '',
     role: 'user',
   };
-  formPassword = ''; // Separate variable for form input
+  formPassword = '';
+
+  // Pagination
+  currentPage = 1;
+  pageSize = 10;
 
   // AI Settings
   hfToken = '';
@@ -41,25 +54,188 @@ export class UserManagementComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    // 1. Subscribe to the stream
     this.loadUsers();
-    // 2. Trigger the fetch from backend
     this.userService.loadUsers();
-    // 3. Check if Gemma is configured
     this.checkGemmaStatus();
 
-    // 4. Subscribe to settings changes (realtime sync from Firebase)
-    this.settingsService.getSettings().subscribe((settings) => {
-      this.isGemmaConfigured = this.settingsService.isGemmaConfigured();
-      if (settings.huggingFaceToken && !this.showAiSettings) {
-        this.hfToken = settings.huggingFaceToken.substring(0, 10) + '...';
-      }
-    });
+    this.subscriptions.push(
+      this.settingsService.getSettings().subscribe((settings) => {
+        this.isGemmaConfigured = this.settingsService.isGemmaConfigured();
+        if (settings.huggingFaceToken && !this.showAiSettings) {
+          this.hfToken = settings.huggingFaceToken.substring(0, 10) + '...';
+        }
+      })
+    );
   }
 
+  ngOnDestroy(): void {
+    this.subscriptions.forEach((sub) => sub.unsubscribe());
+  }
+
+  loadUsers(): void {
+    this.isLoading = true;
+    const currentUserId = localStorage.getItem('jjm_user_id');
+
+    this.subscriptions.push(
+      this.userService.getUsers().subscribe((users) => {
+        if (currentUserId && currentUserId !== 'admin') {
+          this.users = users.filter(
+            (u) => u.id === currentUserId || u.userId === currentUserId
+          );
+        } else {
+          this.users = users;
+        }
+        this.applyFilters();
+        this.isLoading = false;
+      })
+    );
+  }
+
+  applyFilters(): void {
+    let result = [...this.users];
+
+    if (this.searchQuery) {
+      const query = this.searchQuery.toLowerCase();
+      result = result.filter(
+        (u) =>
+          u.username?.toLowerCase().includes(query) ||
+          u.fullName?.toLowerCase().includes(query)
+      );
+    }
+
+    if (this.roleFilter !== 'all') {
+      result = result.filter((u) => u.role === this.roleFilter);
+    }
+
+    this.filteredUsers = result;
+    this.currentPage = 1;
+  }
+
+  onSearchChange(): void {
+    this.applyFilters();
+  }
+
+  onFilterChange(): void {
+    this.applyFilters();
+  }
+
+  get paginatedUsers(): User[] {
+    const start = (this.currentPage - 1) * this.pageSize;
+    return this.filteredUsers.slice(start, start + this.pageSize);
+  }
+
+  get totalPages(): number {
+    return Math.ceil(this.filteredUsers.length / this.pageSize) || 1;
+  }
+
+  get showingFrom(): number {
+    return this.filteredUsers.length > 0
+      ? (this.currentPage - 1) * this.pageSize + 1
+      : 0;
+  }
+
+  get showingTo(): number {
+    return Math.min(
+      this.currentPage * this.pageSize,
+      this.filteredUsers.length
+    );
+  }
+
+  nextPage(): void {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+    }
+  }
+
+  prevPage(): void {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+    }
+  }
+
+  // Modal controls
+  openAddModal(): void {
+    this.isEditing = false;
+    this.formPassword = '';
+    this.currentUser = {
+      username: '',
+      fullName: '',
+      role: 'user',
+    };
+    this.isModalOpen = true;
+  }
+
+  openEditModal(user: User): void {
+    this.isEditing = true;
+    this.formPassword = '';
+    this.currentUser = { ...user };
+    this.isModalOpen = true;
+  }
+
+  closeModal(): void {
+    this.isModalOpen = false;
+  }
+
+  saveUser(): void {
+    if (!this.currentUser.username || !this.currentUser.role) {
+      this.dialogService
+        .error('Please fill in username and role.', 'Validation Error')
+        .subscribe();
+      return;
+    }
+
+    if (!this.isEditing && !this.formPassword) {
+      this.dialogService
+        .error('Password is required for new users.', 'Validation Error')
+        .subscribe();
+      return;
+    }
+
+    if (this.isEditing && this.currentUser.id) {
+      const payload: Partial<User> & { id: string } = {
+        id: this.currentUser.id,
+        username: this.currentUser.username,
+        fullName: this.currentUser.fullName,
+        address: this.currentUser.address,
+        gpsCoordinates: this.currentUser.gpsCoordinates,
+        role: this.currentUser.role,
+      };
+
+      if (this.formPassword) {
+        payload.password = this.formPassword;
+      }
+
+      this.userService.updateUser(payload).subscribe(() => {
+        this.closeModal();
+      });
+    } else {
+      const currentUserId = localStorage.getItem('jjm_user_id') || 'system';
+      const newUser = {
+        ...this.currentUser,
+        password: this.formPassword,
+        createdBy: currentUserId,
+        userId: currentUserId,
+      } as User;
+
+      this.userService.addUser(newUser).subscribe(() => {
+        this.closeModal();
+      });
+    }
+  }
+
+  deleteUser(userId: string): void {
+    this.dialogService
+      .confirm('Are you sure you want to delete this user?', 'Delete User')
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          this.userService.deleteUser(userId).subscribe();
+        }
+      });
+  }
+
+  // AI Settings
   checkGemmaStatus(): void {
     this.isGemmaConfigured = this.settingsService.isGemmaConfigured();
-    // Load existing token for display (masked)
     const existingToken = this.settingsService.getHuggingFaceToken();
     if (existingToken) {
       this.hfToken = existingToken.substring(0, 10) + '...';
@@ -69,7 +245,6 @@ export class UserManagementComponent implements OnInit {
   toggleAiSettings(): void {
     this.showAiSettings = !this.showAiSettings;
     if (this.showAiSettings) {
-      // Clear the masked display when editing
       const existingToken = this.settingsService.getHuggingFaceToken();
       this.hfToken = existingToken || '';
     }
@@ -93,20 +268,11 @@ export class UserManagementComponent implements OnInit {
       this.isGemmaConfigured = true;
       this.showAiSettings = false;
       this.hfToken = this.hfToken.substring(0, 10) + '...';
-
       this.dialogService
-        .alert(
-          'Gemma AI has been configured and saved to database! 🎉 All devices will now use this token.',
-          'AI Configured'
-        )
+        .alert('Gemma AI has been configured! 🎉', 'AI Configured')
         .subscribe();
     } catch (error) {
-      this.dialogService
-        .error(
-          'Failed to save to database, but token saved locally.',
-          'Partial Save'
-        )
-        .subscribe();
+      this.dialogService.error('Failed to save token.', 'Error').subscribe();
     } finally {
       this.isSavingToken = false;
     }
@@ -118,120 +284,51 @@ export class UserManagementComponent implements OnInit {
       this.hfToken = '';
       this.isGemmaConfigured = false;
       this.dialogService
-        .alert(
-          'Hugging Face token has been removed from all devices.',
-          'Token Cleared'
-        )
+        .alert('Token has been removed.', 'Token Cleared')
         .subscribe();
     } catch (error) {
-      this.dialogService
-        .error('Failed to clear token from database.', 'Error')
-        .subscribe();
+      this.dialogService.error('Failed to clear token.', 'Error').subscribe();
     }
   }
 
-  loadUsers(): void {
-    this.isLoading = true;
-    const currentUserId = localStorage.getItem('jjm_user_id');
-
-    this.userService.getUsers().subscribe((users) => {
-      // Filter to show:
-      // 1. The logged-in user themselves
-      // 2. Users created by the logged-in user (userId === currentUserId)
-      if (currentUserId && currentUserId !== 'admin') {
-        // If generic admin, show all?
-        // Assuming 'admin' role check is better, but here we check ID
-        this.users = users.filter(
-          (u) => u.id === currentUserId || u.userId === currentUserId
-        );
-      } else {
-        // If no ID (or super admin), show all
-        this.users = users;
-      }
-      this.isLoading = false;
-    });
+  // Helpers
+  getUserInitials(user: User): string {
+    const name = user.fullName || user.username || 'U';
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   }
 
-  openAddModal(): void {
-    this.isEditing = false;
-    this.formPassword = '';
-    this.currentUser = {
-      username: '',
-      fullName: '',
-      role: 'user',
-    };
-    this.isModalOpen = true;
+  getAvatarColor(user: User): string {
+    const colors = [
+      'bg-blue-600',
+      'bg-purple-600',
+      'bg-emerald-600',
+      'bg-orange-600',
+      'bg-pink-600',
+      'bg-cyan-600',
+    ];
+    const name = user.username || 'U';
+    const index = name.charCodeAt(0) % colors.length;
+    return colors[index];
   }
 
-  openEditModal(user: User): void {
-    this.isEditing = true;
-    this.formPassword = ''; // Reset password field
-    this.currentUser = { ...user }; // Copy user details
-    this.isModalOpen = true;
-  }
-
-  closeModal(): void {
-    this.isModalOpen = false;
-  }
-
-  saveUser(): void {
-    if (!this.currentUser.username || !this.currentUser.role) {
-      this.dialogService
-        .error('Please fill in username and role.', 'Validation Error')
-        .subscribe();
-      return;
-    }
-
-    // Password validation
-    if (!this.isEditing && !this.formPassword) {
-      this.dialogService
-        .error('Password is required for new users.', 'Validation Error')
-        .subscribe();
-      return;
-    }
-
-    if (this.isEditing && this.currentUser.id) {
-      // Update logic
-      const payload: Partial<User> & { id: string } = {
-        id: this.currentUser.id,
-        username: this.currentUser.username,
-        fullName: this.currentUser.fullName,
-        address: this.currentUser.address,
-        gpsCoordinates: this.currentUser.gpsCoordinates,
-        role: this.currentUser.role,
-      };
-
-      // Only include password if changed
-      if (this.formPassword) {
-        payload.password = this.formPassword;
-      }
-
-      this.userService.updateUser(payload).subscribe(() => {
-        this.closeModal();
-      });
-    } else {
-      // Create logic
-      const currentUserId = localStorage.getItem('jjm_user_id') || 'system';
-      const newUser = {
-        ...this.currentUser,
-        password: this.formPassword,
-        createdBy: currentUserId,
-        userId: currentUserId,
-      } as User;
-
-      this.userService.addUser(newUser).subscribe(() => {
-        this.closeModal();
-      });
+  getRoleBadgeClass(role: string): string {
+    switch (role) {
+      case 'admin':
+        return 'role-admin';
+      case 'editor':
+        return 'role-editor';
+      default:
+        return 'role-user';
     }
   }
 
-  deleteUser(userId: string): void {
-    this.dialogService
-      .confirm('Are you sure you want to delete this user?', 'Delete User')
-      .subscribe((confirmed) => {
-        if (confirmed) {
-          this.userService.deleteUser(userId).subscribe();
-        }
-      });
+  getLastActive(user: User): string {
+    // Placeholder - would need actual last active tracking
+    return 'Recently';
   }
 }
