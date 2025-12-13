@@ -56,8 +56,30 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  max-height: 100%;
   padding: var(--space-md);
   gap: var(--space-lg);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.sidebar-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
 }
 
 /* Sidebar Header - User Profile */
@@ -201,21 +223,20 @@
   50% { opacity: 0.7; transform: scale(1.1); }
 }
 
-/* Sidebar Footer - Compact Design */
-.sidebar-footer {
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--color-border);
-}
-
-.footer-actions {
+/* Sidebar Footer - Compact Design - Always visible at bottom */
+/* Header Actions Row (Theme/Vision/Logout) */
+.header-actions-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
   padding: 0 var(--space-xs);
+  margin-top: var(--space-md) !important; /* Force margin since inline styles tricky with angular view encapsulation sometimes */
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-md);
 }
 
-.footer-actions.compact {
+.header-actions-row.compact {
   flex-direction: column;
   gap: var(--space-sm);
 }
@@ -250,7 +271,7 @@
   text-overflow: ellipsis;
 }
 
-.footer-actions.compact .action-btn {
+.header-actions-row.compact .action-btn {
   flex: none;
   width: 100%;
   padding: 10px;
@@ -687,12 +708,34 @@ body.dark-theme .notification-dot {
     left: -260px;
     top: 0;
     height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for mobile */
+    max-height: 100vh;
+    max-height: 100dvh;
     z-index: 200;
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
   }
 
   .sidebar.mobile-open {
     left: 0;
+  }
+
+  /* Ensure sidebar content scrolls on mobile */
+  .sidebar.mobile-open .sidebar-content {
+    max-height: calc(100vh - 20px);
+    max-height: calc(100dvh - 20px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Make sidebar nav scrollable */
+  .sidebar.mobile-open .sidebar-nav {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    min-height: 0;
   }
 
   .sidebar-overlay {

@@ -376,3 +376,29 @@ button:disabled {
   width: 6rem;
   height: 6rem;
 }
+
+/* Mobile Floating Logout Button */
+.mobile-logout-btn {
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+  animation: pulseLogout 2s infinite;
+}
+
+.mobile-logout-btn:active {
+  transform: scale(0.95);
+}
+
+@keyframes pulseLogout {
+  0%, 100% {
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 4px 24px rgba(239, 68, 68, 0.6);
+  }
+}
+
+/* Hide on desktop (md breakpoint = 768px) */
+@media (min-width: 768px) {
+  .mobile-logout-btn {
+    display: none !important;
+  }
+}

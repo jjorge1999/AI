@@ -1107,11 +1107,7 @@ export class ChatComponent
           console.log('AI Auto-responder: No products in database');
           // Use Gemma as sales rep even when inventory is empty
           const gemmaResponse = await this.aiService.generateWithGemma(
-            `You are a senior sales representative in the Philippines. A customer named ${this.senderName} is asking about products, but inventory is currently being restocked.
-
-LANGUAGE RULE: Detect the customer's language from their message. If Filipino/Tagalog, respond in Filipino. If Cebuano/Bisaya, respond in Cebuano. If English, respond in English. Match their language!
-
-Write a persuasive response: apologize briefly, create urgency by mentioning new stock arriving very soon, ask for their contact to notify them first when products arrive. Make them feel like VIP customers. Keep it short (2-3 sentences). Use 1-2 emojis.`
+            `You are a helpful store assistant. Customer ${this.senderName} is asking about products but we're restocking. Reply in the same language they used (Filipino, Cebuano, or English). Be brief and friendly: apologize, mention stock arriving soon, ask what they're looking for. 2 sentences max. Use 1 emoji.`
           );
           if (gemmaResponse) {
             await this.chatService.sendMessage(
@@ -1167,26 +1163,12 @@ Write a persuasive response: apologize briefly, create urgency by mentioning new
             matchedProducts.length > 0 ? 'matching' : 'available';
 
           // Gemma as senior sales representative - persuasive selling with language matching
-          const gemmaPrompt = `You are a SENIOR SALES REPRESENTATIVE with 15 years of experience in the Philippines. Your goal is to CLOSE THE SALE. A customer named ${this.senderName} asked: "${messageText}"
+          const gemmaPrompt = `You are a friendly store assistant. Customer ${this.senderName} asked: "${messageText}"
 
-Here are our ${matchType} products:
+Our ${matchType} products:
 ${productList}
 
-LANGUAGE RULE (VERY IMPORTANT):
-- Detect customer's language from their message above
-- If Filipino/Tagalog (e.g., "magkano", "meron ba", "bili"), respond in FILIPINO
-- If Cebuano/Bisaya (e.g., "pila", "naa ba", "palita"), respond in CEBUANO
-- If English, respond in ENGLISH
-- Match their language naturally!
-
-SALES RULES:
-1. Create URGENCY (limited stock/limitado na lang, selling fast/mabilis maubos)
-2. Highlight VALUE (quality, best-seller, customer favorites)
-3. Use SOCIAL PROOF (maraming customers ang bumibili nito, daghan kaayo mopalit)
-4. Direct them to RESERVE/ORDER: Tell them to click the 'Reserve Now' button to place their order (your info will be auto-filled!)
-5. Ask a closing question
-
-Write 2-3 sentences in the customer's language. Be enthusiastic. Use 1-2 emojis. Do NOT use markdown.`;
+Reply naturally in the same language they used. Be helpful and enthusiastic. Mention the products, prices, and stock. Tell them to click 'Reserve Now' to order. Keep it short (2-3 sentences). Use 1 emoji. Do NOT explain what language you're using or mention language detection.`;
 
           console.log('AI Auto-responder: Calling Gemma with product context');
           const gemmaResponse = await this.aiService.generateWithGemma(
@@ -1237,11 +1219,9 @@ Write 2-3 sentences in the customer's language. Be enthusiastic. Use 1-2 emojis.
         } else {
           // No available products - still sell!
           const gemmaResponse = await this.aiService.generateWithGemma(
-            `You are a senior sales representative in the Philippines. A customer named ${this.senderName} wants products but everything is out of stock. Their message was: "${messageText}"
+            `You are a friendly store assistant. Customer ${this.senderName} wants products but we're out of stock. Their message: "${messageText}"
 
-LANGUAGE RULE: Detect the customer's language. If Filipino/Tagalog, respond in Filipino. If Cebuano/Bisaya, respond in Cebuano. If English, respond in English.
-
-Turn this into an opportunity: Express excitement about restocking soon, create FOMO by saying items sell out fast, offer to put them on a VIP waitlist to get first access. Ask for their order preference. Be enthusiastic! 2-3 sentences in their language, 1-2 emojis.`
+Reply in the same language they used. Be positive: mention restocking soon, offer to note their preference. 2 sentences max. Use 1 emoji. Do NOT explain what you're doing.`
           );
           response =
             gemmaResponse ||
@@ -1344,22 +1324,10 @@ Turn this into an opportunity: Express excitement about restocking soon, create 
 
     console.log('AI Auto-responder: General inquiry detected');
 
-    // Gemma as senior sales rep - always looking to sell, with language matching
-    const gemmaPrompt = `You are a SENIOR SALES REPRESENTATIVE for an online store in the Philippines. A customer named ${this.senderName} sent: "${messageText}"
+    // Gemma as friendly assistant - natural conversation
+    const gemmaPrompt = `You are a friendly store assistant. Customer ${this.senderName} sent: "${messageText}"
 
-LANGUAGE RULE (VERY IMPORTANT):
-- If customer writes in Filipino/Tagalog, respond in FILIPINO
-- If customer writes in Cebuano/Bisaya, respond in CEBUANO  
-- If customer writes in English, respond in ENGLISH
-- Match their language naturally!
-
-Your job is to ENGAGE and CONVERT them into a buyer. Rules:
-1. Answer their question briefly in their language
-2. ALWAYS pivot to products (may magandang deals tayo ngayon / nindot kaayo atong deals karon / we have great deals today)
-3. Create interest - ask what they're looking for
-4. If they say hi/hello/kumusta/musta, warmly greet them and ask what products they need
-
-Write 1-2 sentences in their language. Be warm, enthusiastic. Use 1-2 emojis. End with a question.`;
+Reply naturally in the same language they used. Be warm and helpful. If they're greeting you, greet back and ask what products they're looking for. Keep it short (1-2 sentences). Use 1 emoji. Do NOT mention language or explain what you're doing.`;
 
     const gemmaResponse = await this.aiService.generateWithGemma(gemmaPrompt);
 

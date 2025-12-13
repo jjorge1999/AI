@@ -19,6 +19,22 @@
             <p class="user-role">{{ userRole === 'admin' ? 'Administrator' : 'Staff Member' }}</p>
           </div>
         </div>
+        
+        <!-- Actions moved from footer -->
+        <div class="header-actions-row" [class.compact]="isSidebarCollapsed" style="margin-top: 1rem;">
+          <button class="action-btn theme-btn" (click)="toggleTheme()" [title]="isDarkTheme ? 'Light Mode' : 'Dark Mode'">
+            <span class="material-icon">{{ isDarkTheme ? 'light_mode' : 'dark_mode' }}</span>
+            <span class="action-label" *ngIf="!isSidebarCollapsed">{{ isDarkTheme ? 'Light' : 'Dark' }}</span>
+          </button>
+          <button class="action-btn vision-btn" (click)="toggleVisionAid()" title="Vision Aid">
+            <span class="material-icon">visibility</span>
+            <span class="action-label" *ngIf="!isSidebarCollapsed">Vision</span>
+          </button>
+          <button class="action-btn logout-btn" (click)="logout()" title="Logout">
+            <span class="material-icon">logout</span>
+            <span class="action-label" *ngIf="!isSidebarCollapsed">Logout</span>
+          </button>
+        </div>
       </div>
 
       <!-- Navigation -->
@@ -108,23 +124,7 @@
         </a>
       </nav>
 
-      <!-- Bottom Actions (Compact Row) -->
-      <div class="sidebar-footer">
-        <div class="footer-actions" [class.compact]="isSidebarCollapsed">
-          <button class="action-btn theme-btn" (click)="toggleTheme()" [title]="isDarkTheme ? 'Light Mode' : 'Dark Mode'">
-            <span class="material-icon">{{ isDarkTheme ? 'light_mode' : 'dark_mode' }}</span>
-            <span class="action-label" *ngIf="!isSidebarCollapsed">{{ isDarkTheme ? 'Light' : 'Dark' }}</span>
-          </button>
-          <button class="action-btn vision-btn" (click)="toggleVisionAid()" title="Vision Aid">
-            <span class="material-icon">visibility</span>
-            <span class="action-label" *ngIf="!isSidebarCollapsed">Vision</span>
-          </button>
-          <button class="action-btn logout-btn" (click)="logout()" title="Logout">
-            <span class="material-icon">logout</span>
-            <span class="action-label" *ngIf="!isSidebarCollapsed">Logout</span>
-          </button>
-        </div>
-      </div>
+
     </div>
   </aside>
 
