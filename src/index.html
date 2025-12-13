@@ -4,23 +4,27 @@
   <meta charset="utf-8">
   <title>JjmInventory</title>
   <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <script>
     tailwind.config = {
       darkMode: "class",
-      corePlugins: { preflight: false }, // Disable preflight to protect existing app styles
+      corePlugins: { preflight: false },
       theme: {
         extend: {
           colors: {
-            "primary": "#137fec",
-            "background-light": "#f6f7f8",
-            "background-dark": "#101922",
-            "surface-dark": "#111a22",
-            "input-bg": "#192633",
-            "input-border": "#324d67",
-            "text-secondary": "#92adc9",
+            "primary": "var(--color-primary)",
+            "background-light": "var(--color-bg)",
+            "background-dark": "var(--color-bg)",
+            "surface-dark": "var(--color-surface)",
+            "input-bg": "var(--color-surface)",
+            "input-border": "var(--color-border)",
+            "text-secondary": "var(--color-text-muted)",
+            "text-main": "var(--color-text)",
+            "brand-dark": "#111a22",
           },
           fontFamily: {
             "display": ["Inter", "sans-serif"]

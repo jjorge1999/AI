@@ -6,14 +6,14 @@
       <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/20 text-primary">
         <span class="material-symbols-outlined text-[24px]">inventory_2</span>
       </div>
-      <span class="text-xl font-bold tracking-tight text-white">JJM Inventory</span>
+      <span class="text-xl font-bold tracking-tight text-main">JJM Inventory</span>
     </div>
     
     <!-- Form Content -->
     <div class="flex flex-1 flex-col justify-center max-w-[480px] w-full mx-auto">
       <!-- Heading -->
       <div class="mb-10 flex flex-col gap-3">
-        <h1 class="text-white text-4xl font-black leading-tight tracking-[-0.033em]">Welcome back</h1>
+        <h1 class="text-main text-4xl font-black leading-tight tracking-[-0.033em]">Welcome back</h1>
         <p class="text-text-secondary text-base font-normal leading-normal">Please enter your details to access your dashboard.</p>
       </div>
 
@@ -27,9 +27,9 @@
       <form class="flex flex-col gap-5" (ngSubmit)="onLogin()">
         <!-- Email Input -->
         <label class="flex flex-col gap-2">
-          <p class="text-white text-sm font-medium leading-normal">Username or Email</p>
+          <p class="text-main text-sm font-medium leading-normal">Username or Email</p>
           <input 
-            class="form-input flex w-full resize-none overflow-hidden rounded-lg text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-input-border bg-input-bg focus:border-primary h-12 placeholder:text-text-secondary px-4 text-base font-normal leading-normal transition-all duration-200" 
+            class="form-input flex w-full resize-none overflow-hidden rounded-lg text-main focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-input-border bg-input-bg focus:border-primary h-12 placeholder:text-text-secondary px-4 text-base font-normal leading-normal transition-all duration-200" 
             placeholder="name@company.com" 
             type="text" 
             [(ngModel)]="username" 
@@ -40,17 +40,17 @@
         
         <!-- Password Input -->
         <label class="flex flex-col gap-2">
-          <p class="text-white text-sm font-medium leading-normal">Password</p>
+          <p class="text-main text-sm font-medium leading-normal">Password</p>
           <div class="relative flex w-full items-center rounded-lg">
             <input 
-              class="form-input flex w-full resize-none overflow-hidden rounded-lg text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-input-border bg-input-bg focus:border-primary h-12 placeholder:text-text-secondary pl-4 pr-12 text-base font-normal leading-normal transition-all duration-200" 
+              class="form-input flex w-full resize-none overflow-hidden rounded-lg text-main focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-input-border bg-input-bg focus:border-primary h-12 placeholder:text-text-secondary pl-4 pr-12 text-base font-normal leading-normal transition-all duration-200" 
               placeholder="Enter your password" 
               [type]="showPassword ? 'text' : 'password'" 
               [(ngModel)]="password" 
               name="password"
               [disabled]="isLoading"
             />
-            <div class="absolute right-0 flex h-full w-12 items-center justify-center text-text-secondary cursor-pointer hover:text-white transition-colors" (click)="togglePasswordVisibility()">
+            <div class="absolute right-0 flex h-full w-12 items-center justify-center text-text-secondary cursor-pointer hover:text-main transition-colors" (click)="togglePasswordVisibility()">
               <span class="material-symbols-outlined text-[20px]">{{ showPassword ? 'visibility' : 'visibility_off' }}</span>
             </div>
           </div>
@@ -62,7 +62,7 @@
              Sign in
         </button>
 
-        <!-- Public Links (Moved here) -->
+        <!-- Public Links -->
         <div class="flex items-center justify-center gap-6 mt-2">
           <a routerLink="/play" class="text-sm font-semibold text-primary hover:text-blue-400 transition-colors">Play Game</a>
           <a routerLink="/reservation" class="text-sm font-semibold text-primary hover:text-blue-400 transition-colors">Reservation</a>
@@ -72,13 +72,13 @@
   </div>
   
   <!-- Right Section: Visual -->
-  <div class="hidden lg:block lg:w-1/2 relative bg-surface-dark overflow-hidden">
+  <div class="hidden lg:block lg:w-1/2 relative bg-brand-dark overflow-hidden">
     <!-- Background Image -->
     <div class="absolute inset-0 bg-cover bg-center opacity-40 mix-blend-overlay" data-alt="Abstract view of modern automated warehouse shelves with blue lighting" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBJMug-HzbgJHcP6T6yHc4bxrXKC00vZR62BdYXpEe6reZi_Oj1xu6ySSegqp42yoaxh9THfUcOsdHQtSx-0XLbO4MblRq98LCojtpANrGhrBI8ZPxD8zESH49r9h7_FbxA_L03d5hXYnS0TOms43y1dyel0hmPWjBOwaJCJubdqNvxWMniv93RHHctc-zIBIbSyZOCvHy1vQ6JPiQd8igNYNlfDiMLCgx3zGvHzxtQzn4V50mW1e4Tb6vxyfBerv3bzsgOSKllIaqT');">
     </div>
     <!-- Abstract Gradients for depth -->
-    <div class="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/80 to-transparent"></div>
-    <div class="absolute inset-0 bg-gradient-to-r from-background-dark via-transparent to-transparent"></div>
+    <div class="absolute inset-0 bg-gradient-to-t from-brand-dark via-brand-dark/80 to-transparent"></div>
+    <div class="absolute inset-0 bg-gradient-to-r from-brand-dark via-transparent to-transparent"></div>
     <!-- Content Overlay -->
     <div class="absolute bottom-0 left-0 right-0 p-16 z-20 flex flex-col gap-6">
       <div class="flex flex-col gap-4 max-w-lg">
