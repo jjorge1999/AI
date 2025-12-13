@@ -332,7 +332,7 @@ export class ChatComponent
     // Listen for Call Errors
     this.subscriptions.add(
       this.callService.error$.subscribe((err) => {
-        alert('Call Failed: ' + err);
+        this.dialogService.error('Call Failed: ' + err).subscribe();
         this.callStatus = 'idle';
         this.stopRinging();
       })
@@ -525,21 +525,23 @@ export class ChatComponent
 
     // Validate inputs
     if (!this.customerInfo.name.trim()) {
-      alert('Please enter your name');
+      this.dialogService.warning('Please enter your name').subscribe();
       return;
     }
     if (!this.customerInfo.phoneNumber.trim()) {
-      alert('Please enter your phone number');
+      this.dialogService.warning('Please enter your phone number').subscribe();
       return;
     }
     if (!this.customerInfo.address.trim()) {
-      alert('Please enter your address');
+      this.dialogService.warning('Please enter your address').subscribe();
       return;
     }
 
     const phoneRegex = /^[\d\s\-\+\(\)]+$/;
     if (!phoneRegex.test(this.customerInfo.phoneNumber)) {
-      alert('Please enter a valid phone number');
+      this.dialogService
+        .warning('Please enter a valid phone number')
+        .subscribe();
       return;
     }
 
@@ -554,9 +556,11 @@ export class ChatComponent
         );
 
         if (!foundCustomer) {
-          alert(
-            'Access Denied: You must be a registered customer to use the chat.'
-          );
+          this.dialogService
+            .error(
+              'Access Denied: You must be a registered customer to use the chat.'
+            )
+            .subscribe();
           return;
         }
 
@@ -569,9 +573,11 @@ export class ChatComponent
           .slice(-8);
 
         if (cleanInput !== cleanStored) {
-          alert(
-            'Verification Failed: The phone number provided does not match our records.'
-          );
+          this.dialogService
+            .error(
+              'Verification Failed: The phone number provided does not match our records.'
+            )
+            .subscribe();
           return;
         }
 
@@ -622,7 +628,9 @@ export class ChatComponent
       },
       error: (err) => {
         console.error('Verification failed', err);
-        alert('Verification error. Please try again.');
+        this.dialogService
+          .error('Verification error. Please try again.')
+          .subscribe();
       },
     });
   }
@@ -978,7 +986,9 @@ export class ChatComponent
 
     // If Admin tries to send without selecting a conversation
     if (this.isAppUser && !convId) {
-      alert('Please select a conversation first.');
+      this.dialogService
+        .warning('Please select a conversation first.')
+        .subscribe();
       return;
     }
 
@@ -998,7 +1008,9 @@ export class ChatComponent
       })
       .catch((error) => {
         console.error('Error sending message:', error);
-        alert('Failed to send message. Please try again.');
+        this.dialogService
+          .error('Failed to send message. Please try again.')
+          .subscribe();
       });
   }
 
@@ -1380,14 +1392,18 @@ Write 1-2 sentences in their language. Be warm, enthusiastic. Use 1-2 emojis. En
           console.error('Error getting location', error);
           if (!silent) {
             this.isLocationReadOnly = false; // Allow manual entry
-            alert('Unable to retrieve location. Please enter manually.');
+            this.dialogService
+              .warning('Unable to retrieve location. Please enter manually.')
+              .subscribe();
           }
         }
       );
     } else {
       if (!silent) {
         this.isLocationReadOnly = false;
-        alert('Geolocation is not supported by your browser.');
+        this.dialogService
+          .warning('Geolocation is not supported by your browser.')
+          .subscribe();
       }
     }
   }
@@ -1520,7 +1536,9 @@ Write 1-2 sentences in their language. Be warm, enthusiastic. Use 1-2 emojis. En
 
     // Check subscription only for Admin
     if (this.isAppUser && !this.currentUser?.hasSubscription) {
-      alert('AI Follow-up requires a subscription.');
+      this.dialogService
+        .warning('AI Follow-up requires a subscription.')
+        .subscribe();
       return;
     }
 
@@ -1810,11 +1828,15 @@ Write 1-2 sentences in their language. Be warm, enthusiastic. Use 1-2 emojis. En
         })
         .catch((err) => {
           console.error('Error accessing microphone:', err);
-          alert('Could not access microphone. Please allow permissions.');
+          this.dialogService
+            .error('Could not access microphone. Please allow permissions.')
+            .subscribe();
           this.isRecording = false;
         });
     } else {
-      alert('Audio recording is not supported in this browser.');
+      this.dialogService
+        .error('Audio recording is not supported in this browser.')
+        .subscribe();
     }
   }
 
@@ -1856,7 +1878,7 @@ Write 1-2 sentences in their language. Be warm, enthusiastic. Use 1-2 emojis. En
       })
       .catch((error) => {
         console.error('Error sending audio message:', error);
-        alert('Failed to send audio message.');
+        this.dialogService.error('Failed to send audio message.').subscribe();
       });
   }
 
@@ -1913,7 +1935,9 @@ Write 1-2 sentences in their language. Be warm, enthusiastic. Use 1-2 emojis. En
       : this.senderName;
 
     if (!targetId) {
-      alert('Cannot start call: Unknown conversation.');
+      this.dialogService
+        .error('Cannot start call: Unknown conversation.')
+        .subscribe();
       return;
     }
 
