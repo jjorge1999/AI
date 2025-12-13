@@ -1867,7 +1867,7 @@ Write 1-2 sentences in their language. Be warm, enthusiastic. Use 1-2 emojis. En
   sendAudio(base64: string): void {
     let convId = this.isAppUser ? this.currentConversationId : this.senderName;
     if (this.isAppUser && !convId) {
-      alert('Please select a conversation first.');
+      this.dialogService.warning('Please select a conversation first.');
       return;
     }
 

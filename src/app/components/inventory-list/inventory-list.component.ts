@@ -408,7 +408,10 @@ export class InventoryListComponent implements OnInit, OnDestroy {
 
       // Limit raw file size check (e.g. 10MB limit before trying to process)
       if (file.size > 10 * 1024 * 1024) {
-        alert('File is too large. Please select an image under 10MB.');
+        this.dialogService.warning(
+          'File is too large. Please select an image under 10MB.',
+          'File Too Large'
+        );
         return;
       }
 
@@ -463,17 +466,26 @@ export class InventoryListComponent implements OnInit, OnDestroy {
     if (!this.editingProduct) return;
 
     if (!this.editProductName.trim()) {
-      alert('Product name cannot be empty');
+      this.dialogService.warning(
+        'Product name cannot be empty',
+        'Validation Error'
+      );
       return;
     }
 
     if (this.editProductQuantity < 0) {
-      alert('Quantity cannot be negative');
+      this.dialogService.warning(
+        'Quantity cannot be negative',
+        'Validation Error'
+      );
       return;
     }
 
     if (this.editProductPrice < 0) {
-      alert('Price cannot be negative');
+      this.dialogService.warning(
+        'Price cannot be negative',
+        'Validation Error'
+      );
       return;
     }
 

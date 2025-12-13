@@ -180,7 +180,10 @@ export class ReservationComponent implements OnInit, OnDestroy {
 
   async getLocation() {
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser');
+      this.dialogService.warning(
+        'Geolocation is not supported by your browser',
+        'Location Error'
+      );
       return;
     }
 
@@ -211,7 +214,10 @@ export class ReservationComponent implements OnInit, OnDestroy {
       }
     } catch (error) {
       console.error('Error getting location', error);
-      alert('Unable to retrieve your location');
+      this.dialogService.error(
+        'Unable to retrieve your location',
+        'Location Error'
+      );
     } finally {
       this.isLocationLoading = false;
     }
@@ -225,8 +231,9 @@ export class ReservationComponent implements OnInit, OnDestroy {
       !this.pickupDate ||
       !this.customerAddress
     ) {
-      alert(
-        'Please fill in all required fields and add items to your reservation.'
+      this.dialogService.warning(
+        'Please fill in all required fields and add items to your reservation.',
+        'Missing Information'
       );
       return;
     }

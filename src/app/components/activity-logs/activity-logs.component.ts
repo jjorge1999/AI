@@ -238,6 +238,38 @@ export class ActivityLogsComponent implements OnInit, OnDestroy {
     return name.charAt(0).toUpperCase();
   }
 
+  viewLogDetails(log: ActivityLog): void {
+    const timestamp = this.formatTimestamp(log.timestamp);
+    const action =
+      log.action?.charAt(0).toUpperCase() + log.action?.slice(1) || 'Unknown';
+    const module =
+      log.entityType?.charAt(0).toUpperCase() + log.entityType?.slice(1) ||
+      'Unknown';
+    const entityId = log.entityId || 'N/A';
+
+    let detailsStr = '';
+    if (log.details) {
+      if (typeof log.details === 'string') {
+        detailsStr = log.details;
+      } else {
+        // Format JSON details nicely
+        detailsStr = Object.entries(log.details)
+          .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+          .join('\n');
+      }
+    }
+
+    const message = `
+📅 Timestamp: ${timestamp}
+🔧 Action: ${action}
+📦 Module: ${module}
+🆔 Entity ID: ${entityId}
+${detailsStr ? '\n📋 Details:\n' + detailsStr : ''}
+    `.trim();
+
+    this.dialogService.info(message, 'Activity Log Details');
+  }
+
   exportLogs(): void {
     // Create CSV content
     const headers = ['Timestamp', 'Action', 'Module', 'Entity ID', 'Details'];
