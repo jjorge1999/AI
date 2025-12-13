@@ -41,64 +41,72 @@
       <nav class="sidebar-nav">
         <a 
           class="nav-item" 
-          [class.active]="activeTab === 'home'"
-          (click)="setActiveTab('home'); closeMobileSidebar()"
+          routerLink="/home"
+          routerLinkActive="active"
+          (click)="closeMobileSidebar()"
         >
           <span class="material-icon" [class.fill]="activeTab === 'home'">dashboard</span>
           <span class="nav-label" *ngIf="!isSidebarCollapsed">Dashboard</span>
         </a>
         <a 
           class="nav-item" 
-          [class.active]="activeTab === 'add-product'"
-          (click)="setActiveTab('add-product'); closeMobileSidebar()"
+          routerLink="/add-product"
+          routerLinkActive="active"
+          (click)="closeMobileSidebar()"
         >
           <span class="material-icon" [class.fill]="activeTab === 'add-product'">add_box</span>
           <span class="nav-label" *ngIf="!isSidebarCollapsed">Add Product</span>
         </a>
         <a 
           class="nav-item" 
-          [class.active]="activeTab === 'inventory'"
-          (click)="setActiveTab('inventory'); closeMobileSidebar()"
+          routerLink="/inventory"
+          routerLinkActive="active"
+          (click)="closeMobileSidebar()"
         >
           <span class="material-icon" [class.fill]="activeTab === 'inventory'">inventory_2</span>
           <span class="nav-label" *ngIf="!isSidebarCollapsed">Inventory</span>
         </a>
         <a 
           class="nav-item" 
-          [class.active]="activeTab === 'sell'"
-          (click)="setActiveTab('sell'); closeMobileSidebar()"
+          routerLink="/sell"
+          routerLinkActive="active"
+          (click)="closeMobileSidebar()"
         >
           <span class="material-icon" [class.fill]="activeTab === 'sell'">point_of_sale</span>
           <span class="nav-label" *ngIf="!isSidebarCollapsed">Point of Sale</span>
         </a>
         <a 
           class="nav-item" 
-          [class.active]="activeTab === 'customers'"
-          (click)="setActiveTab('customers'); closeMobileSidebar()"
+          routerLink="/customers"
+          routerLinkActive="active"
+          (click)="closeMobileSidebar()"
         >
           <span class="material-icon" [class.fill]="activeTab === 'customers'">groups</span>
           <span class="nav-label" *ngIf="!isSidebarCollapsed">Customers</span>
         </a>
         <a 
           class="nav-item" 
-          [class.active]="activeTab === 'expenses'"
-          (click)="setActiveTab('expenses'); closeMobileSidebar()"
+          routerLink="/expenses"
+          routerLinkActive="active"
+          (click)="closeMobileSidebar()"
         >
           <span class="material-icon" [class.fill]="activeTab === 'expenses'">receipt_long</span>
           <span class="nav-label" *ngIf="!isSidebarCollapsed">Expenses</span>
         </a>
         <a 
           class="nav-item" 
-          [class.active]="activeTab === 'reports'"
-          (click)="setActiveTab('reports'); closeMobileSidebar()"
+          routerLink="/reports"
+          routerLinkActive="active"
+          (click)="closeMobileSidebar()"
         >
           <span class="material-icon" [class.fill]="activeTab === 'reports'">bar_chart</span>
           <span class="nav-label" *ngIf="!isSidebarCollapsed">Analytics</span>
         </a>
         <a 
           class="nav-item" 
-          [class.active]="activeTab === 'logs'"
-          (click)="setActiveTab('logs'); closeMobileSidebar()"
+          routerLink="/logs"
+          routerLinkActive="active"
+          (click)="closeMobileSidebar()"
         >
           <span class="material-icon" [class.fill]="activeTab === 'logs'">history</span>
           <span class="nav-label" *ngIf="!isSidebarCollapsed">Activity Logs</span>
@@ -116,8 +124,9 @@
         <a 
           *ngIf="userRole === 'admin'"
           class="nav-item" 
-          [class.active]="activeTab === 'users'"
-          (click)="setActiveTab('users'); closeMobileSidebar()"
+          routerLink="/users"
+          routerLinkActive="active"
+          (click)="closeMobileSidebar()"
         >
           <span class="material-icon" [class.fill]="activeTab === 'users'">manage_accounts</span>
           <span class="nav-label" *ngIf="!isSidebarCollapsed">User Management</span>
@@ -151,7 +160,7 @@
             <span class="material-icon">notifications</span>
             <span class="notification-dot" *ngIf="totalUnreadMessages > 0"></span>
           </button>
-          <button class="add-item-btn" (click)="setActiveTab('add-product')">
+          <button class="add-item-btn" routerLink="/add-product">
             <span class="material-icon">add</span>
             <span class="btn-text">Add Item</span>
           </button>
@@ -162,42 +171,7 @@
     <!-- Scrollable Content Area -->
     <div class="content-area">
       <div class="content-wrapper">
-        <!-- Home Tab -->
-        <div class="content-pane" *ngIf="activeTab === 'home'">
-          <app-landing></app-landing>
-        </div>
-        <!-- Add Product Tab -->
-        <div class="content-pane" *ngIf="activeTab === 'add-product'">
-          <app-product-form></app-product-form>
-        </div>
-        <!-- Sell Tab -->
-        <div class="content-pane" *ngIf="activeTab === 'sell'">
-          <app-pos-calculator></app-pos-calculator>
-        </div>
-        <!-- Inventory Tab -->
-        <div class="content-pane" *ngIf="activeTab === 'inventory'">
-          <app-inventory-list></app-inventory-list>
-        </div>
-        <!-- Customers Tab -->
-        <div class="content-pane" *ngIf="activeTab === 'customers'">
-          <app-customer-form></app-customer-form>
-        </div>
-        <!-- Expenses Tab -->
-        <div class="content-pane" *ngIf="activeTab === 'expenses'">
-          <app-expenses></app-expenses>
-        </div>
-        <!-- Reports Tab -->
-        <div class="content-pane" *ngIf="activeTab === 'reports'">
-          <app-reports></app-reports>
-        </div>
-        <!-- Activity Logs Tab -->
-        <div class="content-pane" *ngIf="activeTab === 'logs'">
-          <app-activity-logs></app-activity-logs>
-        </div>
-        <!-- User Management Tab -->
-        <div class="content-pane" *ngIf="activeTab === 'users' && userRole === 'admin'">
-          <app-user-management></app-user-management>
-        </div>
+        <router-outlet></router-outlet>
       </div>
     </div>
   </main>

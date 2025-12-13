@@ -1,22 +1,19 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
+import {
+  RouterOutlet,
+  RouterModule,
+  Router,
+  NavigationEnd,
+} from '@angular/router';
 import { InventoryService } from './services/inventory.service';
 import { ChatService } from './services/chat.service';
-import { ProductFormComponent } from './components/product-form/product-form.component';
-import { PosCalculatorComponent } from './components/pos-calculator/pos-calculator.component';
-import { InventoryListComponent } from './components/inventory-list/inventory-list.component';
-import { CustomerFormComponent } from './components/customer-form/customer-form.component';
-import { ExpensesComponent } from './components/expenses/expenses.component';
-import { ReportsComponent } from './components/reports/reports.component';
-import { LandingComponent } from './components/landing/landing.component';
-import { LoginComponent } from './components/login/login.component';
-import { ActivityLogsComponent } from './components/activity-logs/activity-logs.component';
-import { ChatComponent } from './components/chat/chat.component';
-import { UserManagementComponent } from './components/user-management/user-management.component';
-import { ReservationComponent } from './components/reservation/reservation.component';
+// ... components imports ...
 import { DialogComponent } from './components/dialog/dialog.component';
 import { LoadingComponent } from './components/loading/loading.component';
+import { ChatComponent } from './components/chat/chat.component';
+import { Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
@@ -24,37 +21,21 @@ import { LoadingComponent } from './components/loading/loading.component';
   imports: [
     CommonModule,
     RouterOutlet,
-    ProductFormComponent,
-    PosCalculatorComponent,
-    InventoryListComponent,
-    CustomerFormComponent,
-    ExpensesComponent,
-    ReportsComponent,
-    LandingComponent,
-    LoginComponent,
-    ActivityLogsComponent,
-    ChatComponent,
-    UserManagementComponent,
-    ReservationComponent,
+    RouterModule,
     DialogComponent,
     LoadingComponent,
+    ChatComponent,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
 })
-export class AppComponent {
+export class AppComponent implements OnInit, OnDestroy {
   title = 'JJM Inventory';
-  activeTab:
-    | 'home'
-    | 'add-product'
-    | 'sell'
-    | 'inventory'
-    | 'customers'
-    | 'expenses'
-    | 'reports'
-    | 'reports'
-    | 'logs'
-    | 'users' = 'home';
+  activeTab = 'home';
+
+  // POS State
+  posInitialPending = false;
+
   isDarkTheme = false;
   isLoggedIn = false;
   userRole = '';
@@ -68,9 +49,12 @@ export class AppComponent {
   isMobileSidebarOpen = false;
   userFullName = 'User';
 
+  private routerSub: Subscription = new Subscription();
+
   constructor(
     private inventoryService: InventoryService,
-    private chatService: ChatService
+    private chatService: ChatService,
+    private router: Router
   ) {
     // Check login status
     this.isLoggedIn = localStorage.getItem('jjm_logged_in') === 'true';
@@ -83,12 +67,11 @@ export class AppComponent {
       localStorage.getItem('jjm_username') ||
       'User';
 
-    // Load theme preference from localStorage or System
+    // Load theme preference
     const savedTheme = localStorage.getItem('jjm_theme');
     if (savedTheme) {
       this.isDarkTheme = savedTheme === 'dark';
     } else {
-      // Check system preference
       this.isDarkTheme =
         window.matchMedia &&
         window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -109,6 +92,22 @@ export class AppComponent {
 
     // Check URL hash for direct reservation link
     this.checkUrlForReservation();
+
+    // Subscribe to router events to update activeTab
+    this.routerSub = this.router.events
+      .pipe(filter((event) => event instanceof NavigationEnd))
+      .subscribe((event: any) => {
+        const url = event.urlAfterRedirects;
+        if (url.includes('/home')) this.activeTab = 'home';
+        else if (url.includes('/add-product')) this.activeTab = 'add-product';
+        else if (url.includes('/sell')) this.activeTab = 'sell';
+        else if (url.includes('/inventory')) this.activeTab = 'inventory';
+        else if (url.includes('/customers')) this.activeTab = 'customers';
+        else if (url.includes('/expenses')) this.activeTab = 'expenses';
+        else if (url.includes('/reports')) this.activeTab = 'reports';
+        else if (url.includes('/logs')) this.activeTab = 'logs';
+        else if (url.includes('/users')) this.activeTab = 'users';
+      });
   }
 
   private checkUrlForReservation(): void {
@@ -118,22 +117,19 @@ export class AppComponent {
     }
   }
 
-  setActiveTab(
-    tab:
-      | 'home'
-      | 'add-product'
-      | 'sell'
-      | 'inventory'
-      | 'customers'
-      | 'expenses'
-      | 'reports'
-      | 'logs'
-      | 'users'
-  ): void {
-    if (tab === 'users' && this.userRole !== 'admin') {
-      return;
+  ngOnInit() {}
+
+  ngOnDestroy() {
+    if (this.routerSub) {
+      this.routerSub.unsubscribe();
     }
-    this.activeTab = tab;
+  }
+
+  // Helper for template conditional if needed, but we rely on activeTab update
+  setActiveTab(tab: string): void {
+    // This is primarily used by the template click handlers which we are replacing with routerLink for sidebar
+    // But internal usages might navigate.
+    // Ideally we navigate instead.
   }
 
   toggleTheme(): void {

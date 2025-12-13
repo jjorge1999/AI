@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { InventoryService } from '../../services/inventory.service';
 import { CustomerService } from '../../services/customer.service';
@@ -66,7 +67,8 @@ export class LandingComponent implements OnInit, OnDestroy {
 
   constructor(
     private inventoryService: InventoryService,
-    private customerService: CustomerService
+    private customerService: CustomerService,
+    private router: Router
   ) {
     this.userName =
       localStorage.getItem('jjm_fullname') ||
@@ -76,6 +78,10 @@ export class LandingComponent implements OnInit, OnDestroy {
       localStorage.getItem('jjm_role') === 'admin'
         ? 'Administrator'
         : 'Staff Member';
+  }
+
+  navigateToPos(): void {
+    this.router.navigate(['/sell'], { state: { initialPendingOpen: true } });
   }
 
   ngOnInit(): void {

@@ -1,7 +1,14 @@
-import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  HostListener,
+  Input,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InventoryService } from '../../services/inventory.service';
+import { Router } from '@angular/router';
 import { CustomerService } from '../../services/customer.service';
 import { Product, Customer, Sale } from '../../models/inventory.models';
 import { DialogService } from '../../services/dialog.service';
@@ -50,6 +57,8 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
   // Discount modal temp values
   tempDiscount = 0;
   tempDiscountType: 'amount' | 'percent' = 'amount';
+
+  @Input() initialPendingOpen = false;
 
   togglePending(): void {
     this.isPendingCollapsed = !this.isPendingCollapsed;
@@ -137,7 +146,8 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
   constructor(
     private inventoryService: InventoryService,
     private customerService: CustomerService,
-    private dialogService: DialogService
+    private dialogService: DialogService,
+    private router: Router
   ) {
     const today = new Date();
     const year = today.getFullYear();
@@ -149,6 +159,11 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    const state = history.state;
+    if (this.initialPendingOpen || (state && state.initialPendingOpen)) {
+      this.isPendingPanelOpen = true;
+    }
+
     // Load customers for selection and name resolution
     this.customerService.loadCustomers();
 

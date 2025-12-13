@@ -58,7 +58,7 @@ export class LoginComponent implements OnInit, OnDestroy {
               'jjm_fullname',
               user.fullName || this.username
             ); // Save full name for chat
-            window.location.reload();
+            window.location.href = '/home';
           } else {
             this.dialogService
               .error('Invalid username or password')

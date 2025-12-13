@@ -297,7 +297,7 @@ button:disabled {
 }
 
 /* Hover states for sidebar items */
-.hover\:bg-\[#233348\]:hover {
+.hover-bg-dark-blue:hover {
   background-color: #233348;
 }
 
