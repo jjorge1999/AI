@@ -88,6 +88,16 @@
           <span class="nav-label" *ngIf="!isSidebarCollapsed">Activity Logs</span>
         </a>
         <a 
+          class="nav-item chat-nav-item" 
+          [class.active]="isChatOpen"
+          (click)="toggleChat(); closeMobileSidebar()"
+        >
+          <span class="material-icon" [class.fill]="isChatOpen">chat</span>
+          <span class="nav-label" *ngIf="!isSidebarCollapsed">Messages</span>
+          <span class="chat-badge" *ngIf="totalUnreadMessages > 0 && !isSidebarCollapsed">{{ totalUnreadMessages }}</span>
+          <span class="chat-dot" *ngIf="totalUnreadMessages > 0 && isSidebarCollapsed"></span>
+        </a>
+        <a 
           *ngIf="userRole === 'admin'"
           class="nav-item" 
           [class.active]="activeTab === 'users'"

@@ -1,68 +1,72 @@
-<div class="chat-container">
+<div class="chat-container chat-themed h-full w-full flex overflow-hidden font-display">
   <!-- Registration Form -->
-  <div *ngIf="!isRegistered" class="registration-container">
-    <div class="registration-card">
-      <h2>📋 Customer Information</h2>
-      <p class="registration-subtitle">Please provide your information to use the chat</p>
+  <div *ngIf="!isRegistered" class="w-full h-full flex items-center justify-center p-6 chat-bg">
+    <div class="w-full max-w-md chat-surface chat-border-color rounded-xl p-8 shadow-2xl">
+      <div class="text-center mb-6">
+        <div class="size-16 rounded-xl bg-primary mx-auto flex items-center justify-center text-white shadow-lg shadow-primary/20 mb-4">
+          <span class="material-symbols-outlined text-3xl">chat</span>
+        </div>
+        <h2 class="text-xl font-bold chat-text-primary">Customer Information</h2>
+        <p class="chat-text-muted text-sm mt-1">Please provide your information to use the chat</p>
+      </div>
       
-      <form class="registration-form" (ngSubmit)="registerCustomer()">
-        <div class="form-group">
-          <label for="customerName">Full Name *</label>
+      <form class="flex flex-col gap-4" (ngSubmit)="registerCustomer()">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium chat-text-muted">Full Name *</label>
           <input
             type="text"
-            id="customerName"
             [(ngModel)]="customerInfo.name"
             name="customerName"
             placeholder="Enter your full name"
-            class="form-input"
+            class="h-12 chat-input rounded-lg px-4 chat-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
             required
           />
         </div>
 
-        <div class="form-group">
-          <label for="phoneNumber">Phone Number *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium chat-text-muted">Phone Number *</label>
           <input
             type="tel"
-            id="phoneNumber"
             [(ngModel)]="customerInfo.phoneNumber"
             name="phoneNumber"
             placeholder="e.g., +1 234 567 8900"
-            class="form-input"
+            class="h-12 chat-input rounded-lg px-4 chat-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
             required
           />
         </div>
 
-        <div class="form-group">
-          <label for="address">Delivery Address *</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium chat-text-muted">Delivery Address *</label>
           <textarea
-            id="address"
             [(ngModel)]="customerInfo.address"
             name="address"
             placeholder="Address will be detected automatically or enter manually..."
-            class="form-textarea"
-            rows="3"
+            class="chat-input rounded-lg px-4 py-3 chat-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors resize-none"
+            rows="2"
             required
             [readonly]="isLocationReadOnly"
             (click)="isLocationReadOnly = false"
           ></textarea>
         </div>
 
-        <div class="form-group">
-          <label>GPS Coordinates</label>
-          <div style="display: flex; gap: 8px;">
-             <input
-               type="text"
-               [(ngModel)]="customerInfo.gpsCoordinates"
-               name="gpsCoordinates"
-               placeholder="Lat, Lng (Auto-detected)"
-               class="form-input"
-               readonly
-             />
-             <button type="button" class="btn-location" (click)="getLocation()">📍</button>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium chat-text-muted">GPS Coordinates</label>
+          <div class="flex gap-2">
+            <input
+              type="text"
+              [(ngModel)]="customerInfo.gpsCoordinates"
+              name="gpsCoordinates"
+              placeholder="Lat, Lng (Auto-detected)"
+              class="flex-1 h-12 chat-input rounded-lg px-4 chat-text-primary outline-none"
+              readonly
+            />
+            <button type="button" class="h-12 px-4 chat-input rounded-lg chat-text-primary hover:bg-primary hover:text-white hover:border-primary transition-colors" (click)="getLocation()">
+              <span class="material-symbols-outlined">my_location</span>
+            </button>
           </div>
         </div>
 
-        <button type="submit" class="btn-register">
+        <button type="submit" class="h-12 bg-primary hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-primary/20 mt-2">
           Start Chat
         </button>
       </form>
@@ -70,218 +74,292 @@
   </div>
 
   <!-- Chat Interface (shown after registration) -->
-  <div *ngIf="isRegistered" class="chat-wrapper">
-    <!-- Sidebar for Admin -->
-    <div class="chat-sidebar" *ngIf="isAppUser">
-      <div class="sidebar-header">
-        Conversations
-      </div>
-      <div class="conversation-list">
-        <div 
-          *ngFor="let conv of conversations" 
-          class="conversation-item"
-          [class.active]="currentConversationId === conv"
-          (click)="selectConversation(conv)"
-        >
-          <div class="conv-avatar">
-            {{ getDisplayName(conv).charAt(0).toUpperCase() }}
-            <span class="online-status" *ngIf="isUserOnline(conv)" title="Online"></span>
-          </div>
-          <div class="conv-info">
-            <span class="conversation-name">{{ getDisplayName(conv) }}</span>
-            <span class="conversation-preview">Click to view chat</span>
-          </div>
-          <div class="active-indicator" *ngIf="unreadCounts[conv] > 0">{{ unreadCounts[conv] }}</div>
-        </div>
-        <div *ngIf="conversations.length === 0" class="no-messages">
-          No conversations yet.
-        </div>
-      </div>
-    </div>
-
-    <!-- Main Chat Area -->
-    <div class="chat-main-area">
-      <div class="chat-header">
-        <div class="header-content">
-          <div class="header-left-col">
-            <h2>
-              💬 {{ isAppUser && currentConversationId ? 'Chat with ' + getDisplayName(currentConversationId) : 'Customer Support Chat' }}
-              <!-- Status Indicators -->
-              <ng-container *ngIf="isAppUser && currentConversationId">
-                <span *ngIf="isUserOnline(currentConversationId)" class="status-badge status-online">Online</span>
-                <span *ngIf="!isUserOnline(currentConversationId)" class="status-badge status-offline">Offline</span>
-              </ng-container>
-              <ng-container *ngIf="!isAppUser && isSupportOnline()">
-                 <span class="status-badge status-online">Online</span>
-              </ng-container>
-            </h2>
-            <!-- Show Address/GPS in Header for Admin -->
-            <div *ngIf="isAppUser && currentConversationId" class="header-details-subtitle">
-              <div *ngIf="getUserAddress(currentConversationId)">📍 {{ getUserAddress(currentConversationId) }}</div>
-              <a 
-                *ngIf="getUserGps(currentConversationId)" 
-                [href]="'https://www.google.com/maps/search/?api=1&query=' + getUserGps(currentConversationId)"
-                target="_blank"
-                style="color: inherit; text-decoration: none; display: flex; align-items: center; gap: 4px;"
-              >
-                🌍 {{ getUserGps(currentConversationId) }}
-              </a>
-            </div>
-          </div>
-          
-          <div class="user-info">
-            <span class="user-name">{{ senderName }}</span>
-            <button
-              class="btn-magic"
-              *ngIf="!isAppUser"
-              (click)="generateFollowUp()"
-              title="Generate Follow-up Message"
-              [disabled]="isGeneratingFollowUp"
-            >
-              <span *ngIf="!isGeneratingFollowUp">✨ Follow-up</span>
-              <span *ngIf="isGeneratingFollowUp">⏳ Checking...</span>
-            </button>
-            <button 
-              class="btn-call" 
-              (click)="startCall()" 
-              title="Start Audio Call"
-              [disabled]="isAppUser && !currentConversationId"
-            >
-              📞
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Call Overlays -->
-      <!-- 1. Incoming Call -->
-      <div class="call-overlay incoming" *ngIf="callStatus === 'incoming' && incomingCall">
-        <div class="call-content">
-          <h3>📞 Incoming Call</h3>
-          <p>{{ incomingCall.callerName }} is calling...</p>
-          <div class="call-actions">
-            <button class="btn-accept" (click)="acceptCall()">Accept</button>
-            <button class="btn-reject" (click)="rejectCall()">Reject</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 2. Active Call -->
-      <div class="call-overlay active" *ngIf="callStatus === 'connected' || callStatus === 'calling'">
-        <div class="call-content">
-          <div class="call-avatar pulsing">👤</div>
-          <h3>{{ callStatus === 'calling' ? 'Calling...' : 'Connected' }}</h3>
-          <p>{{ isAppUser ? currentConversationId : 'Support' }}</p>
-          
-          <!-- Audio Element for Remote Stream (Visible for debugging/browser policy) -->
-          <div style="opacity: 0; height: 0; width: 0; overflow: hidden; position: absolute; pointer-events: none;">
-             <audio #remoteAudio [srcObject]="remoteStream" autoplay playsinline controls></audio>
-          </div>
-
-          <!-- Volume Visualizer -->
-          <div class="volume-meter" title="Audio Signal Strength">
-             <div class="volume-bar" [style.width.%]="audioLevel"></div>
-          </div>
-
-          <div class="call-utilities">
-            <button class="btn-round" [class.active]="isSpeakerOn" (click)="toggleSpeaker()" title="Toggle Speaker">
-              {{ isSpeakerOn ? '🔊' : '🔈' }}
-            </button>
-            <button *ngIf="isAppUser" class="btn-round" [class.active]="isMicMuted" (click)="toggleMic()" title="Toggle Microphone">
-              {{ isMicMuted ? '🔇' : '🎙️' }}
-            </button>
-          </div>
-
-          <div class="call-actions">
-            <button class="btn-end" (click)="endCall()">End Call</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="messages-container" #messagesContainer>
-        <div *ngIf="messages.length === 0" class="no-messages">
-          {{ isAppUser && !currentConversationId ? 'Select a conversation to start chatting.' : 'No messages yet. Start the conversation!' }}
-        </div>
-
-        <div
-          *ngFor="let message of messages"
-          class="message"
-          [class.my-message]="isMyMessage(message)"
-          [class.other-message]="!isMyMessage(message)"
-        >
-          <div class="message-header">
-            <span class="sender-name">{{ message.senderName }}</span>
-            <div class="message-meta">
-               <span class="message-address" *ngIf="!isMyMessage(message) && getUserAddress(message.senderName)">
-                 📍 {{ getUserAddress(message.senderName) }}
-               </span>
-               <a 
-                 class="message-address gps-link" 
-                 *ngIf="!isMyMessage(message) && getUserGps(message.senderName)"
-                 [href]="'https://www.google.com/maps/search/?api=1&query=' + getUserGps(message.senderName)"
-                 target="_blank"
-                 title="View on Google Maps"
-               >
-                 🌍 {{ getUserGps(message.senderName) }}
-               </a>
-               <span class="message-time">{{ formatTime(message.timestamp) }}</span>
-            </div>
-          </div>
-          <div class="message-text" *ngIf="message.text" [innerHTML]="message.text">
-            <!-- Sentiment Badge (for Admin only, on incoming messages) -->
-             <span *ngIf="isAppUser && !isMyMessage(message) && message.sentiment"
-                   class="sentiment-badge"
-                   [class.sentiment-positive]="message.sentiment === 'POSITIVE'"
-                   [class.sentiment-negative]="message.sentiment === 'NEGATIVE'">
-               {{ message.sentiment === 'POSITIVE' ? '😊' : '😞' }}
-             </span>
-          </div>
-          <div class="message-audio" *ngIf="message.audioBase64">
-            <audio controls [src]="message.audioBase64"></audio>
-          </div>
-          <button *ngIf="canDeleteMessage(message)" class="btn-delete-msg" (click)="deleteMessage(message)" title="Delete message">
-            🗑️
+  <ng-container *ngIf="isRegistered">
+    <!-- Chat Sidebar (Admin Only) -->
+    <aside *ngIf="isAppUser" class="w-80 flex-shrink-0 flex flex-col chat-sidebar-bg chat-border-color h-full">
+      <!-- Sidebar Header -->
+      <div class="px-5 py-6 flex items-center justify-between">
+        <h2 class="text-xl font-bold tracking-tight chat-text-primary">Messages</h2>
+        <div class="flex items-center gap-2">
+          <button class="size-8 flex items-center justify-center rounded-lg chat-input chat-text-muted hover:text-white hover:bg-primary transition-colors" (click)="logout()" title="Logout">
+            <span class="material-symbols-outlined text-sm">logout</span>
           </button>
         </div>
       </div>
 
+      <!-- Search -->
+      <div class="px-5 pb-4">
+        <div class="flex w-full items-center rounded-lg chat-input h-10 focus-within:border-primary/50 transition-colors">
+          <div class="pl-3 pr-2 chat-text-muted flex items-center justify-center">
+            <span class="material-symbols-outlined text-lg">search</span>
+          </div>
+          <input class="flex-1 bg-transparent border-none text-sm chat-text-primary focus:ring-0 focus:outline-none h-full w-full" placeholder="Search conversations..."/>
+        </div>
+      </div>
+
+      <!-- Conversations List -->
+      <div class="flex-1 overflow-y-auto px-3">
+        <h3 class="px-2 py-2 text-xs font-bold text-[#92a9c9] uppercase tracking-wider">Direct Messages</h3>
+        <div class="flex flex-col">
+          <button 
+            *ngFor="let conv of conversations" 
+            class="conv-item flex items-center gap-3 px-3 py-2.5 rounded-lg group w-full text-left mb-1 transition-colors relative overflow-hidden"
+            [ngClass]="{'conv-active': currentConversationId === conv}"
+            (click)="selectConversation(conv)"
+          >
+            <div class="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-l-lg" *ngIf="currentConversationId === conv"></div>
+            <div class="relative">
+              <div class="size-10 rounded-full bg-gradient-to-br from-primary to-blue-700 flex items-center justify-center text-white text-sm font-bold">
+                {{ getDisplayName(conv).charAt(0).toUpperCase() }}
+              </div>
+              <div class="absolute bottom-0 right-0 size-3 border-2 border-[#111822] rounded-full"
+                [ngClass]="{'bg-green-500': isUserOnline(conv), 'bg-gray-500': !isUserOnline(conv)}">
+              </div>
+            </div>
+            <div class="flex flex-col overflow-hidden flex-1">
+              <div class="flex justify-between items-baseline">
+                <span class="text-sm font-semibold truncate transition-colors"
+                  [ngClass]="{'text-white': currentConversationId === conv, 'text-[#92a9c9]': currentConversationId !== conv}">
+                  {{ getDisplayName(conv) }}
+                </span>
+              </div>
+              <span class="text-[#92a9c9]/70 text-xs truncate group-hover:text-[#92a9c9]">
+                {{ getUserAddress(conv) || 'Click to view chat' }}
+              </span>
+            </div>
+            <span *ngIf="unreadCounts[conv] > 0" class="bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md">
+              {{ unreadCounts[conv] }}
+            </span>
+          </button>
+          <div *ngIf="conversations.length === 0" class="text-center py-8 text-[#92a9c9] text-sm">
+            <span class="material-symbols-outlined text-4xl mb-2 opacity-50 block">forum</span>
+            <p>No conversations yet</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Chat Area -->
+    <main class="flex-1 flex flex-col chat-bg min-w-0">
+      <!-- Chat Header -->
+      <header class="h-20 chat-border-color flex items-center justify-between px-6 chat-surface backdrop-blur-sm sticky top-0 z-10">
+        <div class="flex items-center gap-4">
+          <div class="relative" *ngIf="isAppUser && currentConversationId">
+            <div class="size-11 rounded-full bg-gradient-to-br from-primary to-blue-700 flex items-center justify-center text-white font-bold shadow-md">
+              {{ getDisplayName(currentConversationId).charAt(0).toUpperCase() }}
+            </div>
+            <div class="absolute bottom-0 right-0 size-3-5 border-2 rounded-full"
+              [ngClass]="{'bg-green-500': isUserOnline(currentConversationId), 'bg-gray-500': !isUserOnline(currentConversationId)}"
+              style="border-color: var(--chat-surface);">
+            </div>
+          </div>
+          <div class="relative" *ngIf="!isAppUser">
+            <div class="size-11 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md">
+              <span class="material-symbols-outlined text-white text-xl">support_agent</span>
+            </div>
+            <div class="absolute bottom-0 right-0 size-3-5 border-2 rounded-full"
+              [ngClass]="{'bg-green-500': isSupportOnline(), 'bg-gray-500': !isSupportOnline()}"
+              style="border-color: var(--chat-surface);">
+            </div>
+          </div>
+          <div>
+            <h1 class="chat-text-primary text-lg font-bold leading-tight">
+              {{ isAppUser && currentConversationId ? getDisplayName(currentConversationId) : 'Customer Support' }}
+            </h1>
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs font-medium" 
+                [class.text-green-500]="(isAppUser && currentConversationId && isUserOnline(currentConversationId)) || (!isAppUser && isSupportOnline())"
+                [class.text-gray-500]="(isAppUser && currentConversationId && !isUserOnline(currentConversationId)) || (!isAppUser && !isSupportOnline())">
+                {{ (isAppUser && currentConversationId && isUserOnline(currentConversationId)) || (!isAppUser && isSupportOnline()) ? 'Online' : 'Offline' }}
+              </span>
+              <ng-container *ngIf="isAppUser && currentConversationId && getUserAddress(currentConversationId)">
+                <span class="chat-text-muted text-[10px]">•</span>
+                <span class="chat-text-muted text-xs truncate max-w-[200px]">{{ getUserAddress(currentConversationId) }}</span>
+              </ng-container>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button *ngIf="!isAppUser" 
+            class="size-10 rounded-lg chat-hover flex items-center justify-center chat-text-muted hover:chat-text-primary transition-colors disabled:opacity-50"
+            (click)="generateFollowUp()"
+            [disabled]="isGeneratingFollowUp"
+            title="Generate Follow-up">
+            <span class="material-symbols-outlined" *ngIf="!isGeneratingFollowUp">auto_awesome</span>
+            <span class="material-symbols-outlined animate-spin" *ngIf="isGeneratingFollowUp">progress_activity</span>
+          </button>
+          <button class="size-10 rounded-lg chat-hover flex items-center justify-center chat-text-muted hover:chat-text-primary transition-colors disabled:opacity-50"
+            (click)="startCall()"
+            [disabled]="isAppUser && !currentConversationId"
+            title="Start Call">
+            <span class="material-symbols-outlined">phone</span>
+          </button>
+          <a *ngIf="isAppUser && currentConversationId && getUserGps(currentConversationId)"
+            [href]="'https://www.google.com/maps/search/?api=1&query=' + getUserGps(currentConversationId)"
+            target="_blank"
+            class="size-10 rounded-lg chat-hover flex items-center justify-center chat-text-muted hover:chat-text-primary transition-colors"
+            title="View on Map">
+            <span class="material-symbols-outlined">location_on</span>
+          </a>
+          <button *ngIf="!isAppUser" 
+            class="size-10 rounded-lg hover:bg-[#233348] flex items-center justify-center text-[#92a9c9] hover:text-red-400 transition-colors"
+            (click)="logout()"
+            title="Logout">
+            <span class="material-symbols-outlined">logout</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Call Overlays -->
+      <!-- Incoming Call -->
+      <div class="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50" *ngIf="callStatus === 'incoming' && incomingCall">
+        <div class="chat-surface chat-border-color rounded-2xl p-8 text-center max-w-sm w-full mx-4 shadow-2xl">
+          <div class="size-20 rounded-full bg-green-500/20 mx-auto flex items-center justify-center mb-4 animate-pulse">
+            <span class="material-symbols-outlined text-4xl text-green-500">phone_in_talk</span>
+          </div>
+          <h3 class="text-xl font-bold chat-text-primary mb-2">Incoming Call</h3>
+          <p class="chat-text-muted mb-6">{{ incomingCall.callerName }} is calling...</p>
+          <div class="flex gap-4 justify-center">
+            <button class="flex-1 h-12 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2" (click)="acceptCall()">
+              <span class="material-symbols-outlined">call</span> Accept
+            </button>
+            <button class="flex-1 h-12 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2" (click)="rejectCall()">
+              <span class="material-symbols-outlined">call_end</span> Reject
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Call -->
+      <div class="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50" *ngIf="callStatus === 'connected' || callStatus === 'calling'">
+        <div class="chat-surface chat-border-color rounded-2xl p-8 text-center max-w-sm w-full mx-4 shadow-2xl">
+          <div class="size-24 rounded-full bg-primary/20 mx-auto flex items-center justify-center mb-4" [class.animate-pulse]="callStatus === 'calling'">
+            <span class="material-symbols-outlined text-5xl text-primary">{{ callStatus === 'calling' ? 'phone_forwarded' : 'phone_in_talk' }}</span>
+          </div>
+          <h3 class="text-xl font-bold chat-text-primary mb-1">{{ callStatus === 'calling' ? 'Calling...' : 'Connected' }}</h3>
+          <p class="chat-text-muted mb-4">{{ isAppUser ? getDisplayName(currentConversationId) : 'Support' }}</p>
+          
+          <!-- Hidden Audio Element -->
+          <div class="hidden">
+            <audio #remoteAudio [srcObject]="remoteStream" autoplay playsinline controls></audio>
+          </div>
+
+          <!-- Volume Meter -->
+          <div class="h-2 chat-input rounded-full overflow-hidden mb-6">
+            <div class="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-100 rounded-full" [style.width.%]="audioLevel"></div>
+          </div>
+
+          <button class="w-full h-12 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2" (click)="endCall()">
+            <span class="material-symbols-outlined">call_end</span> End Call
+          </button>
+        </div>
+      </div>
+
+      <!-- Messages Stream -->
+      <div class="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-4" #messagesContainer>
+        <div *ngIf="messages.length === 0" class="flex-1 flex flex-col items-center justify-center text-center">
+          <span class="material-symbols-outlined text-6xl chat-text-muted mb-4" style="opacity: 0.3;">forum</span>
+          <p class="chat-text-muted">{{ isAppUser && !currentConversationId ? 'Select a conversation to start chatting' : 'No messages yet. Start the conversation!' }}</p>
+        </div>
+
+        <ng-container *ngFor="let message of messages; let i = index">
+          <!-- Message -->
+          <div class="flex gap-3 max-w-[85%]" 
+            [class.ml-auto]="isMyMessage(message)"
+            [class.flex-row-reverse]="isMyMessage(message)">
+            
+            <!-- Avatar -->
+            <div class="size-9 rounded-full flex-shrink-0 mt-1 flex items-center justify-center text-xs font-bold text-white"
+              [ngClass]="{'bg-primary': isMyMessage(message), 'bg-gradient-to-br from-purple-500 to-pink-500': !isMyMessage(message)}">
+              {{ message.senderName.charAt(0).toUpperCase() }}
+            </div>
+            
+            <div class="flex flex-col gap-1" [class.items-end]="isMyMessage(message)">
+              <!-- Header -->
+              <div class="flex items-baseline gap-2" [class.flex-row-reverse]="isMyMessage(message)">
+                <span class="text-sm font-bold chat-text-primary">{{ isMyMessage(message) ? 'You' : message.senderName }}</span>
+                <span class="text-xs chat-text-muted">{{ formatTime(message.timestamp) }}</span>
+              </div>
+              
+              <!-- Message Bubble -->
+              <div class="p-4 rounded-2xl text-sm leading-relaxed shadow-sm relative group"
+                [ngClass]="{
+                  'rounded-tr-none bg-primary text-white': isMyMessage(message),
+                  'rounded-tl-none chat-message-bubble': !isMyMessage(message)
+                }">
+                <div *ngIf="message.text" [innerHTML]="message.text"></div>
+                <div *ngIf="message.audioBase64" class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-lg">mic</span>
+                  <audio controls [src]="message.audioBase64" class="h-8 max-w-[200px]"></audio>
+                </div>
+                
+                <!-- Sentiment Badge -->
+                <span *ngIf="isAppUser && !isMyMessage(message) && message.sentiment"
+                  class="absolute -top-2 -right-2 size-6 rounded-full flex items-center justify-center text-sm"
+                  [class.bg-green-500]="message.sentiment === 'POSITIVE'"
+                  [class.bg-red-500]="message.sentiment === 'NEGATIVE'">
+                  {{ message.sentiment === 'POSITIVE' ? '😊' : '😞' }}
+                </span>
+                
+                <!-- Delete Button -->
+                <button *ngIf="canDeleteMessage(message)" 
+                  class="absolute -bottom-2 -right-2 size-6 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                  (click)="deleteMessage(message)" title="Delete message">
+                  <span class="material-symbols-outlined text-sm">delete</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+
       <!-- Smart Reply Suggestions -->
-      <div class="smart-replies" *ngIf="isAppUser && suggestedReplies.length > 0">
-        <button *ngFor="let reply of suggestedReplies" class="btn-smart-reply" (click)="useSmartReply(reply)">
-          ✨ {{ reply }}
+      <div class="px-6 pb-2 flex flex-wrap gap-2" *ngIf="isAppUser && suggestedReplies.length > 0">
+        <button *ngFor="let reply of suggestedReplies" 
+          class="px-3 py-1.5 chat-input chat-text-muted hover:bg-primary hover:text-white text-xs font-medium rounded-full transition-colors flex items-center gap-1"
+          (click)="useSmartReply(reply)">
+          <span class="material-symbols-outlined text-sm">auto_awesome</span>
+          {{ reply }}
         </button>
       </div>
 
-      <div class="input-container">
-        <input
-          type="text"
-          [(ngModel)]="newMessage"
-          (keyup.enter)="sendMessage()"
-          placeholder="Type a message..."
-          class="message-input"
-          [disabled]="isAppUser && !currentConversationId"
-        />
-        <button
-          (click)="sendMessage()"
-          [disabled]="!newMessage.trim() || (isAppUser && !currentConversationId)"
-          class="btn-send"
-        >
-          Send
-        </button>
-        <button
-          class="btn-mic"
-          [class.recording]="isRecording"
-          (mousedown)="startRecording($event)"
-          (mouseup)="stopRecording($event)"
-          (mouseleave)="stopRecording($event)"
-          (touchstart)="startRecording($event)"
-          (touchend)="stopRecording($event)"
-          title="Hold to talk"
-          [disabled]="isAppUser && !currentConversationId"
-        >
-          {{ isRecording ? '🔴' : '🎙️' }}
-        </button>
+      <!-- Input Area -->
+      <div class="px-6 pb-6 pt-2">
+        <div class="flex flex-col gap-2 chat-surface p-3 rounded-xl chat-border-color focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/60 transition-all shadow-lg">
+          <div class="flex items-center gap-2">
+            <input
+              type="text"
+              [(ngModel)]="newMessage"
+              (keyup.enter)="sendMessage()"
+              placeholder="{{ isAppUser && currentConversationId ? 'Type your message to ' + getDisplayName(currentConversationId) + '...' : 'Type a message...' }}"
+              class="flex-1 bg-transparent border-none chat-text-primary focus:ring-0 focus:outline-none text-sm h-10"
+              [disabled]="isAppUser && !currentConversationId"
+            />
+            <button
+              class="size-10 flex items-center justify-center rounded-lg chat-text-muted chat-hover transition-colors disabled:opacity-50"
+              [class.recording]="isRecording"
+              [class.bg-red-500]="isRecording"
+              [class.text-white]="isRecording"
+              (mousedown)="startRecording($event)"
+              (mouseup)="stopRecording($event)"
+              (mouseleave)="stopRecording($event)"
+              (touchstart)="startRecording($event)"
+              (touchend)="stopRecording($event)"
+              title="Hold to record"
+              [disabled]="isAppUser && !currentConversationId">
+              <span class="material-symbols-outlined">{{ isRecording ? 'stop_circle' : 'mic' }}</span>
+            </button>
+            <button
+              (click)="sendMessage()"
+              [disabled]="!newMessage.trim() || (isAppUser && !currentConversationId)"
+              class="h-10 px-4 bg-primary hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors shadow-md shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+              <span>Send</span>
+              <span class="material-symbols-outlined text-sm">send</span>
+            </button>
+          </div>
+        </div>
+        <p class="text-center mt-2 text-[10px] chat-text-muted" style="opacity: 0.5;">Press Enter to send</p>
       </div>
-    </div>
-  </div>
+    </main>
+  </ng-container>
 </div>

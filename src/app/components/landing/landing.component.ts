@@ -2,7 +2,8 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { InventoryService } from '../../services/inventory.service';
-import { Product, Sale } from '../../models/inventory.models';
+import { CustomerService } from '../../services/customer.service';
+import { Product, Sale, Customer } from '../../models/inventory.models';
 
 interface KpiCard {
   title: string;
@@ -57,12 +58,16 @@ export class LandingComponent implements OnInit, OnDestroy {
   private subscriptions: Subscription[] = [];
   private products: Product[] = [];
   private sales: Sale[] = [];
+  private customers: Customer[] = [];
 
   // User info
   userName = 'User';
   userRole = 'Staff';
 
-  constructor(private inventoryService: InventoryService) {
+  constructor(
+    private inventoryService: InventoryService,
+    private customerService: CustomerService
+  ) {
     this.userName =
       localStorage.getItem('jjm_fullname') ||
       localStorage.getItem('jjm_username') ||
@@ -74,6 +79,17 @@ export class LandingComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Load customers for name lookup
+    this.customerService.loadCustomers();
+
+    // Subscribe to customers
+    this.subscriptions.push(
+      this.customerService.getCustomers().subscribe((customers) => {
+        this.customers = customers;
+        this.updateDashboardData();
+      })
+    );
+
     // Subscribe to products and sales
     this.subscriptions.push(
       this.inventoryService.getProducts().subscribe((products) => {
@@ -214,7 +230,7 @@ export class LandingComponent implements OnInit, OnDestroy {
 
     this.recentOrders = recentSales.map((sale) => ({
       id: `#ORD-${sale.id?.slice(-4) || '0000'}`,
-      customer: sale.customerName || 'Walk-in Customer',
+      customer: this.getCustomerDisplayName(sale),
       status: this.getSaleStatus(sale),
       amount: sale.total || 0,
     }));
@@ -230,6 +246,24 @@ export class LandingComponent implements OnInit, OnDestroy {
         },
       ];
     }
+  }
+
+  private getCustomerDisplayName(sale: Sale): string {
+    // 1. First check if customerName is directly on the sale
+    if (sale.customerName && sale.customerName.trim()) {
+      return sale.customerName;
+    }
+
+    // 2. Try to look up by customerId
+    if (sale.customerId) {
+      const customer = this.customers.find((c) => c.id === sale.customerId);
+      if (customer) {
+        return customer.name;
+      }
+    }
+
+    // 3. Fallback to Walk-in Customer
+    return 'Walk-in Customer';
   }
 
   private getSaleStatus(

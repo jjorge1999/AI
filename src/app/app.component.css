@@ -167,6 +167,40 @@
   text-overflow: ellipsis;
 }
 
+/* Chat Navigation Item */
+.chat-nav-item {
+  position: relative;
+}
+
+.chat-badge {
+  background: #ef4444;
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+  margin-left: auto;
+  animation: badgePulse 2s ease-in-out infinite;
+}
+
+.chat-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  animation: badgePulse 2s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+}
+
 /* Sidebar Footer - Compact Design */
 .sidebar-footer {
   padding-top: var(--space-md);
