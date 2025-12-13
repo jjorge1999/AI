@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { UserService } from '../../services/user.service';
+import { DialogService } from '../../services/dialog.service';
 
 @Component({
   selector: 'app-login',
@@ -14,11 +15,14 @@ import { UserService } from '../../services/user.service';
 export class LoginComponent implements OnInit, OnDestroy {
   username = '';
   password = '';
-  errorMessage = '';
+  // errorMessage = ''; // Replaced by DialogService
   isLoading = false;
   showPassword = false;
 
-  constructor(private userService: UserService) {}
+  constructor(
+    private userService: UserService,
+    private dialogService: DialogService
+  ) {}
 
   togglePasswordVisibility(): void {
     this.showPassword = !this.showPassword;
@@ -31,10 +35,10 @@ export class LoginComponent implements OnInit, OnDestroy {
   }
 
   onLogin(): void {
-    this.errorMessage = '';
-
     if (!this.username || !this.password) {
-      this.errorMessage = 'Please enter both username and password';
+      this.dialogService
+        .warning('Please enter both username and password')
+        .subscribe();
       return;
     }
 
@@ -56,7 +60,9 @@ export class LoginComponent implements OnInit, OnDestroy {
             ); // Save full name for chat
             window.location.reload();
           } else {
-            this.errorMessage = 'Invalid username or password';
+            this.dialogService
+              .error('Invalid username or password')
+              .subscribe();
             this.isLoading = false;
           }
         });

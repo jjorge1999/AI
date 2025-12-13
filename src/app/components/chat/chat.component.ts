@@ -22,6 +22,7 @@ import { CustomerService } from '../../services/customer.service';
 import { UserService } from '../../services/user.service';
 import { CallService } from '../../services/call.service';
 import { AiService } from '../../services/ai.service';
+import { DialogService } from '../../services/dialog.service';
 import {
   Message,
   Sale,
@@ -115,7 +116,8 @@ export class ChatComponent
     private userService: UserService,
     private callService: CallService,
     private aiService: AiService,
-    private inventoryService: InventoryService
+    private inventoryService: InventoryService,
+    private dialogService: DialogService
   ) {
     // Request notification permission immediately
     this.requestNotificationPermission();
@@ -1861,35 +1863,47 @@ Write 1-2 sentences in their language. Be warm, enthusiastic. Use 1-2 emojis. En
   deleteMessage(message: Message): void {
     if (!this.canDeleteMessage(message)) return;
 
-    if (confirm('Are you sure you want to delete this message?')) {
-      this.chatService.deleteMessage(message.id).catch((error) => {
-        console.error('Error deleting message:', error);
-        alert('Failed to delete message.');
+    this.dialogService
+      .confirm(
+        'Are you sure you want to delete this message?',
+        'Delete Message'
+      )
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          this.chatService.deleteMessage(message.id).catch((error) => {
+            console.error('Error deleting message:', error);
+            this.dialogService.error('Failed to delete message.').subscribe();
+          });
+        }
       });
-    }
   }
 
   logout(): void {
     if (this.isAppUser) {
-      alert('You cannot logout of chat while logged into the application.');
+      this.dialogService
+        .warning('You cannot logout of chat while logged into the application.')
+        .subscribe();
       return;
     }
 
-    if (
-      confirm(
-        'Are you sure you want to logout? Your information will be cleared.'
+    this.dialogService
+      .confirm(
+        'Are you sure you want to logout? Your information will be cleared.',
+        'Logout'
       )
-    ) {
-      // localStorage.removeItem('chatCustomerInfo');
-      // localStorage.removeItem('chatUserName');
-      this.isRegistered = false;
-      this.customerInfo = {
-        name: '',
-        phoneNumber: '',
-        address: '',
-      };
-      this.messages = [];
-    }
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          // localStorage.removeItem('chatCustomerInfo');
+          // localStorage.removeItem('chatUserName');
+          this.isRegistered = false;
+          this.customerInfo = {
+            name: '',
+            phoneNumber: '',
+            address: '',
+          };
+          this.messages = [];
+        }
+      });
   }
 
   // --- Call Logic ---

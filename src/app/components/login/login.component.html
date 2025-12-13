@@ -17,11 +17,7 @@
         <p class="text-text-secondary text-base font-normal leading-normal">Please enter your details to access your dashboard.</p>
       </div>
 
-      <!-- Error Banner -->
-      <div class="mb-4 flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-sm" *ngIf="errorMessage">
-         <span class="material-symbols-outlined text-[18px]">error</span>
-         {{ errorMessage }}
-      </div>
+
       
       <!-- Inputs -->
       <form class="flex flex-col gap-5" (ngSubmit)="onLogin()">
