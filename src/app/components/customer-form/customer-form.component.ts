@@ -226,6 +226,19 @@ export class CustomerFormComponent implements OnInit, OnDestroy {
             this.closeAddModal();
           });
       } else {
+        // Check for duplicates
+        const normalizedName = this.customer.name.trim().toLowerCase();
+        const existingCustomer = this.customers.find(
+          (c) => c.name.trim().toLowerCase() === normalizedName
+        );
+
+        if (existingCustomer) {
+          this.dialogService
+            .warning('A customer with this name already exists.')
+            .subscribe();
+          return;
+        }
+
         this.customerService
           .addCustomer({
             name: this.customer.name,
