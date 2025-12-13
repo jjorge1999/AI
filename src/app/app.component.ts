@@ -83,9 +83,16 @@ export class AppComponent {
       localStorage.getItem('jjm_username') ||
       'User';
 
-    // Load theme preference from localStorage
+    // Load theme preference from localStorage or System
     const savedTheme = localStorage.getItem('jjm_theme');
-    this.isDarkTheme = savedTheme === 'dark';
+    if (savedTheme) {
+      this.isDarkTheme = savedTheme === 'dark';
+    } else {
+      // Check system preference
+      this.isDarkTheme =
+        window.matchMedia &&
+        window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
     this.applyTheme();
 
     // Load vision aid preference
@@ -163,10 +170,13 @@ export class AppComponent {
   }
 
   private applyTheme(): void {
+    const root = document.documentElement;
     if (this.isDarkTheme) {
       document.body.classList.add('dark-theme');
+      root.classList.add('dark');
     } else {
       document.body.classList.remove('dark-theme');
+      root.classList.remove('dark');
     }
   }
 

@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { InventoryService } from '../../services/inventory.service';
 import { ReservationService } from '../../services/reservation.service';
 import { CustomerService } from '../../services/customer.service';
+import { DialogService } from '../../services/dialog.service';
 import { Product } from '../../models/inventory.models';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { take } from 'rxjs/operators';
@@ -30,6 +31,7 @@ export class ReservationComponent implements OnInit, OnDestroy {
   customerAddress = '';
   notes = '';
   paymentOption = '';
+  searchQuery = '';
   paymentOptions = ['Cash on Delivery', 'Gcash', 'Bank Transfer'];
   pickupDate: string = ''; // YYYY-MM-DD
   pickupTime: string = '';
@@ -45,6 +47,7 @@ export class ReservationComponent implements OnInit, OnDestroy {
     private inventoryService: InventoryService,
     private reservationService: ReservationService,
     private customerService: CustomerService,
+    private dialogService: DialogService,
     private router: Router
   ) {}
 
@@ -53,6 +56,7 @@ export class ReservationComponent implements OnInit, OnDestroy {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     this.pickupDate = tomorrow.toISOString().split('T')[0];
+    this.pickupTime = '10:00';
 
     // Autofill customer info from localStorage (from chat session)
     const savedInfo = localStorage.getItem('chatCustomerInfo');
@@ -71,6 +75,7 @@ export class ReservationComponent implements OnInit, OnDestroy {
       }
     }
 
+    this.generateCalendar();
     this.loadProducts();
   }
 
@@ -78,74 +83,81 @@ export class ReservationComponent implements OnInit, OnDestroy {
     this.subscriptions.unsubscribe();
   }
 
-  tempQuantities: { [id: string]: number } = {};
-
   loadProducts() {
-    // Trigger fetch (needed for guests since auto-fetch is disabled)
     this.inventoryService.loadProducts();
-
     this.subscriptions.add(
       this.inventoryService.getProducts().subscribe((products) => {
-        this.products = products.filter((p) => p.quantity > 0); // Only show in-stock
+        this.products = products.filter((p) => p.quantity > 0);
       })
     );
   }
 
-  getQty(product: Product): number {
-    return this.tempQuantities[product.id] || 1;
-  }
-
-  incrementQty(product: Product): void {
-    const current = this.getQty(product);
-    if (current < product.quantity) {
-      this.tempQuantities[product.id] = current + 1;
-    }
-  }
-
-  decrementQty(product: Product): void {
-    const current = this.getQty(product);
-    if (current > 1) {
-      this.tempQuantities[product.id] = current - 1;
-    }
-  }
-
-  manualQty(product: Product, event: any): void {
-    const val = parseInt(event.target.value, 10);
-    if (!isNaN(val) && val >= 1 && val <= product.quantity) {
-      this.tempQuantities[product.id] = val;
-    }
-  }
-
-  addToOrder(product: Product): void {
-    const quantity = this.getQty(product);
-
-    const existing = this.orderItems.find((i) => i.product.id === product.id);
-
-    // Check total quantity including cart
-    const currentInCart = existing ? existing.quantity : 0;
-
-    if (currentInCart + quantity > product.quantity) {
-      alert(
-        `Cannot add more. You already have ${currentInCart} in cart. Max stock is ${product.quantity}.`
+  get filteredProducts(): Product[] {
+    let result = this.products;
+    if (this.searchQuery) {
+      const q = this.searchQuery.toLowerCase();
+      result = this.products.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          (p.category && p.category.toLowerCase().includes(q))
       );
-      return;
     }
-
-    if (existing) {
-      existing.quantity += quantity;
-    } else {
-      this.orderItems.push({
-        product: product,
-        quantity: quantity,
-      });
-    }
-
-    // Reset selection
-    this.tempQuantities[product.id] = 1;
+    return result;
   }
 
-  removeFromOrder(index: number) {
-    this.orderItems.splice(index, 1);
+  // Step completion checks
+  get isStep1Complete(): boolean {
+    return this.orderItems.length > 0;
+  }
+
+  get isStep2Complete(): boolean {
+    return !!(this.pickupDate && this.pickupTime && this.customerAddress);
+  }
+
+  get isStep3Complete(): boolean {
+    return !!(this.customerName && this.customerContact);
+  }
+
+  get currentStep(): number {
+    if (!this.isStep1Complete) return 1;
+    if (!this.isStep2Complete) return 2;
+    if (!this.isStep3Complete) return 3;
+    return 3; // All complete
+  }
+
+  get progressPercentage(): number {
+    let completed = 0;
+    if (this.isStep1Complete) completed++;
+    if (this.isStep2Complete) completed++;
+    if (this.isStep3Complete) completed++;
+    return Math.round((completed / 3) * 100);
+  }
+
+  getCartQty(product: Product): number {
+    const item = this.orderItems.find((i) => i.product.id === product.id);
+    return item ? item.quantity : 0;
+  }
+
+  increaseCart(product: Product) {
+    const item = this.orderItems.find((i) => i.product.id === product.id);
+    if (item) {
+      if (item.quantity < product.quantity) {
+        item.quantity++;
+      }
+    } else {
+      this.orderItems.push({ product, quantity: 1 });
+    }
+  }
+
+  decreaseCart(product: Product) {
+    const index = this.orderItems.findIndex((i) => i.product.id === product.id);
+    if (index > -1) {
+      if (this.orderItems[index].quantity > 1) {
+        this.orderItems[index].quantity--;
+      } else {
+        this.orderItems.splice(index, 1);
+      }
+    }
   }
 
   get totalAmount(): number {
@@ -287,12 +299,20 @@ export class ReservationComponent implements OnInit, OnDestroy {
       );
       localStorage.setItem('chatUserName', this.customerName);
 
-      this.successMessage =
-        'Reservation submitted successfully! We will contact you shortly. You can now chat with us!';
-      this.resetForm();
+      this.dialogService
+        .success(
+          'Reservation submitted successfully! We will contact you shortly. You can now chat with us!',
+          'Reservation Confirmed'
+        )
+        .subscribe(() => {
+          this.resetForm();
+        });
     } catch (e) {
       console.error('Error submitting reservation', e);
-      alert('Failed to submit reservation. Please try again.');
+      this.dialogService.error(
+        'Failed to submit reservation. Please try again.',
+        'Reservation Failed'
+      );
     } finally {
       this.isSubmitting = false;
     }
@@ -324,6 +344,64 @@ export class ReservationComponent implements OnInit, OnDestroy {
         document.title,
         window.location.pathname + window.location.search
       );
+    }
+  }
+
+  // Calendar Logic
+  calendarDate: Date = new Date();
+  calendarDays: {
+    day: number;
+    date: Date;
+    isCurrentMonth: boolean;
+    isSelected: boolean;
+  }[] = [];
+
+  generateCalendar() {
+    const year = this.calendarDate.getFullYear();
+    const month = this.calendarDate.getMonth();
+
+    // First day of shadow month
+    const firstDay = new Date(year, month, 1);
+    const startDay = new Date(firstDay);
+    startDay.setDate(firstDay.getDate() - firstDay.getDay()); // Start on Sunday
+
+    this.calendarDays = [];
+    const selected = this.pickupDate ? new Date(this.pickupDate) : null;
+    // Reset time for comparison
+    if (selected) selected.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < 42; i++) {
+      // 6 weeks
+      const date = new Date(startDay);
+      date.setDate(startDay.getDate() + i);
+
+      // Check selection
+      let isSelected = false;
+      if (selected) {
+        isSelected =
+          date.getFullYear() === selected.getFullYear() &&
+          date.getMonth() === selected.getMonth() &&
+          date.getDate() === selected.getDate();
+      }
+
+      this.calendarDays.push({
+        day: date.getDate(),
+        date: date,
+        isCurrentMonth: date.getMonth() === month,
+        isSelected: isSelected,
+      });
+    }
+  }
+
+  changeMonth(offset: number) {
+    this.calendarDate.setMonth(this.calendarDate.getMonth() + offset);
+    this.generateCalendar();
+  }
+
+  onDateChange() {
+    if (this.pickupDate) {
+      this.calendarDate = new Date(this.pickupDate);
+      this.generateCalendar();
     }
   }
 }
