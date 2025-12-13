@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { UserService } from '../../services/user.service';
 import { DialogService } from '../../services/dialog.service';
 
@@ -21,7 +21,8 @@ export class LoginComponent implements OnInit, OnDestroy {
 
   constructor(
     private userService: UserService,
-    private dialogService: DialogService
+    private dialogService: DialogService,
+    private router: Router
   ) {}
 
   togglePasswordVisibility(): void {
@@ -58,7 +59,7 @@ export class LoginComponent implements OnInit, OnDestroy {
               'jjm_fullname',
               user.fullName || this.username
             ); // Save full name for chat
-            window.location.href = '/home';
+            this.router.navigate(['/home']);
           } else {
             this.dialogService
               .error('Invalid username or password')
