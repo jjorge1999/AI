@@ -98,20 +98,22 @@
         </a>
       </nav>
 
-      <!-- Bottom Actions -->
+      <!-- Bottom Actions (Compact Row) -->
       <div class="sidebar-footer">
-        <button class="nav-item settings-item" (click)="toggleTheme()">
-          <span class="material-icon">{{ isDarkTheme ? 'light_mode' : 'dark_mode' }}</span>
-          <span class="nav-label" *ngIf="!isSidebarCollapsed">{{ isDarkTheme ? 'Light Mode' : 'Dark Mode' }}</span>
-        </button>
-        <button class="nav-item settings-item" (click)="toggleVisionAid()">
-          <span class="material-icon">visibility</span>
-          <span class="nav-label" *ngIf="!isSidebarCollapsed">Vision Aid</span>
-        </button>
-        <button class="nav-item logout-item" (click)="logout()">
-          <span class="material-icon">logout</span>
-          <span class="nav-label" *ngIf="!isSidebarCollapsed">Logout</span>
-        </button>
+        <div class="footer-actions" [class.compact]="isSidebarCollapsed">
+          <button class="action-btn theme-btn" (click)="toggleTheme()" [title]="isDarkTheme ? 'Light Mode' : 'Dark Mode'">
+            <span class="material-icon">{{ isDarkTheme ? 'light_mode' : 'dark_mode' }}</span>
+            <span class="action-label" *ngIf="!isSidebarCollapsed">{{ isDarkTheme ? 'Light' : 'Dark' }}</span>
+          </button>
+          <button class="action-btn vision-btn" (click)="toggleVisionAid()" title="Vision Aid">
+            <span class="material-icon">visibility</span>
+            <span class="action-label" *ngIf="!isSidebarCollapsed">Vision</span>
+          </button>
+          <button class="action-btn logout-btn" (click)="logout()" title="Logout">
+            <span class="material-icon">logout</span>
+            <span class="action-label" *ngIf="!isSidebarCollapsed">Logout</span>
+          </button>
+        </div>
       </div>
     </div>
   </aside>

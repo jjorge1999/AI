@@ -167,23 +167,88 @@
   text-overflow: ellipsis;
 }
 
-/* Sidebar Footer */
+/* Sidebar Footer - Compact Design */
 .sidebar-footer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
   padding-top: var(--space-md);
   border-top: 1px solid var(--color-border);
 }
 
-.settings-item:hover {
-  background: var(--color-bg);
-  color: var(--color-text);
+.footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 0 var(--space-xs);
 }
 
-.logout-item:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+.footer-actions.compact {
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.action-btn .material-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.action-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.footer-actions.compact .action-btn {
+  flex: none;
+  width: 100%;
+  padding: 10px;
+}
+
+/* Theme Button */
+.theme-btn:hover {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+}
+
+body.dark-theme .theme-btn:hover {
+  background: linear-gradient(135deg, #60a5fa, #3b82f6);
+  box-shadow: 0 4px 12px rgba(96, 165, 250, 0.3);
+}
+
+/* Vision Aid Button */
+.vision-btn:hover {
+  background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+/* Logout Button */
+.logout-btn:hover {
+  background: linear-gradient(135deg, #f87171, #ef4444);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
 /* Collapsed Sidebar Adjustments */
