@@ -1,1 +1,0 @@
-import{b as a}from"./chunk-3KAEHGQ2.js";import"./chunk-3T5ZVVDP.js";import"./chunk-RUGDKEBP.js";import"./chunk-D62PYCMW.js";import"./chunk-6Z5V5ZOD.js";import"./chunk-MI2GUGD4.js";import"./chunk-7QOE2ANW.js";export{a as UserManagementComponent};
