@@ -238,6 +238,7 @@
   background: var(--color-surface);
   border-left: 1px solid var(--color-border);
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
 }
 
 .cart-header {
@@ -303,7 +304,7 @@
 /* Cart Items - KEY: Takes remaining space and scrolls */
 .cart-items {
   flex: 1;
-  min-height: 200px;
+  min-height: 100px;
   overflow-y: auto;
   padding: var(--space-sm) var(--space-md);
 }

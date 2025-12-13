@@ -230,18 +230,11 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     this.imagePreview = null;
   }
 
-  // Image handling
+  // Image handling - compresses all images regardless of size
   onImageChange(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
       const file = input.files[0];
-
-      if (file.size > 10 * 1024 * 1024) {
-        this.dialogService.alert(
-          'File is too large. Please select an image under 10MB.'
-        );
-        return;
-      }
 
       const reader = new FileReader();
       reader.onload = (e: ProgressEvent<FileReader>) => {
@@ -253,6 +246,7 @@ export class ProductFormComponent implements OnInit, OnDestroy {
           let width = img.width;
           let height = img.height;
 
+          // Compress large images down to max 800px
           const maxDim = 800;
           if (width > maxDim || height > maxDim) {
             if (width > height) {
@@ -270,6 +264,7 @@ export class ProductFormComponent implements OnInit, OnDestroy {
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
+            // Use JPEG at 70% quality for compression
             const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
             this.imagePreview = dataUrl;
             this.product.imageUrl = dataUrl;

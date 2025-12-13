@@ -226,6 +226,20 @@ textarea:focus {
   outline: none;
 }
 
+/* Ensure message input is interactive */
+.chat-container input[type="text"],
+.chat-container textarea {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  caret-color: var(--chat-text);
+}
+
+/* Fix for input inside flex containers */
+.chat-container input[type="text"]:not(:disabled) {
+  cursor: text;
+}
+
 /* Button transitions */
 button {
   transition: all 0.2s ease;

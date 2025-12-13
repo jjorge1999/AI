@@ -406,14 +406,7 @@ export class InventoryListComponent implements OnInit, OnDestroy {
     if (input.files && input.files[0]) {
       const file = input.files[0];
 
-      // Limit raw file size check (e.g. 10MB limit before trying to process)
-      if (file.size > 10 * 1024 * 1024) {
-        this.dialogService.warning(
-          'File is too large. Please select an image under 10MB.',
-          'File Too Large'
-        );
-        return;
-      }
+      // No size limit - images will be compressed automatically
 
       const reader = new FileReader();
 
