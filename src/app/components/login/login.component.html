@@ -1,79 +1,109 @@
-<div class="login-container">
-  <div class="bubbles-container">
-    <div 
-      class="bubble" 
-      *ngFor="let bubble of bubbles"
-      [style.left.%]="bubble.x"
-      [style.top.%]="bubble.y"
-      [style.width.px]="bubble.size"
-      [style.height.px]="bubble.size"
-      [style.animation-delay.s]="bubble.delay"
-    ></div>
+<div class="flex min-h-screen w-full flex-row">
+  <!-- Left Section: Form -->
+  <div class="flex w-full flex-col px-6 py-8 lg:w-1/2 lg:px-24 xl:px-32 z-10 bg-surface-dark relative">
+    <!-- Header Logo -->
+    <div class="flex items-center gap-2 mb-8">
+      <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/20 text-primary">
+        <span class="material-symbols-outlined text-[24px]">inventory_2</span>
+      </div>
+      <span class="text-xl font-bold tracking-tight text-white">JJM Inventory</span>
+    </div>
+    
+    <!-- Form Content -->
+    <div class="flex flex-1 flex-col justify-center max-w-[480px] w-full mx-auto">
+      <!-- Heading -->
+      <div class="mb-10 flex flex-col gap-3">
+        <h1 class="text-white text-4xl font-black leading-tight tracking-[-0.033em]">Welcome back</h1>
+        <p class="text-text-secondary text-base font-normal leading-normal">Please enter your details to access your dashboard.</p>
+      </div>
+
+      <!-- Error Banner -->
+      <div class="mb-4 flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-sm" *ngIf="errorMessage">
+         <span class="material-symbols-outlined text-[18px]">error</span>
+         {{ errorMessage }}
+      </div>
+      
+      <!-- Inputs -->
+      <form class="flex flex-col gap-5" (ngSubmit)="onLogin()">
+        <!-- Email Input -->
+        <label class="flex flex-col gap-2">
+          <p class="text-white text-sm font-medium leading-normal">Username or Email</p>
+          <input 
+            class="form-input flex w-full resize-none overflow-hidden rounded-lg text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-input-border bg-input-bg focus:border-primary h-12 placeholder:text-text-secondary px-4 text-base font-normal leading-normal transition-all duration-200" 
+            placeholder="name@company.com" 
+            type="text" 
+            [(ngModel)]="username" 
+            name="username"
+            [disabled]="isLoading"
+          />
+        </label>
+        
+        <!-- Password Input -->
+        <label class="flex flex-col gap-2">
+          <p class="text-white text-sm font-medium leading-normal">Password</p>
+          <div class="relative flex w-full items-center rounded-lg">
+            <input 
+              class="form-input flex w-full resize-none overflow-hidden rounded-lg text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-input-border bg-input-bg focus:border-primary h-12 placeholder:text-text-secondary pl-4 pr-12 text-base font-normal leading-normal transition-all duration-200" 
+              placeholder="Enter your password" 
+              [type]="showPassword ? 'text' : 'password'" 
+              [(ngModel)]="password" 
+              name="password"
+              [disabled]="isLoading"
+            />
+            <div class="absolute right-0 flex h-full w-12 items-center justify-center text-text-secondary cursor-pointer hover:text-white transition-colors" (click)="togglePasswordVisibility()">
+              <span class="material-symbols-outlined text-[20px]">{{ showPassword ? 'visibility' : 'visibility_off' }}</span>
+            </div>
+          </div>
+        </label>
+        
+        <!-- Submit Button -->
+        <button class="mt-4 flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-primary hover:bg-blue-600 h-12 px-4 text-white text-base font-bold leading-normal tracking-[0.015em] transition-all duration-200 shadow-lg shadow-blue-900/20 active:scale-[0.98]" type="submit" [disabled]="isLoading">
+            <span *ngIf="isLoading" class="mr-2 h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+             Sign in
+        </button>
+
+        <!-- Public Links (Moved here) -->
+        <div class="flex items-center justify-center gap-6 mt-2">
+          <a routerLink="/play" class="text-sm font-semibold text-primary hover:text-blue-400 transition-colors">Play Game</a>
+          <a routerLink="/reservation" class="text-sm font-semibold text-primary hover:text-blue-400 transition-colors">Reservation</a>
+        </div>
+      </form>
+    </div>
   </div>
   
-  <div class="login-card">
-    <div class="login-header">
-      <div class="logo-icon">📦</div>
-      <h1 class="login-title">JJM Inventory</h1>
-      <p class="login-subtitle">Sign in to your account</p>
+  <!-- Right Section: Visual -->
+  <div class="hidden lg:block lg:w-1/2 relative bg-surface-dark overflow-hidden">
+    <!-- Background Image -->
+    <div class="absolute inset-0 bg-cover bg-center opacity-40 mix-blend-overlay" data-alt="Abstract view of modern automated warehouse shelves with blue lighting" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBJMug-HzbgJHcP6T6yHc4bxrXKC00vZR62BdYXpEe6reZi_Oj1xu6ySSegqp42yoaxh9THfUcOsdHQtSx-0XLbO4MblRq98LCojtpANrGhrBI8ZPxD8zESH49r9h7_FbxA_L03d5hXYnS0TOms43y1dyel0hmPWjBOwaJCJubdqNvxWMniv93RHHctc-zIBIbSyZOCvHy1vQ6JPiQd8igNYNlfDiMLCgx3zGvHzxtQzn4V50mW1e4Tb6vxyfBerv3bzsgOSKllIaqT');">
     </div>
-
-    <form (ngSubmit)="onLogin()" class="login-form">
-      <div class="form-group">
-        <label for="username">Username</label>
-        <input
-          type="text"
-          id="username"
-          [(ngModel)]="username"
-          name="username"
-          placeholder="Enter your username"
-          [disabled]="isLoading"
-          required
-        />
+    <!-- Abstract Gradients for depth -->
+    <div class="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/80 to-transparent"></div>
+    <div class="absolute inset-0 bg-gradient-to-r from-background-dark via-transparent to-transparent"></div>
+    <!-- Content Overlay -->
+    <div class="absolute bottom-0 left-0 right-0 p-16 z-20 flex flex-col gap-6">
+      <div class="flex flex-col gap-4 max-w-lg">
+        <div class="h-1 w-20 bg-primary rounded-full mb-2"></div>
+        <h2 class="text-4xl font-bold text-white leading-tight">Streamline your logistics with intelligent tracking.</h2>
+        <p class="text-lg text-text-secondary">Real-time inventory management designed for the modern enterprise scale.</p>
       </div>
-
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input
-          type="password"
-          id="password"
-          [(ngModel)]="password"
-          name="password"
-          placeholder="Enter your password"
-          [disabled]="isLoading"
-          required
-        />
+      <!-- Testimonial/Badge -->
+      <div class="mt-8 flex items-center gap-4 rounded-xl border border-input-border bg-surface-dark/50 p-4 backdrop-blur-md w-fit">
+        <div class="flex -space-x-2">
+          <img alt="User avatar" class="inline-block h-8 w-8 rounded-full ring-2 ring-surface-dark object-cover" data-alt="Portrait of a female user" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5bOrina8DOFzE_kvSF_QVjTRqJRQ3DVy41I4Bx42DV2DfVbxkJG3ggYDnBVz0pPFVBTi0jF4RaJ-n23wHLh6rQxFlBqabOWfUU86bwpa8O-XXUQvMntK1JMajE4jsd08EyrPrFs2mfjVzngqi07j1ClkeYx47c-9jDIiRgJNy0LjF0JpBO_NIz-zdOBfK-P1n4UoAB5hffoY5gFVs9yDo8Ro0lIw87x9BIWr4T6sOeUFWU-xn0NAbj1JYtTuHmJzGW1DPFRWdieFw"/>
+          <img alt="User avatar" class="inline-block h-8 w-8 rounded-full ring-2 ring-surface-dark object-cover" data-alt="Portrait of a male user" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBgG5LGLwYZ8ACL6ESeamG-L4mQaHru1XuU3qONJGhKFDb4qbtoqdEOJ8mjgTgRUHr9rHJXbLGCMFgfnCBalc4X0eeMANW2EgDdBPEiroc7ke7HxBOxl0KkfZFRfwm6dtsdAdMvgF-FggRui3esHN4rhZWy14UZ8Fs9lCxpbR4bYvsBaZPaLIRXJGPNViKl21wSDyMJSWr94AX_9wZg3Dkt3gg5H-dxW1ip3iOjllXRSc1z8pbghQ9Hp5BaR2oDn-f-zKyHp5z0lndv"/>
+          <img alt="User avatar" class="inline-block h-8 w-8 rounded-full ring-2 ring-surface-dark object-cover" data-alt="Portrait of a male user" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDWpiPDNXqygl9N9ed1qO_3zNb9461m-uqYbzGpPBoKN4ieg6yRKy8dvjQ4D34QLyRh8MBT54LfDI4jzWp_ZS7sPGJ_wqRzaGbGMZ8km9eX7LqAFsFRS4VHyvJoXU051c19EAFSN09T_Axw_u6MdZIY3oxPLN5-iRQtie-THZVV8XPgfeKQ_A2dWB2CMKkvUlfnec5-lEKfYmOHTvxcIJ6HB8aO37ONLAphke3P8xTTO-oFSSnN7_VFGJBCvxZ2D5KjEsYlHxiP7gzf"/>
+        </div>
+        <div class="flex flex-col">
+          <span class="text-xs font-semibold text-white">Trusted by 10,000+ teams</span>
+          <div class="flex items-center gap-1">
+            <span class="material-symbols-outlined text-[14px] text-yellow-500" style="font-variation-settings: 'FILL' 1;">star</span>
+            <span class="material-symbols-outlined text-[14px] text-yellow-500" style="font-variation-settings: 'FILL' 1;">star</span>
+            <span class="material-symbols-outlined text-[14px] text-yellow-500" style="font-variation-settings: 'FILL' 1;">star</span>
+            <span class="material-symbols-outlined text-[14px] text-yellow-500" style="font-variation-settings: 'FILL' 1;">star</span>
+            <span class="material-symbols-outlined text-[14px] text-yellow-500" style="font-variation-settings: 'FILL' 1;">star</span>
+          </div>
+        </div>
       </div>
-
-      <div class="error-message" *ngIf="errorMessage">
-        <span class="error-icon">⚠️</span>
-        {{ errorMessage }}
-      </div>
-
-      <button type="submit" class="login-button" [disabled]="isLoading">
-        <span *ngIf="!isLoading">Sign In</span>
-        <span *ngIf="isLoading" class="loading-spinner">
-          <span class="spinner"></span>
-          Signing in...
-        </span>
-      </button>
-    </form>
-    
-    <div class="public-links" style="margin-top: 20px; text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; display: flex; flex-direction: column; gap: 10px;">
-      <a routerLink="/play" class="play-link" style="color: #fbbf24; text-decoration: none; font-weight: bold; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
-        🎲 Play Color Game to Win!
-      </a>
-      <a routerLink="/reservation" class="play-link" style="color: #60a5fa; text-decoration: none; font-weight: bold; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
-        📅 Make a Reservation
-      </a>
     </div>
-
-    <!-- <div class="login-footer">
-      <p class="demo-credentials">
-        <strong>Demo Credentials:</strong><br>
-        Username: <code>jjm143256789</code><br>
-        Password: <code>Gr*l0v3R</code>
-      </p>
-    </div> -->
   </div>
 </div>
