@@ -290,24 +290,28 @@ export class ProductFormComponent implements OnInit, OnDestroy {
           (p) => p.id === this.editingProductId
         );
         if (existingProduct) {
-          this.inventoryService.updateProduct({
-            ...existingProduct,
+          this.inventoryService
+            .updateProduct({
+              ...existingProduct,
+              name: this.product.name,
+              category: this.product.category,
+              price: this.product.price,
+              quantity: this.product.quantity,
+              imageUrl: this.product.imageUrl,
+            })
+            .subscribe();
+        }
+      } else {
+        // Add new product
+        this.inventoryService
+          .addProduct({
             name: this.product.name,
             category: this.product.category,
             price: this.product.price,
             quantity: this.product.quantity,
             imageUrl: this.product.imageUrl,
-          });
-        }
-      } else {
-        // Add new product
-        this.inventoryService.addProduct({
-          name: this.product.name,
-          category: this.product.category,
-          price: this.product.price,
-          quantity: this.product.quantity,
-          imageUrl: this.product.imageUrl,
-        });
+          })
+          .subscribe();
       }
 
       this.closeModal();
@@ -324,15 +328,17 @@ export class ProductFormComponent implements OnInit, OnDestroy {
   }
 
   // Delete product
-  async deleteProduct(product: Product): Promise<void> {
-    const confirmed = await this.dialogService.confirm(
-      `Are you sure you want to delete "${product.name}"?`,
-      'Delete Product'
-    );
-
-    if (confirmed) {
-      this.inventoryService.deleteProduct(product.id);
-    }
+  deleteProduct(product: Product): void {
+    this.dialogService
+      .confirm(
+        `Are you sure you want to delete "${product.name}"?`,
+        'Delete Product'
+      )
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          this.inventoryService.deleteProduct(product.id).subscribe();
+        }
+      });
   }
 
   // Format helpers

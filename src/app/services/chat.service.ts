@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, from, of } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
 import { FirebaseService } from './firebase.service';
 import { FirebaseApp } from 'firebase/app';
 import {
@@ -109,53 +110,81 @@ export class ChatService {
     );
   }
 
-  async sendMessage(
+  sendMessage(
     text: string,
     senderName: string,
     conversationId?: string
-  ): Promise<void> {
+  ): Observable<void> {
     const messagesRef = collection(this.db, 'messages');
     const userId = localStorage.getItem('jjm_user_id') || null;
-    await addDoc(messagesRef, {
-      text,
-      senderName,
-      conversationId,
-      timestamp: new Date(),
-      userId,
-      isRead: false,
-    });
+    return from(
+      addDoc(messagesRef, {
+        text,
+        senderName,
+        conversationId,
+        timestamp: new Date(),
+        userId,
+        isRead: false,
+      })
+    ).pipe(
+      map(() => void 0),
+      catchError((error) => {
+        console.error('Error sending message:', error);
+        return of(void 0);
+      })
+    );
   }
 
-  async sendAudioMessage(
+  sendAudioMessage(
     audioBase64: string,
     senderName: string,
     conversationId?: string
-  ): Promise<void> {
+  ): Observable<void> {
     const messagesRef = collection(this.db, 'messages');
     const userId = localStorage.getItem('jjm_user_id') || null;
-    await addDoc(messagesRef, {
-      text: '🎤 Voice Message',
-      senderName,
-      audioBase64,
-      conversationId,
-      timestamp: new Date(),
-      userId,
-      isRead: false,
-    });
+    return from(
+      addDoc(messagesRef, {
+        text: '🎤 Voice Message',
+        senderName,
+        audioBase64,
+        conversationId,
+        timestamp: new Date(),
+        userId,
+        isRead: false,
+      })
+    ).pipe(
+      map(() => void 0),
+      catchError((error) => {
+        console.error('Error sending audio message:', error);
+        return of(void 0);
+      })
+    );
   }
 
-  async deleteMessage(messageId: string): Promise<void> {
+  deleteMessage(messageId: string): Observable<void> {
     const messageDocRef = doc(this.db, 'messages', messageId);
-    await deleteDoc(messageDocRef);
+    return from(deleteDoc(messageDocRef)).pipe(
+      map(() => void 0),
+      catchError((error) => {
+        console.error('Error deleting message:', error);
+        return of(void 0);
+      })
+    );
   }
 
-  async markAsRead(messageIds: string[]): Promise<void> {
+  markAsRead(messageIds: string[]): Observable<void> {
     const batch = writeBatch(this.db);
     messageIds.forEach((id) => {
       const ref = doc(this.db, 'messages', id);
       batch.update(ref, { isRead: true });
     });
-    await batch.commit();
+    return from(batch.commit()).pipe(
+      map(() => void 0),
+      catchError((error) => {
+        console.error('Error marking messages as read:', error);
+        return of(void 0);
+      })
+    );
   }
 
   getMessages(): Observable<Message[]> {
@@ -166,14 +195,14 @@ export class ChatService {
     this.logoutSubject.next();
   }
 
-  async updatePresence(
+  updatePresence(
     id: string,
     name: string,
     role: string = 'user'
-  ): Promise<void> {
-    try {
-      const statusRef = doc(this.db, 'status', id);
-      await setDoc(
+  ): Observable<void> {
+    const statusRef = doc(this.db, 'status', id);
+    return from(
+      setDoc(
         statusRef,
         {
           name,
@@ -182,10 +211,14 @@ export class ChatService {
           state: 'online',
         },
         { merge: true }
-      );
-    } catch (e) {
-      console.warn('Failed to update presence (check Firestore rules):', e);
-    }
+      )
+    ).pipe(
+      map(() => void 0),
+      catchError((e) => {
+        console.warn('Failed to update presence (check Firestore rules):', e);
+        return of(void 0);
+      })
+    );
   }
 
   getOnlineUsers(): Observable<UserStatus[]> {

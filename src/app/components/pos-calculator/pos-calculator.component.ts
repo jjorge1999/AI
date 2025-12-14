@@ -12,7 +12,7 @@ import { Router } from '@angular/router';
 import { CustomerService } from '../../services/customer.service';
 import { Product, Customer, Sale } from '../../models/inventory.models';
 import { DialogService } from '../../services/dialog.service';
-import { Subscription } from 'rxjs';
+import { Subscription, forkJoin } from 'rxjs';
 
 interface CartItem {
   product: Product;
@@ -634,50 +634,52 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     const orderId =
       'ORD-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
 
-    try {
-      // Process items one by one
-      this.cart.forEach((item, index) => {
-        // Assign the total change to the FIRST item transaction
-        let itemCashReceived = item.total;
-        if (index === 0) {
-          itemCashReceived += totalChange;
+    const saleObservables = this.cart.map((item, index) => {
+      // Assign the total change to the FIRST item transaction
+      let itemCashReceived = item.total;
+      if (index === 0) {
+        itemCashReceived += totalChange;
+      }
+
+      let deliveryDateObj: Date | undefined;
+      if (this.deliveryDate) {
+        if (this.deliveryTime) {
+          deliveryDateObj = new Date(
+            `${this.deliveryDate}T${this.deliveryTime}`
+          );
+        } else {
+          deliveryDateObj = new Date(this.deliveryDate);
         }
+      }
 
-        let deliveryDateObj: Date | undefined;
-        if (this.deliveryDate) {
-          if (this.deliveryTime) {
-            deliveryDateObj = new Date(
-              `${this.deliveryDate}T${this.deliveryTime}`
-            );
-          } else {
-            deliveryDateObj = new Date(this.deliveryDate);
-          }
-        }
+      return this.inventoryService.recordSale(
+        item.product.id,
+        item.quantity,
+        itemCashReceived,
+        deliveryDateObj,
+        this.deliveryNotes || undefined,
+        this.selectedCustomerId || undefined,
+        item.discount,
+        item.discountType,
+        orderId
+      );
+    });
 
-        this.inventoryService.recordSale(
-          item.product.id,
-          item.quantity,
-          itemCashReceived,
-          deliveryDateObj,
-          this.deliveryNotes || undefined,
-          this.selectedCustomerId || undefined,
-          item.discount,
-          item.discountType,
-          orderId
-        );
-      });
-
-      // Clear Cart
-      this.cart = [];
-      this.cashReceived = 0;
-      this.deliveryDate = this.minDate;
-      this.deliveryTime = '';
-      this.deliveryNotes = '';
-      this.selectedCustomerId = '';
-      this.errorMessage = '';
-    } catch (error: any) {
-      this.errorMessage = error.message || 'Error processing sales';
-    }
+    forkJoin(saleObservables).subscribe({
+      next: () => {
+        // Clear Cart
+        this.cart = [];
+        this.cashReceived = 0;
+        this.deliveryDate = this.minDate;
+        this.deliveryTime = '';
+        this.deliveryNotes = '';
+        this.selectedCustomerId = '';
+        this.errorMessage = '';
+      },
+      error: (error) => {
+        this.errorMessage = error.message || 'Error processing sales';
+      },
+    });
   }
 
   markAsDelivered(saleId: string): void {

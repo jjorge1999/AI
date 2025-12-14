@@ -6,9 +6,9 @@ import {
   Router,
   NavigationEnd,
 } from '@angular/router';
+import { UserService } from './services/user.service';
 import { InventoryService } from './services/inventory.service';
 import { ChatService } from './services/chat.service';
-// ... components imports ...
 import { DialogComponent } from './components/dialog/dialog.component';
 import { LoadingComponent } from './components/loading/loading.component';
 import { ChatComponent } from './components/chat/chat.component';
@@ -54,13 +54,17 @@ export class AppComponent implements OnInit, OnDestroy {
   constructor(
     private inventoryService: InventoryService,
     private chatService: ChatService,
+    private userService: UserService,
     private router: Router
   ) {
-    // Check login status
-    this.isLoggedIn = localStorage.getItem('jjm_logged_in') === 'true';
-    if (this.isLoggedIn) {
-      this.inventoryService.reloadData();
-    }
+    // Check login status via service for reactivity
+    this.userService.isLoggedIn$.subscribe((loggedIn) => {
+      this.isLoggedIn = loggedIn;
+      if (this.isLoggedIn) {
+        this.inventoryService.reloadData();
+      }
+    });
+
     this.userRole = localStorage.getItem('jjm_role') || 'user';
     this.userFullName =
       localStorage.getItem('jjm_fullname') ||
@@ -161,8 +165,13 @@ export class AppComponent implements OnInit, OnDestroy {
     localStorage.removeItem('jjm_fullname');
     localStorage.removeItem('chatCustomerInfo');
     localStorage.removeItem('chatUserName');
+
+    // Update service state
+    this.userService.setLoginState(false);
     this.isLoggedIn = false;
-    window.location.reload();
+
+    // Navigate to login
+    this.router.navigate(['/login']);
   }
 
   private applyTheme(): void {

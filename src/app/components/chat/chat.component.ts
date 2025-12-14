@@ -368,7 +368,7 @@ export class ChatComponent
     const role = this.isAppUser ? 'admin' : 'customer';
 
     // Initial update
-    this.chatService.updatePresence(id, this.senderName, role);
+    this.chatService.updatePresence(id, this.senderName, role).subscribe();
 
     // Periodically update
     this.heartbeatInterval = setInterval(() => {
@@ -376,7 +376,7 @@ export class ChatComponent
         const uid = this.isAppUser
           ? localStorage.getItem('jjm_user_id') || this.senderName
           : this.senderName;
-        this.chatService.updatePresence(uid, this.senderName, role);
+        this.chatService.updatePresence(uid, this.senderName, role).subscribe();
       }
     }, 30000); // 30 seconds
   }
@@ -996,21 +996,23 @@ export class ChatComponent
 
     this.chatService
       .sendMessage(this.newMessage, this.senderName, convId)
-      .then(() => {
-        this.newMessage = '';
-        this.suggestedReplies = []; // Clear suggestions after sending
-        this.shouldScroll = true;
+      .subscribe({
+        next: () => {
+          this.newMessage = '';
+          this.suggestedReplies = []; // Clear suggestions after sending
+          this.shouldScroll = true;
 
-        // If customer, trigger AI auto-response for product inquiries
-        if (!this.isAppUser) {
-          this.handleCustomerInquiry(messageText);
-        }
-      })
-      .catch((error) => {
-        console.error('Error sending message:', error);
-        this.dialogService
-          .error('Failed to send message. Please try again.')
-          .subscribe();
+          // If customer, trigger AI auto-response for product inquiries
+          if (!this.isAppUser) {
+            this.handleCustomerInquiry(messageText);
+          }
+        },
+        error: (error) => {
+          console.error('Error sending message:', error);
+          this.dialogService
+            .error('Failed to send message. Please try again.')
+            .subscribe();
+        },
       });
   }
 
@@ -1841,12 +1843,14 @@ Reply naturally in the same language they used. Be warm and helpful. If they're 
 
     this.chatService
       .sendAudioMessage(base64, this.senderName, convId)
-      .then(() => {
-        this.shouldScroll = true;
-      })
-      .catch((error) => {
-        console.error('Error sending audio message:', error);
-        this.dialogService.error('Failed to send audio message.').subscribe();
+      .subscribe({
+        next: () => {
+          this.shouldScroll = true;
+        },
+        error: (error) => {
+          console.error('Error sending audio message:', error);
+          this.dialogService.error('Failed to send audio message.').subscribe();
+        },
       });
   }
 
@@ -1860,9 +1864,11 @@ Reply naturally in the same language they used. Be warm and helpful. If they're 
       )
       .subscribe((confirmed) => {
         if (confirmed) {
-          this.chatService.deleteMessage(message.id).catch((error) => {
-            console.error('Error deleting message:', error);
-            this.dialogService.error('Failed to delete message.').subscribe();
+          this.chatService.deleteMessage(message.id).subscribe({
+            error: (error) => {
+              console.error('Error deleting message:', error);
+              this.dialogService.error('Failed to delete message.').subscribe();
+            },
           });
         }
       });

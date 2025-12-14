@@ -13,18 +13,30 @@ export class UserService {
   private usersSubject = new BehaviorSubject<User[]>([]);
   public users$ = this.usersSubject.asObservable();
 
+  private loggedInSubject = new BehaviorSubject<boolean>(
+    localStorage.getItem('jjm_logged_in') === 'true'
+  );
+  public isLoggedIn$ = this.loggedInSubject.asObservable();
+
+  setLoginState(isLoggedIn: boolean): void {
+    this.loggedInSubject.next(isLoggedIn);
+  }
+
   constructor(private http: HttpClient) {
     // Removed automatic loading of all users on startup for security
   }
 
   // Hash Helper
-  private async hashPassword(password: string): Promise<string> {
+  private hashPassword(password: string): Observable<string> {
     const encoder = new TextEncoder();
     const data = encoder.encode(password);
-    const hash = await crypto.subtle.digest('SHA-256', data);
-    return Array.from(new Uint8Array(hash))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
+    return from(crypto.subtle.digest('SHA-256', data)).pipe(
+      map((hash) =>
+        Array.from(new Uint8Array(hash))
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('')
+      )
+    );
   }
 
   public loadUsers(): void {
@@ -32,7 +44,7 @@ export class UserService {
       next: (users) => {
         const parsedUsers = users.map((user) => this.transformUser(user));
         if (parsedUsers.length === 0) {
-          this.initializeDefaultAdmin();
+          this.initializeDefaultAdmin().subscribe();
         } else {
           this.usersSubject.next(parsedUsers);
         }
@@ -40,40 +52,43 @@ export class UserService {
       error: (err) => {
         console.error('Error fetching users:', err);
         if (err.status === 404) {
-          this.initializeDefaultAdmin();
+          this.initializeDefaultAdmin().subscribe();
         }
       },
     });
   }
 
-  private async initializeDefaultAdmin(): Promise<void> {
-    if (this.usersSubject.value.length > 0) return;
+  private initializeDefaultAdmin(): Observable<void> {
+    if (this.usersSubject.value.length > 0) return of(void 0);
 
-    const hashedPassword = await this.hashPassword('Gr*l0v3R');
+    return this.hashPassword('Gr*l0v3R').pipe(
+      switchMap((hashedPassword) => {
+        const defaultAdmin: User = {
+          id: 'admin-1',
+          username: 'jjm143256789',
+          fullName: 'System Administrator',
+          password: hashedPassword,
+          role: 'admin',
+          createdAt: new Date(),
+          hasSubscription: true,
+        };
 
-    const defaultAdmin: User = {
-      id: 'admin-1',
-      username: 'jjm143256789',
-      fullName: 'System Administrator',
-      password: hashedPassword,
-      role: 'admin',
-      createdAt: new Date(),
-      hasSubscription: true,
-    };
-
-    this.http.post<User>(`${this.apiUrl}/users`, defaultAdmin).subscribe({
-      next: (saved) => {
-        const transformed = this.transformUser(saved);
-        this.usersSubject.next([transformed]);
-      },
-      error: (e) => {
-        console.warn(
-          'Could not save default admin to backend, using local only',
-          e
+        return this.http.post<User>(`${this.apiUrl}/users`, defaultAdmin).pipe(
+          map((saved) => {
+            const transformed = this.transformUser(saved);
+            this.usersSubject.next([transformed]);
+          }),
+          catchError((e) => {
+            console.warn(
+              'Could not save default admin to backend, using local only',
+              e
+            );
+            this.usersSubject.next([defaultAdmin]);
+            return of(void 0);
+          })
         );
-        this.usersSubject.next([defaultAdmin]);
-      },
-    });
+      })
+    );
   }
 
   getUsers(): Observable<User[]> {
@@ -87,7 +102,7 @@ export class UserService {
       userId: user.userId || localStorage.getItem('jjm_user_id') || 'system',
     };
 
-    return from(this.hashPassword(user.password || '')).pipe(
+    return this.hashPassword(user.password || '').pipe(
       switchMap((hashed) => {
         newUserTemplate.password = hashed;
         return this.http.post<User>(`${this.apiUrl}/users`, newUserTemplate);
@@ -102,31 +117,33 @@ export class UserService {
   }
 
   updateUser(updatedUser: Partial<User> & { id: string }): Observable<User> {
-    return new Observable<User>((observer) => {
-      const updateProcess = async () => {
-        const payload = { ...updatedUser };
-        if (payload.password) {
-          payload.password = await this.hashPassword(payload.password);
+    const payload = { ...updatedUser };
+
+    const passwordStream$: Observable<string | undefined> = payload.password
+      ? this.hashPassword(payload.password)
+      : of(undefined);
+
+    return passwordStream$.pipe(
+      switchMap((hashedPassword) => {
+        if (hashedPassword) {
+          payload.password = hashedPassword;
         }
 
-        this.http
-          .put<User>(`${this.apiUrl}/users/${payload.id}`, payload)
-          .subscribe({
-            next: (saved) => {
-              const transformed = this.transformUser(saved);
-              const current = this.usersSubject.value;
-              const updated = current.map((u) =>
-                u.id === transformed.id ? transformed : u
-              );
-              this.usersSubject.next(updated);
-              observer.next(transformed);
-              observer.complete();
-            },
-            error: (err) => observer.error(err),
-          });
-      };
-      updateProcess();
-    });
+        return this.http.put<User>(
+          `${this.apiUrl}/users/${payload.id}`,
+          payload
+        );
+      }),
+      map((saved) => {
+        const transformed = this.transformUser(saved);
+        const current = this.usersSubject.value;
+        const updated = current.map((u) =>
+          u.id === transformed.id ? transformed : u
+        );
+        this.usersSubject.next(updated);
+        return transformed;
+      })
+    );
   }
 
   deleteUser(userId: string): Observable<void> {
@@ -146,7 +163,7 @@ export class UserService {
     username: string,
     password: string
   ): Observable<User | null> {
-    return from(this.hashPassword(password)).pipe(
+    return this.hashPassword(password).pipe(
       switchMap((hashedInput) =>
         this.http
           .post<User>(`${this.apiUrl}/login`, {

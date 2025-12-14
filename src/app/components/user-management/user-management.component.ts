@@ -250,7 +250,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
     }
   }
 
-  async saveHfToken(): Promise<void> {
+  saveHfToken(): void {
     if (!this.hfToken || !this.hfToken.startsWith('hf_')) {
       this.dialogService
         .error(
@@ -263,32 +263,36 @@ export class UserManagementComponent implements OnInit, OnDestroy {
 
     this.isSavingToken = true;
 
-    try {
-      await this.settingsService.saveHuggingFaceToken(this.hfToken);
-      this.isGemmaConfigured = true;
-      this.showAiSettings = false;
-      this.hfToken = this.hfToken.substring(0, 10) + '...';
-      this.dialogService
-        .alert('Gemma AI has been configured! 🎉', 'AI Configured')
-        .subscribe();
-    } catch (error) {
-      this.dialogService.error('Failed to save token.', 'Error').subscribe();
-    } finally {
-      this.isSavingToken = false;
-    }
+    this.settingsService.saveHuggingFaceToken(this.hfToken).subscribe({
+      next: () => {
+        this.isGemmaConfigured = true;
+        this.showAiSettings = false;
+        this.hfToken = this.hfToken.substring(0, 10) + '...';
+        this.dialogService
+          .alert('Gemma AI has been configured! 🎉', 'AI Configured')
+          .subscribe();
+        this.isSavingToken = false;
+      },
+      error: (error) => {
+        this.dialogService.error('Failed to save token.', 'Error').subscribe();
+        this.isSavingToken = false;
+      },
+    });
   }
 
-  async clearHfToken(): Promise<void> {
-    try {
-      await this.settingsService.clearHuggingFaceToken();
-      this.hfToken = '';
-      this.isGemmaConfigured = false;
-      this.dialogService
-        .alert('Token has been removed.', 'Token Cleared')
-        .subscribe();
-    } catch (error) {
-      this.dialogService.error('Failed to clear token.', 'Error').subscribe();
-    }
+  clearHfToken(): void {
+    this.settingsService.clearHuggingFaceToken().subscribe({
+      next: () => {
+        this.hfToken = '';
+        this.isGemmaConfigured = false;
+        this.dialogService
+          .alert('Token has been removed.', 'Token Cleared')
+          .subscribe();
+      },
+      error: (error) => {
+        this.dialogService.error('Failed to clear token.', 'Error').subscribe();
+      },
+    });
   }
 
   // Helpers

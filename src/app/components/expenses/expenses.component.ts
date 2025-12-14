@@ -186,11 +186,13 @@ export class ExpensesComponent implements OnInit, OnDestroy {
         // For now, just close modal
         this.closeModal();
       } else {
-        this.inventoryService.addExpense({
-          productName: this.expense.productName,
-          price: this.expense.price,
-          notes: this.expense.notes,
-        });
+        this.inventoryService
+          .addExpense({
+            productName: this.expense.productName,
+            price: this.expense.price,
+            notes: this.expense.notes,
+          })
+          .subscribe();
         this.closeModal();
       }
     }
@@ -210,7 +212,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
       )
       .subscribe((confirmed) => {
         if (confirmed) {
-          this.inventoryService.deleteExpense(expense.id);
+          this.inventoryService.deleteExpense(expense.id).subscribe();
         }
       });
   }

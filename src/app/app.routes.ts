@@ -8,8 +8,7 @@ const authGuard = () => {
   const isLoggedIn = localStorage.getItem('jjm_logged_in') === 'true';
 
   if (!isLoggedIn) {
-    router.navigate(['/login']);
-    return false;
+    return router.createUrlTree(['/login']);
   }
   return true;
 };

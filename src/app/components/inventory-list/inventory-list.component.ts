@@ -490,7 +490,7 @@ export class InventoryListComponent implements OnInit, OnDestroy {
       imageUrl: this.editProductImage,
     };
 
-    this.inventoryService.updateProduct(updatedProduct);
+    this.inventoryService.updateProduct(updatedProduct).subscribe();
     this.closeEditModal();
   }
 

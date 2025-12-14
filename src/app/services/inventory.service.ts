@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, tap, from, of, throwError } from 'rxjs';
+import { map, switchMap, catchError } from 'rxjs/operators';
 import { Product, Sale, Expense } from '../models/inventory.models';
 import { environment } from '../../environments/environment';
 import { LoggingService } from './logging.service';
@@ -394,148 +395,141 @@ export class InventoryService {
     return this.expenses$;
   }
 
-  async addExpense(expense: Omit<Expense, 'id' | 'timestamp'>): Promise<void> {
+  addExpense(expense: Omit<Expense, 'id' | 'timestamp'>): Observable<Expense> {
     const baseData = {
       ...expense,
       timestamp: new Date(),
     };
 
-    // 1. Try Firestore (Best Effort)
-    let firestoreId: string | undefined;
-    try {
-      const firestoreData = { ...baseData, userId: this.getFirestoreUserId() };
-      const docRef = await addDoc(
-        collection(this.db, 'expenses'),
-        firestoreData
-      );
-      firestoreId = docRef.id;
-    } catch (e) {
-      console.warn('Firestore write failed (proceeding with Legacy):', e);
-    }
+    const firestoreData = { ...baseData, userId: this.getFirestoreUserId() };
 
-    // 2. Legacy Backend (Direct)
-    const legacyData = { ...baseData, userId: this.getCurrentUser() };
-    if (firestoreId) {
-      Object.assign(legacyData, { id: firestoreId });
-    }
-
-    this.http.post<Expense>(`${this.apiUrl}/expenses`, legacyData).subscribe({
-      next: (newExpense) => {
-        // Update subject if listener didn't catch it
-        const current = this.expensesSubject.value;
-        // Avoid dupe if listener caught it
-        if (!current.find((e) => e.id === newExpense.id)) {
-          this.expensesSubject.next([...current, newExpense]);
+    return from(addDoc(collection(this.db, 'expenses'), firestoreData)).pipe(
+      map((docRef) => docRef.id),
+      catchError((e) => {
+        console.warn('Firestore write failed (proceeding with Legacy):', e);
+        return of(undefined);
+      }),
+      switchMap((firestoreId) => {
+        const legacyData = { ...baseData, userId: this.getCurrentUser() };
+        if (firestoreId) {
+          Object.assign(legacyData, { id: firestoreId });
         }
-
-        this.loggingService.logActivity(
-          'create',
-          'expense',
-          newExpense.id,
-          newExpense.productName,
-          `$${newExpense.price.toFixed(2)}`
-        );
-      },
-      error: (err) => console.error('Error adding expense:', err),
-    });
+        return this.http.post<Expense>(`${this.apiUrl}/expenses`, legacyData);
+      }),
+      tap({
+        next: (newExpense) => {
+          const current = this.expensesSubject.value;
+          if (!current.find((e) => e.id === newExpense.id)) {
+            this.expensesSubject.next([...current, newExpense]);
+          }
+          this.loggingService.logActivity(
+            'create',
+            'expense',
+            newExpense.id,
+            newExpense.productName,
+            `$${newExpense.price.toFixed(2)}`
+          );
+        },
+        error: (err) => console.error('Error adding expense:', err),
+      })
+    );
   }
 
-  async deleteExpense(expenseId: string): Promise<void> {
-    // 1. Try Firestore (Best Effort)
-    try {
-      await deleteDoc(doc(this.db, 'expenses', expenseId));
-    } catch (e) {
-      console.warn('Firestore delete failed (proceeding with Legacy):', e);
-    }
+  deleteExpense(expenseId: string): Observable<void> {
+    return from(deleteDoc(doc(this.db, 'expenses', expenseId))).pipe(
+      catchError((e) => {
+        console.warn('Firestore delete failed (proceeding with Legacy):', e);
+        return of(void 0);
+      }),
+      switchMap(() =>
+        this.http.delete<void>(`${this.apiUrl}/expenses/${expenseId}`)
+      ),
+      tap({
+        next: () => {
+          const current = this.expensesSubject.value;
+          this.expensesSubject.next(current.filter((e) => e.id !== expenseId));
 
-    // 2. Legacy Backend (Direct)
-    this.http.delete(`${this.apiUrl}/expenses/${expenseId}`).subscribe({
-      next: () => {
-        // Update subject
-        const current = this.expensesSubject.value;
-        this.expensesSubject.next(current.filter((e) => e.id !== expenseId));
-
-        this.loggingService.logActivity(
-          'delete',
-          'expense',
-          expenseId,
-          'Expense',
-          'Deleted'
-        );
-      },
-      error: (err) => console.error('Error deleting expense:', err),
-    });
+          this.loggingService.logActivity(
+            'delete',
+            'expense',
+            expenseId,
+            'Expense',
+            'Deleted'
+          );
+        },
+        error: (err) => console.error('Error deleting expense:', err),
+      })
+    );
   }
 
-  async addProduct(product: Omit<Product, 'id' | 'createdAt'>): Promise<void> {
+  addProduct(product: Omit<Product, 'id' | 'createdAt'>): Observable<Product> {
     const baseData = {
       ...product,
       createdAt: new Date(),
     };
 
-    let firestoreId: string | undefined;
-    try {
-      const firestoreData = { ...baseData, userId: this.getFirestoreUserId() };
-      const docRef = await addDoc(
-        collection(this.db, 'products'),
-        firestoreData
-      );
-      firestoreId = docRef.id;
-    } catch (e) {
-      console.warn('Firestore write failed:', e);
-    }
+    const firestoreData = { ...baseData, userId: this.getFirestoreUserId() };
 
-    const legacyData = { ...baseData, userId: this.getCurrentUser() };
-    if (firestoreId) Object.assign(legacyData, { id: firestoreId });
-
-    this.http.post<Product>(`${this.apiUrl}/products`, legacyData).subscribe({
-      next: (newProduct) => {
-        const current = this.productsSubject.value;
-        if (!current.find((p) => p.id === newProduct.id)) {
-          this.productsSubject.next([...current, newProduct]);
-        }
-        this.loggingService.logActivity(
-          'create',
-          'product',
-          newProduct.id,
-          newProduct.name
-        );
-      },
-      error: (err) => console.error('Error adding product:', err),
-    });
+    return from(addDoc(collection(this.db, 'products'), firestoreData)).pipe(
+      map((docRef) => docRef.id),
+      catchError((e) => {
+        console.warn('Firestore write failed:', e);
+        return of(undefined);
+      }),
+      switchMap((firestoreId) => {
+        const legacyData = { ...baseData, userId: this.getCurrentUser() };
+        if (firestoreId) Object.assign(legacyData, { id: firestoreId });
+        return this.http.post<Product>(`${this.apiUrl}/products`, legacyData);
+      }),
+      tap({
+        next: (newProduct) => {
+          const current = this.productsSubject.value;
+          if (!current.find((p) => p.id === newProduct.id)) {
+            this.productsSubject.next([...current, newProduct]);
+          }
+          this.loggingService.logActivity(
+            'create',
+            'product',
+            newProduct.id,
+            newProduct.name
+          );
+        },
+        error: (err) => console.error('Error adding product:', err),
+      })
+    );
   }
 
-  async deleteProduct(productId: string): Promise<void> {
+  deleteProduct(productId: string): Observable<void> {
     const products = this.productsSubject.value;
     const product = products.find((p) => p.id === productId);
 
-    // 1. Try Firestore (Best Effort)
-    try {
-      await deleteDoc(doc(this.db, 'products', productId));
-    } catch (e) {
-      console.warn('Firestore delete failed (proceeding with Legacy):', e);
-    }
+    return from(deleteDoc(doc(this.db, 'products', productId))).pipe(
+      catchError((e) => {
+        console.warn('Firestore delete failed (proceeding with Legacy):', e);
+        return of(void 0);
+      }),
+      switchMap(() =>
+        this.http.delete<void>(`${this.apiUrl}/products/${productId}`)
+      ),
+      tap({
+        next: () => {
+          const current = this.productsSubject.value;
+          this.productsSubject.next(current.filter((p) => p.id !== productId));
 
-    // 2. Legacy Backend (Direct)
-    this.http.delete(`${this.apiUrl}/products/${productId}`).subscribe({
-      next: () => {
-        // Update subject
-        const current = this.productsSubject.value;
-        this.productsSubject.next(current.filter((p) => p.id !== productId));
-
-        this.loggingService.logActivity(
-          'delete',
-          'product',
-          productId,
-          product?.name || 'Product',
-          'Deleted'
-        );
-      },
-      error: (err) => console.error('Error deleting product:', err),
-    });
+          this.loggingService.logActivity(
+            'delete',
+            'product',
+            productId,
+            product?.name || 'Product',
+            'Deleted'
+          );
+        },
+        error: (err) => console.error('Error deleting product:', err),
+      })
+    );
   }
 
-  async recordSale(
+  recordSale(
     productId: string,
     quantitySold: number,
     cashReceived: number,
@@ -545,16 +539,16 @@ export class InventoryService {
     discount: number = 0,
     discountType: 'amount' | 'percent' = 'amount',
     orderId?: string
-  ): Promise<void> {
+  ): Observable<Sale> {
     const products = this.productsSubject.value;
     const product = products.find((p) => p.id === productId);
 
     if (!product) {
-      throw new Error('Product not found');
+      return throwError(() => new Error('Product not found'));
     }
 
     if (product.quantity < quantitySold) {
-      throw new Error('Insufficient quantity');
+      return throwError(() => new Error('Insufficient quantity'));
     }
 
     let total = product.price * quantitySold;
@@ -574,7 +568,7 @@ export class InventoryService {
     const change = cashReceived - total;
 
     if (change < 0) {
-      throw new Error('Insufficient cash');
+      return throwError(() => new Error('Insufficient cash'));
     }
 
     const baseData = {
@@ -596,40 +590,41 @@ export class InventoryService {
       timestamp: new Date(),
     };
 
-    // Firestore Dual Write (Best Effort)
-    let firestoreId: string | undefined;
-    try {
-      const firestoreData = { ...baseData, userId: this.getFirestoreUserId() };
-      const docRef = await addDoc(collection(this.db, 'sales'), firestoreData);
-      firestoreId = docRef.id;
-    } catch (e) {
-      console.warn('Firestore Sale Write Failed:', e);
-    }
+    const firestoreData = { ...baseData, userId: this.getFirestoreUserId() };
 
-    const legacyData = { ...baseData, userId: this.getCurrentUser() };
-    if (firestoreId) Object.assign(legacyData, { id: firestoreId });
+    return from(addDoc(collection(this.db, 'sales'), firestoreData)).pipe(
+      map((docRef) => docRef.id),
+      catchError((e) => {
+        console.warn('Firestore Sale Write Failed:', e);
+        return of(undefined);
+      }),
+      switchMap((firestoreId) => {
+        const legacyData = { ...baseData, userId: this.getCurrentUser() };
+        if (firestoreId) Object.assign(legacyData, { id: firestoreId });
+        return this.http.post<Sale>(`${this.apiUrl}/sales`, legacyData);
+      }),
+      tap({
+        next: (newSale) => {
+          // Update local sales state
+          const currentSales = this.salesSubject.value;
+          if (!currentSales.find((s) => s.id === newSale.id)) {
+            this.salesSubject.next([
+              ...currentSales,
+              this.transformSale(newSale),
+            ]);
+          }
 
-    this.http.post<Sale>(`${this.apiUrl}/sales`, legacyData).subscribe({
-      next: (newSale) => {
-        // Update local sales state
-        const currentSales = this.salesSubject.value;
-        if (!currentSales.find((s) => s.id === newSale.id)) {
-          this.salesSubject.next([
-            ...currentSales,
-            this.transformSale(newSale),
-          ]);
-        }
-
-        this.loggingService.logActivity(
-          'create',
-          'sale',
-          newSale.id,
-          product.name,
-          `Sold ${quantitySold} units (Pending Delivery)`
-        );
-      },
-      error: (err) => console.error('Error recording sale:', err),
-    });
+          this.loggingService.logActivity(
+            'create',
+            'sale',
+            newSale.id,
+            product.name,
+            `Sold ${quantitySold} units (Pending Delivery)`
+          );
+        },
+        error: (err) => console.error('Error recording sale:', err),
+      })
+    );
   }
 
   completePendingSale(saleId: string): void {
@@ -659,7 +654,7 @@ export class InventoryService {
               ...product,
               quantity: product.quantity - sale.quantitySold,
             };
-            this.updateProduct(updatedProduct);
+            this.updateProduct(updatedProduct).subscribe();
           }
 
           // Award Credits to Customer
@@ -795,7 +790,7 @@ export class InventoryService {
         ...product,
         quantity: product.quantity + quantityToAdd,
       };
-      this.updateProduct(updatedProduct);
+      this.updateProduct(updatedProduct).subscribe();
       this.loggingService.logActivity(
         'restock',
         'product',
@@ -825,25 +820,22 @@ export class InventoryService {
     });
   }
 
-  async updateProduct(product: Product): Promise<void> {
-    // 1. Dual Write to Firestore (Best Effort)
-    try {
-      const firestoreData = { ...product, userId: this.getFirestoreUserId() };
-      // Remove ID from data if needed, but setDoc handles it.
-      // Actually updateDoc is better for existing.
-      // If it doesn't exist (Legacy only item?), updateDoc fails.
-      // setDoc with merge: true is safest.
-      await setDoc(doc(this.db, 'products', product.id), firestoreData, {
-        merge: true,
-      });
-    } catch (e) {
-      console.warn('Firestore update failed (proceeding with Legacy):', e);
-    }
+  updateProduct(product: Product): Observable<Product> {
+    const firestoreData = { ...product, userId: this.getFirestoreUserId() };
 
-    // 2. Legacy Backend
-    this.http
-      .put<Product>(`${this.apiUrl}/products/${product.id}`, product)
-      .subscribe({
+    return from(
+      setDoc(doc(this.db, 'products', product.id), firestoreData, {
+        merge: true,
+      })
+    ).pipe(
+      catchError((e) => {
+        console.warn('Firestore update failed (proceeding with Legacy):', e);
+        return of(void 0);
+      }),
+      switchMap(() =>
+        this.http.put<Product>(`${this.apiUrl}/products/${product.id}`, product)
+      ),
+      tap({
         next: () => {
           // Update products
           const currentProducts = this.productsSubject.value;
@@ -887,7 +879,8 @@ export class InventoryService {
           );
         },
         error: (err) => console.error('Error updating product:', err),
-      });
+      })
+    );
   }
 
   clearAllData(): void {
@@ -905,7 +898,7 @@ export class InventoryService {
 
     if (productsData) {
       const products: Product[] = JSON.parse(productsData);
-      products.forEach((p) => this.addProduct(p));
+      products.forEach((p) => this.addProduct(p).subscribe());
     }
 
     if (salesData) {
@@ -923,7 +916,7 @@ export class InventoryService {
 
     if (expensesData) {
       const expenses: Expense[] = JSON.parse(expensesData);
-      expenses.forEach((e) => this.addExpense(e));
+      expenses.forEach((e) => this.addExpense(e).subscribe());
     }
 
     console.log('Migration started...');

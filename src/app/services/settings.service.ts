@@ -7,7 +7,8 @@ import {
   onSnapshot,
   Unsubscribe,
 } from 'firebase/firestore';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, from, tap } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 export interface AppSettings {
   huggingFaceToken?: string;
@@ -62,12 +63,12 @@ export class SettingsService {
     );
   }
 
-  async saveHuggingFaceToken(token: string): Promise<void> {
+  saveHuggingFaceToken(token: string): Observable<void> {
     const settingsRef = doc(this.db, 'settings', this.settingsDoc);
     const userId = localStorage.getItem('jjm_user_id') || 'admin';
 
-    try {
-      await setDoc(
+    return from(
+      setDoc(
         settingsRef,
         {
           huggingFaceToken: token,
@@ -76,26 +77,28 @@ export class SettingsService {
           updatedBy: userId,
         },
         { merge: true }
-      );
-
-      // Also save to localStorage for immediate use
-      localStorage.setItem('hf_token', token);
-
-      console.log('Settings: Hugging Face token saved to database');
-    } catch (error) {
-      console.error('Settings: Error saving token to database:', error);
-      // Fallback to localStorage only
-      localStorage.setItem('hf_token', token);
-      throw error;
-    }
+      )
+    ).pipe(
+      tap({
+        next: () => {
+          localStorage.setItem('hf_token', token);
+          console.log('Settings: Hugging Face token saved to database');
+        },
+        error: (error) => {
+          console.error('Settings: Error saving token to database:', error);
+          localStorage.setItem('hf_token', token);
+        },
+      }),
+      map(() => void 0)
+    );
   }
 
-  async clearHuggingFaceToken(): Promise<void> {
+  clearHuggingFaceToken(): Observable<void> {
     const settingsRef = doc(this.db, 'settings', this.settingsDoc);
     const userId = localStorage.getItem('jjm_user_id') || 'admin';
 
-    try {
-      await setDoc(
+    return from(
+      setDoc(
         settingsRef,
         {
           huggingFaceToken: '',
@@ -104,15 +107,18 @@ export class SettingsService {
           updatedBy: userId,
         },
         { merge: true }
-      );
-
-      // localStorage.removeItem('hf_token');
-      console.log('Settings: Hugging Face token cleared from database');
-    } catch (error) {
-      console.error('Settings: Error clearing token from database:', error);
-      // localStorage.removeItem('hf_token');
-      throw error;
-    }
+      )
+    ).pipe(
+      tap({
+        next: () => {
+          console.log('Settings: Hugging Face token cleared from database');
+        },
+        error: (error) => {
+          console.error('Settings: Error clearing token from database:', error);
+        },
+      }),
+      map(() => void 0)
+    );
   }
 
   getSettings(): Observable<AppSettings> {
