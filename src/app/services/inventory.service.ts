@@ -341,6 +341,18 @@ export class InventoryService {
     this.fetchProducts();
   }
 
+  /**
+   * Load products for a specific user (e.g., for public reservation page)
+   * @param userId - The userId to fetch products for (e.g., 'admin-1')
+   */
+  public loadProductsForUser(userId: string): void {
+    const url = `${this.apiUrl}/products?userId=${userId}`;
+    this.http.get<Product[]>(url).subscribe({
+      next: (products) => this.productsSubject.next(products),
+      error: (err) => console.error('Error fetching products for user:', err),
+    });
+  }
+
   private fetchProducts(): void {
     const userId = this.getCurrentUser();
 

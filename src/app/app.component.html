@@ -191,7 +191,8 @@
   
   <span class="notification-badge" *ngIf="totalUnreadMessages > 0">{{ totalUnreadMessages }}</span>
   
-  <div class="chat-modal" [class.open]="isChatOpen">
+  <!-- Only render chat modal when open to prevent hidden elements blocking clicks -->
+  <div class="chat-modal open" *ngIf="isChatOpen">
     <div class="chat-modal-content">
       <app-chat 
         [isOpen]="isChatOpen" 

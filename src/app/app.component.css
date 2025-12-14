@@ -516,6 +516,7 @@ body.dark-theme .theme-btn:hover {
   bottom: 24px;
   right: 24px;
   z-index: 1000;
+  pointer-events: none; /* Container doesn't capture events, only children */
 }
 
 .chat-toggle-button {
@@ -534,6 +535,7 @@ body.dark-theme .theme-btn:hover {
   transition: all var(--transition-base);
   position: relative;
   overflow: hidden;
+  pointer-events: auto; /* Enable clicks on this button */
 }
 
 .chat-toggle-button::before {
@@ -621,7 +623,14 @@ body.dark-theme .theme-btn:hover {
   padding: 0;
   z-index: 2100;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  pointer-events: none; /* Inherit from parent - disabled when modal is closed */
+  opacity: 0;
+}
+
+/* Only enable close button when modal is open */
+.chat-modal.open .chat-modal-close {
   pointer-events: auto;
+  opacity: 1;
 }
 
 .chat-modal-close:hover {

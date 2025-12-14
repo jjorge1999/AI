@@ -124,7 +124,8 @@ export class ReservationComponent implements OnInit, OnDestroy {
   }
 
   loadProducts() {
-    this.inventoryService.loadProducts();
+    // Load only products from admin-1 for the reservation page
+    this.inventoryService.loadProductsForUser('admin-1');
     this.subscriptions.add(
       this.inventoryService.getProducts().subscribe((products) => {
         this.products = products.filter((p) => p.quantity > 0);
