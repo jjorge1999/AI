@@ -75,7 +75,11 @@ export class SalesManagementComponent implements OnInit, OnDestroy {
 
     // Construct a rich prompt
     const discountInfo = this.currentSale.isActualSale
-      ? `offering ${this.currentSale.actualDiscount}% real discount`
+      ? `offering ${
+          ((this.currentSale.actualDiscount || 0) +
+            (this.currentSale.psychologicalDiscount || 0)) /
+          2
+        }% real discount`
       : `with amazing deals`;
 
     const context = `Sale Name: ${this.currentSale.name}. ${discountInfo}. Duration: ${this.currentSale.duration} days.`;
@@ -83,7 +87,7 @@ export class SalesManagementComponent implements OnInit, OnDestroy {
     const prompt = `You are a marketing copywriting expert. Write a catchy, exciting, and short sales pitch for a website banner based on this event: "${context}".
     
     Respond with a strictly valid JSON object containing two keys:
-    1. "title": A short catchy headline (max 5 words, include an emoji if appropriate, do not use quotes).
+    1. "title": A short catchy headline (include an emoji if appropriate, max 5 words, do not use quotes).
     2. "message": A compelling short description (max 12 words).
     
     Example response:
@@ -431,12 +435,18 @@ export class SalesManagementComponent implements OnInit, OnDestroy {
         ? this.currentSale.psychologicalDiscount || 0
         : this.currentSale.actualDiscount || 0;
 
+      const derivedType =
+        this.currentSale.isActualSale && !this.currentSale.isPsychologicalSale
+          ? 'actual'
+          : 'psychological';
+
       const newSale: Omit<SaleEvent, 'id'> = {
         name: this.currentSale.name || '',
         month: this.currentSale.month || 1,
         day: this.currentSale.day || 1,
         duration: this.currentSale.duration || 7,
         discount: mainDiscount,
+        saleType: derivedType,
         isActive: this.currentSale.isActive ?? true,
         bannerTitle: this.currentSale.bannerTitle,
         bannerMessage: this.currentSale.bannerMessage,
@@ -515,5 +525,19 @@ export class SalesManagementComponent implements OnInit, OnDestroy {
     const end = new Date(start);
     end.setDate(end.getDate() + sale.duration);
     return `${this.monthNames[end.getMonth()]} ${end.getDate()}`;
+  }
+
+  getSaleLabel(sale: SaleEvent): string {
+    if (sale.isActualSale && sale.isPsychologicalSale) return 'Hybrid Deal';
+    if (sale.isActualSale) return 'Actual Deal';
+    if (sale.isPsychologicalSale) return 'Psychological';
+    // Legacy fallback
+    return sale.saleType === 'actual' ? 'Actual Deal' : 'Psychological';
+  }
+
+  getSaleClass(sale: SaleEvent): string {
+    if (sale.isActualSale && sale.isPsychologicalSale) return 'text-primary';
+    if (sale.isActualSale) return 'text-act';
+    return 'text-psy';
   }
 }

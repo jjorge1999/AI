@@ -936,6 +936,7 @@ body.dark-theme .strategy-option.active {
 /* Utilities */
 .text-psy { color: #f59e0b; font-weight: 600; }
 .text-act { color: #10b981; font-weight: 600; }
+.text-primary { color: var(--color-primary); font-weight: 600; }
 
 /* AI Button */
 .section-top-row {

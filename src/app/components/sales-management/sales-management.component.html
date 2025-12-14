@@ -76,8 +76,8 @@
               <h4 class="campaign-name">{{ sale.name }}</h4>
               <p class="campaign-sub">
                 {{ sale.discount }}% OFF • {{ sale.duration }} days • 
-                <span [class.text-psy]="sale.saleType !== 'actual'" [class.text-act]="sale.saleType === 'actual'">
-                  {{ sale.saleType === 'actual' ? 'Actual Deal' : 'Psychological' }}
+                <span [class]="getSaleClass(sale)">
+                  {{ getSaleLabel(sale) }}
                 </span>
               </p>
             </div>
