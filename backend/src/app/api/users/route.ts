@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
+import { withCors, corsResponse } from '@/lib/cors';
 
 const COLLECTION_NAME = 'users';
 
+export async function OPTIONS(request: Request) {
+  const origin = request.headers.get('origin');
+  return corsResponse(origin);
+}
+
 export async function GET(request: Request) {
+  const origin = request.headers.get('origin');
   try {
     const { searchParams } = new URL(request.url);
     const username = searchParams.get('username');
@@ -31,24 +38,21 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json(users);
+    return withCors(NextResponse.json(users), origin);
   } catch (error) {
     console.error('Error fetching users:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch users' },
-      { status: 500 }
+    return withCors(
+      NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 }),
+      origin
     );
   }
 }
 
 export async function POST(request: Request) {
+  const origin = request.headers.get('origin');
   try {
     const body = await request.json();
     let id = body.id;
-
-    // For users, if ID is provided (like 'admin-1'), use it.
-    // Otherwise fallback to auto-id which is standard, but usually we want username uniqueness or specific IDs.
-    // The previous service code sent 'admin-1' explicitly.
 
     if (id) {
       await db
@@ -66,9 +70,15 @@ export async function POST(request: Request) {
       id = docRef.id;
     }
 
-    return NextResponse.json({ id, ...body }, { status: 201 });
+    return withCors(
+      NextResponse.json({ id, ...body }, { status: 201 }),
+      origin
+    );
   } catch (error) {
     console.error('Error adding user:', error);
-    return NextResponse.json({ error: 'Failed to add user' }, { status: 500 });
+    return withCors(
+      NextResponse.json({ error: 'Failed to add user' }, { status: 500 }),
+      origin
+    );
   }
 }

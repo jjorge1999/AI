@@ -1,4 +1,11 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  AfterViewInit,
+  ElementRef,
+  HostListener,
+} from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -43,6 +50,10 @@ export class ReservationComponent implements OnInit, OnDestroy {
   isSubmitting = false;
   successMessage = '';
 
+  // Scroll-based sticky handling
+  isSummarySticky = false;
+  private scrollContainer: HTMLElement | null = null;
+
   constructor(
     private inventoryService: InventoryService,
     private reservationService: ReservationService,
@@ -77,10 +88,39 @@ export class ReservationComponent implements OnInit, OnDestroy {
 
     this.generateCalendar();
     this.loadProducts();
+
+    // Setup scroll listener on public-container
+    setTimeout(() => this.setupScrollListener(), 100);
+  }
+
+  private setupScrollListener(): void {
+    this.scrollContainer = document.querySelector('.public-container');
+    if (this.scrollContainer) {
+      this.scrollContainer.addEventListener('scroll', this.onScroll.bind(this));
+    }
+  }
+
+  private onScroll(): void {
+    if (this.scrollContainer) {
+      // When scrolled past 80px, make summary sticky
+      this.isSummarySticky = this.scrollContainer.scrollTop > 80;
+    }
   }
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+    // Remove scroll listener
+    if (this.scrollContainer) {
+      this.scrollContainer.removeEventListener(
+        'scroll',
+        this.onScroll.bind(this)
+      );
+    }
+  }
+
+  openChat(): void {
+    // Dispatch custom event to open chat bubble in app component
+    window.dispatchEvent(new CustomEvent('openChatBubble'));
   }
 
   loadProducts() {
@@ -262,15 +302,15 @@ export class ReservationComponent implements OnInit, OnDestroy {
       if (!existingCustomer) {
         const targetUserId = this.orderItems[0]?.product?.userId;
 
-        this.customerService
-          .addCustomer({
+        await firstValueFrom(
+          this.customerService.addCustomer({
             name: this.customerName,
             phoneNumber: this.customerContact,
             deliveryAddress: this.customerAddress,
             gpsCoordinates: this.gpsCoordinates,
             ...(targetUserId ? { userId: targetUserId } : {}),
           })
-          .subscribe();
+        );
       }
 
       // 2. Submit reservation
@@ -305,6 +345,24 @@ export class ReservationComponent implements OnInit, OnDestroy {
         JSON.stringify(chatCustomerInfo)
       );
       localStorage.setItem('chatUserName', this.customerName);
+
+      // 4. Store pending reservation info for chat auto-message
+      const pendingReservation = {
+        customerName: this.customerName,
+        deliveryDate: `${this.pickupDate} ${this.pickupTime}`,
+        deliveryAddress: this.customerAddress,
+        items: this.orderItems.map((i) => ({
+          name: i.product.name,
+          quantity: i.quantity,
+          price: i.product.price,
+        })),
+        totalAmount: this.totalAmount,
+        paymentMethod: this.paymentOption || 'Not Specified',
+      };
+      localStorage.setItem(
+        'pendingReservationForChat',
+        JSON.stringify(pendingReservation)
+      );
 
       this.dialogService
         .success(

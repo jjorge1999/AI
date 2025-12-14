@@ -817,7 +817,10 @@ body.dark-theme .notification-dot {
    Public Container
    ======================================== */
 .public-container {
-  min-height: 100vh;
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: var(--color-bg);
 }
 

@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
+import { withCors, corsResponse } from '@/lib/cors';
 
 const COLLECTION_NAME = 'activityLogs';
 
+export async function OPTIONS(request: Request) {
+  const origin = request.headers.get('origin');
+  return corsResponse(origin);
+}
+
 export async function GET(request: Request) {
+  const origin = request.headers.get('origin');
   try {
     const { searchParams } = new URL(request.url);
     const entityType = searchParams.get('entityType');
@@ -45,17 +52,18 @@ export async function GET(request: Request) {
       return dateB.getTime() - dateA.getTime();
     });
 
-    return NextResponse.json(logs);
+    return withCors(NextResponse.json(logs), origin);
   } catch (error) {
     console.error('Error fetching logs:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch logs' },
-      { status: 500 }
+    return withCors(
+      NextResponse.json({ error: 'Failed to fetch logs' }, { status: 500 }),
+      origin
     );
   }
 }
 
 export async function POST(request: Request) {
+  const origin = request.headers.get('origin');
   try {
     const body = await request.json();
 
@@ -66,12 +74,15 @@ export async function POST(request: Request) {
 
     const docRef = await db.collection(COLLECTION_NAME).add(logData);
 
-    return NextResponse.json({ id: docRef.id, ...logData }, { status: 201 });
+    return withCors(
+      NextResponse.json({ id: docRef.id, ...logData }, { status: 201 }),
+      origin
+    );
   } catch (error) {
     console.error('Error creating log:', error);
-    return NextResponse.json(
-      { error: 'Failed to create log' },
-      { status: 500 }
+    return withCors(
+      NextResponse.json({ error: 'Failed to create log' }, { status: 500 }),
+      origin
     );
   }
 }

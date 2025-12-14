@@ -1,8 +1,16 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
+import { withCors, corsResponse } from '@/lib/cors';
+
 const COLLECTION_NAME = 'expenses';
 
+export async function OPTIONS(request: Request) {
+  const origin = request.headers.get('origin');
+  return corsResponse(origin);
+}
+
 export async function GET(request: Request) {
+  const origin = request.headers.get('origin');
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
@@ -18,17 +26,18 @@ export async function GET(request: Request) {
       id: doc.id,
       ...doc.data(),
     }));
-    return NextResponse.json(expenses);
+    return withCors(NextResponse.json(expenses), origin);
   } catch (error) {
     console.error('Error fetching expenses:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch expenses' },
-      { status: 500 }
+    return withCors(
+      NextResponse.json({ error: 'Failed to fetch expenses' }, { status: 500 }),
+      origin
     );
   }
 }
 
 export async function POST(request: Request) {
+  const origin = request.headers.get('origin');
   try {
     const body = await request.json();
     let id = body.id;
@@ -49,12 +58,15 @@ export async function POST(request: Request) {
       id = docRef.id;
     }
 
-    return NextResponse.json({ id, ...body }, { status: 201 });
+    return withCors(
+      NextResponse.json({ id, ...body }, { status: 201 }),
+      origin
+    );
   } catch (error) {
     console.error('Error adding expense:', error);
-    return NextResponse.json(
-      { error: 'Failed to add expense' },
-      { status: 500 }
+    return withCors(
+      NextResponse.json({ error: 'Failed to add expense' }, { status: 500 }),
+      origin
     );
   }
 }

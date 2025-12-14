@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
+import { withCors, corsResponse } from '@/lib/cors';
 
 const COLLECTION_NAME = 'messages';
 
-export async function GET() {
+export async function OPTIONS(request: Request) {
+  const origin = request.headers.get('origin');
+  return corsResponse(origin);
+}
+
+export async function GET(request: Request) {
+  const origin = request.headers.get('origin');
   try {
     const snapshot = await db
       .collection(COLLECTION_NAME)
@@ -21,17 +28,18 @@ export async function GET() {
           : data.timestamp,
       };
     });
-    return NextResponse.json(messages);
+    return withCors(NextResponse.json(messages), origin);
   } catch (error) {
     console.error('Error fetching messages:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch messages' },
-      { status: 500 }
+    return withCors(
+      NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 }),
+      origin
     );
   }
 }
 
 export async function POST(request: Request) {
+  const origin = request.headers.get('origin');
   try {
     const body = await request.json();
 
@@ -61,12 +69,12 @@ export async function POST(request: Request) {
       // Don't fail the request if broadcast fails
     }
 
-    return NextResponse.json(newMessage, { status: 201 });
+    return withCors(NextResponse.json(newMessage, { status: 201 }), origin);
   } catch (error) {
     console.error('Error adding message:', error);
-    return NextResponse.json(
-      { error: 'Failed to add message' },
-      { status: 500 }
+    return withCors(
+      NextResponse.json({ error: 'Failed to add message' }, { status: 500 }),
+      origin
     );
   }
 }

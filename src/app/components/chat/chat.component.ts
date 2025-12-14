@@ -31,7 +31,7 @@ import {
   User,
 } from '../../models/inventory.models';
 import { InventoryService } from '../../services/inventory.service';
-import { Subscription, take } from 'rxjs';
+import { Subscription, take, firstValueFrom } from 'rxjs';
 import { Unsubscribe } from 'firebase/firestore';
 
 interface CustomerInfo {
@@ -474,6 +474,9 @@ export class ChatComponent
 
       this.startHeartbeat();
 
+      // Check for pending reservation and auto-send to chat
+      this.sendPendingReservationToChat();
+
       // Optional: Verify against customer list in background (non-blocking)
       const foundCustomer = this.allCustomers.find(
         (c) => c.phoneNumber === parsedInfo.phoneNumber
@@ -633,6 +636,64 @@ export class ChatComponent
           .subscribe();
       },
     });
+  }
+
+  /**
+   * Check for pending reservation from localStorage and auto-send to chat
+   * This is called after successful customer login
+   */
+  private sendPendingReservationToChat(): void {
+    const pendingData = localStorage.getItem('pendingReservationForChat');
+    if (!pendingData) return;
+
+    try {
+      const reservation = JSON.parse(pendingData);
+
+      // Format the reservation message
+      const itemsList = reservation.items
+        .map(
+          (item: { name: string; quantity: number; price: number }) =>
+            `• ${item.name} x${item.quantity} - ₱${(
+              item.price * item.quantity
+            ).toFixed(2)}`
+        )
+        .join('\n');
+
+      const reservationMessage = `📋 **New Reservation Submitted**
+
+👤 Customer: ${reservation.customerName}
+📅 Delivery: ${reservation.deliveryDate}
+📍 Address: ${reservation.deliveryAddress}
+💳 Payment: ${reservation.paymentMethod}
+
+📦 **Items:**
+${itemsList}
+
+💰 **Total: ₱${reservation.totalAmount.toFixed(2)}**
+
+Thank you for your reservation! A staff member will contact you to confirm.`;
+
+      // Send the message after a short delay to ensure chat is ready
+      setTimeout(() => {
+        if (this.senderName && this.isRegistered) {
+          this.chatService
+            .sendMessage(reservationMessage, this.senderName, this.senderName)
+            .subscribe({
+              next: () => {
+                console.log('Reservation info sent to chat successfully');
+                // Clear the pending reservation after successful send
+                localStorage.removeItem('pendingReservationForChat');
+              },
+              error: (err) => {
+                console.error('Failed to send reservation to chat:', err);
+              },
+            });
+        }
+      }, 1000);
+    } catch (e) {
+      console.error('Error parsing pending reservation:', e);
+      localStorage.removeItem('pendingReservationForChat');
+    }
   }
 
   private allMessagesCached: Message[] = [];
@@ -1108,8 +1169,10 @@ export class ChatComponent
         if (products.length === 0) {
           console.log('AI Auto-responder: No products in database');
           // Use Gemma as sales rep even when inventory is empty
-          const gemmaResponse = await this.aiService.generateWithGemma(
-            `You are a helpful store assistant. Customer ${this.senderName} is asking about products but we're restocking. Reply in the same language they used (Filipino, Cebuano, or English). Be brief and friendly: apologize, mention stock arriving soon, ask what they're looking for. 2 sentences max. Use 1 emoji.`
+          const gemmaResponse = await firstValueFrom(
+            this.aiService.generateWithGemma(
+              `You are a helpful store assistant. Customer ${this.senderName} is asking about products but we're restocking. Reply in the same language they used (Filipino, Cebuano, or English). Be brief and friendly: apologize, mention stock arriving soon, ask what they're looking for. 2 sentences max. Use 1 emoji.`
+            )
           );
           if (gemmaResponse) {
             await this.chatService.sendMessage(
@@ -1173,8 +1236,8 @@ ${productList}
 Reply naturally in the same language they used. Be helpful and enthusiastic. Mention the products, prices, and stock. Tell them to click 'Reserve Now' to order. Keep it short (2-3 sentences). Use 1 emoji. Do NOT explain what language you're using or mention language detection.`;
 
           console.log('AI Auto-responder: Calling Gemma with product context');
-          const gemmaResponse = await this.aiService.generateWithGemma(
-            gemmaPrompt
+          const gemmaResponse = await firstValueFrom(
+            this.aiService.generateWithGemma(gemmaPrompt)
           );
 
           if (gemmaResponse) {
@@ -1220,10 +1283,12 @@ Reply naturally in the same language they used. Be helpful and enthusiastic. Men
           }
         } else {
           // No available products - still sell!
-          const gemmaResponse = await this.aiService.generateWithGemma(
-            `You are a friendly store assistant. Customer ${this.senderName} wants products but we're out of stock. Their message: "${messageText}"
+          const gemmaResponse = await firstValueFrom(
+            this.aiService.generateWithGemma(
+              `You are a friendly store assistant. Customer ${this.senderName} wants products but we're out of stock. Their message: "${messageText}"
 
 Reply in the same language they used. Be positive: mention restocking soon, offer to note their preference. 2 sentences max. Use 1 emoji. Do NOT explain what you're doing.`
+            )
           );
           response =
             gemmaResponse ||
@@ -1331,16 +1396,17 @@ Reply in the same language they used. Be positive: mention restocking soon, offe
 
 Reply naturally in the same language they used. Be warm and helpful. If they're greeting you, greet back and ask what products they're looking for. Keep it short (1-2 sentences). Use 1 emoji. Do NOT mention language or explain what you're doing.`;
 
-    const gemmaResponse = await this.aiService.generateWithGemma(gemmaPrompt);
-
-    if (gemmaResponse) {
-      await this.chatService.sendMessage(
-        gemmaResponse,
-        'Support AI',
-        this.senderName
-      );
-      console.log('AI Auto-responder: General response sent');
-    }
+    this.aiService
+      .generateWithGemma(gemmaPrompt)
+      .subscribe(async (gemmaResponse) => {
+        if (gemmaResponse) {
+          this.chatService
+            .sendMessage(gemmaResponse, 'Support AI', this.senderName)
+            .subscribe(() => {
+              console.log('AI Auto-responder: General response sent');
+            });
+        }
+      });
   }
 
   getLocation(silent: boolean = false): void {
@@ -1599,7 +1665,9 @@ Reply naturally in the same language they used. Be warm and helpful. If they're 
             ).toLocaleDateString()}`;
           }
           const prompt = `Customer ${customerName} ${lastSaleDetails}. Write a short polite follow-up message from the shop asking if they are satisfied:`;
-          const generated = await this.aiService.generateText(prompt);
+          const generated = await firstValueFrom(
+            this.aiService.generateText(prompt)
+          );
           if (generated) {
             this.newMessage = generated;
           }
@@ -1915,19 +1983,19 @@ Reply naturally in the same language they used. Be warm and helpful. If they're 
       return;
     }
 
-    this.callService.initializeCall(targetId, this.senderName);
+    this.callService.initializeCall(targetId, this.senderName).subscribe();
   }
 
   acceptCall(): void {
     if (this.incomingCall) {
-      this.callService.answerCall(this.incomingCall);
+      this.callService.answerCall(this.incomingCall).subscribe();
       this.incomingCall = null;
     }
   }
 
   rejectCall(): void {
     if (this.incomingCall) {
-      this.callService.rejectCall(this.incomingCall.id);
+      this.callService.rejectCall(this.incomingCall.id).subscribe();
       this.incomingCall = null;
       this.callStatus = 'idle';
       this.stopRinging();
@@ -1935,7 +2003,7 @@ Reply naturally in the same language they used. Be warm and helpful. If they're 
   }
 
   endCall(): void {
-    this.callService.endCall();
+    this.callService.endCall().subscribe();
     this.isSpeakerOn = false;
     this.isMicMuted = false;
     this.cleanupAudioVisualizer();

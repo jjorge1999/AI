@@ -54,3 +54,58 @@
     background-color: white;
     color: #111827;
 }
+
+/* Ensure the main container allows sticky to work */
+.layout-container {
+    overflow: visible;
+}
+
+.layout-content-container {
+    overflow: visible;
+}
+
+/* Reservation page - let parent handle scroll */
+:host {
+    display: block;
+    min-height: 100%;
+    width: 100%;
+}
+
+/* Placeholder to maintain layout spacing where summary would be */
+.summary-placeholder {
+    width: 360px;
+    flex-shrink: 0;
+    display: none;
+}
+
+/* Summary panel - ALWAYS fixed on desktop */
+.summary-container {
+    width: 360px;
+    flex-shrink: 0;
+}
+
+@media (min-width: 1024px) {
+    .summary-placeholder {
+        display: block;
+    }
+    
+    .summary-container {
+        position: fixed;
+        top: 80px;
+        right: max(32px, calc((100vw - 1200px) / 2));
+        width: 360px;
+        max-height: calc(100vh - 100px);
+        overflow-y: auto;
+        z-index: 100;
+    }
+}
+
+@media (max-width: 1023px) {
+    .summary-container {
+        position: relative;
+        width: 100%;
+        top: auto;
+        right: auto;
+        max-height: none;
+    }
+}

@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
+import { withCors, corsResponse } from '@/lib/cors';
+
+export async function OPTIONS(request: Request) {
+  const origin = request.headers.get('origin');
+  return corsResponse(origin);
+}
 
 export async function POST(request: Request) {
+  const origin = request.headers.get('origin');
   try {
     const reservation = await request.json();
 
@@ -68,15 +75,21 @@ export async function POST(request: Request) {
 
     await batch.commit();
 
-    return NextResponse.json(
-      { message: 'Reservation submitted successfully', orderId },
-      { status: 201 }
+    return withCors(
+      NextResponse.json(
+        { message: 'Reservation submitted successfully', orderId },
+        { status: 201 }
+      ),
+      origin
     );
   } catch (error) {
     console.error('Error submitting reservation:', error);
-    return NextResponse.json(
-      { error: 'Failed to submit reservation' },
-      { status: 500 }
+    return withCors(
+      NextResponse.json(
+        { error: 'Failed to submit reservation' },
+        { status: 500 }
+      ),
+      origin
     );
   }
 }

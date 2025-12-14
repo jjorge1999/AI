@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   RouterOutlet,
@@ -121,12 +121,24 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   }
 
-  ngOnInit() {}
+  ngOnInit() {
+    // Listen for openChatBubble event from child components
+    window.addEventListener('openChatBubble', this.onOpenChatBubble.bind(this));
+  }
+
+  private onOpenChatBubble = (): void => {
+    this.isChatOpen = true;
+  };
 
   ngOnDestroy() {
     if (this.routerSub) {
       this.routerSub.unsubscribe();
     }
+    // Remove event listener
+    window.removeEventListener(
+      'openChatBubble',
+      this.onOpenChatBubble.bind(this)
+    );
   }
 
   // Helper for template conditional if needed, but we rely on activeTab update
