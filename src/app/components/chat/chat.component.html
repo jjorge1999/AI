@@ -287,7 +287,7 @@
                   'rounded-tr-none bg-primary text-white': isMyMessage(message),
                   'rounded-tl-none chat-message-bubble': !isMyMessage(message)
                 }">
-                <div *ngIf="message.text" [innerHTML]="message.text"></div>
+                <div *ngIf="message.text" class="message-text" [innerHTML]="message.text"></div>
                 <div *ngIf="message.audioBase64" class="flex items-center gap-2">
                   <span class="material-symbols-outlined text-lg">mic</span>
                   <audio controls [src]="message.audioBase64" class="h-8 max-w-[200px]"></audio>

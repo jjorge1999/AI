@@ -180,6 +180,7 @@ audio::-webkit-media-controls-play-button {
 .message-text {
   word-wrap: break-word;
   overflow-wrap: break-word;
+  white-space: pre-wrap;
 }
 
 .message-text a {
