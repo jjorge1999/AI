@@ -109,3 +109,35 @@
         max-height: none;
     }
 }
+
+/* Sale Banner Animations */
+.animate-pulse-subtle {
+    animation: pulse-subtle 3s ease-in-out infinite;
+}
+
+@keyframes pulse-subtle {
+    0%, 100% {
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+    }
+    50% {
+        box-shadow: 0 4px 25px rgba(239, 68, 68, 0.5);
+    }
+}
+
+.animate-shimmer {
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    50%, 100% {
+        transform: translateX(100%);
+    }
+}
+
+/* Strikethrough line style */
+.line-through {
+    text-decoration: line-through;
+}

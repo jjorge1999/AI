@@ -131,6 +131,15 @@
           <span class="material-icon" [class.fill]="activeTab === 'users'">manage_accounts</span>
           <span class="nav-label" *ngIf="!isSidebarCollapsed">User Management</span>
         </a>
+        <a 
+          class="nav-item" 
+          routerLink="/sales"
+          routerLinkActive="active"
+          (click)="closeMobileSidebar()"
+        >
+          <span class="material-icon" [class.fill]="activeTab === 'sales'">local_offer</span>
+          <span class="nav-label" *ngIf="!isSidebarCollapsed">Sales & Promos</span>
+        </a>
       </nav>
 
 

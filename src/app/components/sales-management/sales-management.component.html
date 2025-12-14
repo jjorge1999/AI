@@ -1,0 +1,322 @@
+<div class="sales-management">
+  <!-- Header Section -->
+  <div class="page-header">
+    <div class="header-content">
+      <div class="header-text">
+        <h2 class="page-title">Sales & Promotions</h2>
+        <p class="page-subtitle">Manage your active campaigns and discounted inventory.</p>
+      </div>
+      <button class="add-btn" (click)="openAddModal()">
+        <span class="material-symbols-outlined">add</span>
+        New Campaign
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats Grid -->
+  <div class="stats-grid">
+    <!-- Active Campaigns -->
+    <div class="stat-card">
+      <div class="stat-icon-bg">
+        <span class="material-symbols-outlined text-primary">campaign</span>
+      </div>
+      <p class="stat-label">Active Campaigns</p>
+      <div class="stat-value-row">
+        <p class="stat-value">{{ activeCampaignsCount }}</p>
+        <span class="stat-trend positive">
+          <span class="material-symbols-outlined">trending_up</span>
+          Active
+        </span>
+      </div>
+    </div>
+
+    <!-- Discounted SKUs -->
+    <div class="stat-card">
+      <div class="stat-icon-bg">
+        <span class="material-symbols-outlined text-primary">shopping_bag</span>
+      </div>
+      <p class="stat-label">Discounted SKUs</p>
+      <div class="stat-value-row">
+        <p class="stat-value">{{ discountedSkusCount }}</p>
+        <span class="stat-trend positive">
+          <span class="material-symbols-outlined">add</span>
+          Items on sale
+        </span>
+      </div>
+    </div>
+
+    <!-- Avg Discount -->
+    <div class="stat-card">
+      <div class="stat-icon-bg">
+        <span class="material-symbols-outlined text-primary">percent</span>
+      </div>
+      <p class="stat-label">Avg. Discount</p>
+      <div class="stat-value-row">
+        <p class="stat-value">{{ avgDiscount }}%</p>
+        <span class="stat-trend positive">
+          <span class="material-symbols-outlined">trending_up</span>
+          Average
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Campaigns Section -->
+  <div class="section-container">
+    <div class="section-header">
+      <h3 class="section-title">All Campaigns</h3>
+    </div>
+    
+    <div class="campaigns-grid">
+      <div *ngFor="let sale of sales" class="campaign-card" [class.active]="isSaleActive(sale)">
+        <div class="card-header">
+          <div class="campaign-info">
+            <div class="campaign-icon">{{ sale.bannerIcon || '🎉' }}</div>
+            <div>
+              <h4 class="campaign-name">{{ sale.name }}</h4>
+              <p class="campaign-sub">
+                {{ sale.discount }}% OFF • {{ sale.duration }} days • 
+                <span [class.text-psy]="sale.saleType !== 'actual'" [class.text-act]="sale.saleType === 'actual'">
+                  {{ sale.saleType === 'actual' ? 'Actual Deal' : 'Psychological' }}
+                </span>
+              </p>
+            </div>
+          </div>
+          <span class="status-badge" [class.live]="isSaleActive(sale)" [class.scheduled]="!isSaleActive(sale) && sale.isActive" [class.disabled]="!sale.isActive">
+            {{ isSaleActive(sale) ? 'Active' : (sale.isActive ? 'Scheduled' : 'Disabled') }}
+          </span>
+        </div>
+
+        <div class="progress-section">
+          <div class="progress-labels">
+            <span>Duration</span>
+            <span>{{ getDateString(sale) }} - {{ getEndDateString(sale) }}</span>
+          </div>
+          <div class="progress-bar-bg">
+             <!-- Simple logic: if active, show 50%, if scheduled 0%, if done 100% (simplified) -->
+            <div class="progress-bar" [style.width.%]="isSaleActive(sale) ? 50 : 0"></div>
+          </div>
+        </div>
+
+        <div class="card-actions">
+          <button class="action-btn" (click)="openEditModal(sale)">Edit Details</button>
+          <button class="action-btn" (click)="toggleActive(sale)">{{ sale.isActive ? 'Disable' : 'Enable' }}</button>
+          <button class="action-btn delete-btn" (click)="deleteSale(sale)">
+            <span class="material-symbols-outlined">delete</span>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Empty State -->
+      <div *ngIf="sales.length === 0" class="empty-campaigns">
+        <p>No campaigns found.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Discounted Inventory Table -->
+  <div class="table-section">
+    <div class="table-header">
+      <h3 class="section-title">Discounted Inventory</h3>
+      <div class="table-actions">
+
+
+        <!-- Search placeholder -->
+        <div class="search-box">
+          <span class="material-symbols-outlined">search</span>
+          <input type="text" placeholder="Search..." disabled title="Search coming soon">
+        </div>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <table class="inventory-table">
+        <thead>
+          <tr>
+            <th>Product Name</th>
+            <th>Category</th>
+            <th>Base Price</th>
+            <th>Sale Price</th>
+            <th>Discount</th>
+            <th>Campaign</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let product of paginatedProducts">
+            <td>
+              <div class="product-cell">
+                <div class="product-img" [style.backgroundImage]="product.imageUrl ? 'url(' + product.imageUrl + ')' : ''">
+                   <span *ngIf="!product.imageUrl" class="material-symbols-outlined">inventory_2</span>
+                </div>
+                <span>{{ product.name }}</span>
+              </div>
+            </td>
+            <td><span class="category-badge">{{ product.category }}</span></td>
+            <td class="original-price">{{ product.basePrice | currency:'PHP' }}</td>
+            <td class="sale-price">{{ product.salePrice | currency:'PHP' }}</td>
+            <td>
+              <span class="discount-badge">-{{ product.discountPercent }}%</span>
+            </td>
+            <td>{{ product.saleName }}</td>
+          </tr>
+          <tr *ngIf="discountedProducts.length === 0">
+            <td colspan="6" class="text-center py-4 text-muted">No products currently on sale.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Pagination Controls -->
+    <div class="pagination" *ngIf="discountedProducts.length > 0">
+      <div class="pagination-size">
+        Showing {{ startRange }}-{{ endRange }} of {{ discountedProducts.length }} results
+      </div>
+      <div class="pagination-controls">
+        <button class="pagination-btn" [disabled]="currentPage === 1" (click)="prevPage()">
+          <span class="material-symbols-outlined">chevron_left</span>
+        </button>
+        <div class="pagination-pages">
+          <button class="pagination-page active">{{ currentPage }}</button>
+          <span class="text-muted" *ngIf="totalPages > currentPage">...</span>
+          <button class="pagination-page" *ngIf="totalPages > currentPage" (click)="currentPage = totalPages">{{ totalPages }}</button>
+        </div>
+        <button class="pagination-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">
+          <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Modal (Reusing existing structure with new classes) -->
+  <div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">{{ isEditing ? 'Edit Sale Event' : 'Add Sale Event' }}</h3>
+        <button class="modal-close" (click)="closeModal()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Basic Info -->
+        <div class="form-section">
+          <h4>Basic Information</h4>
+          <div class="form-group">
+            <label class="form-label">Sale Name *</label>
+            <input type="text" [(ngModel)]="currentSale.name" placeholder="e.g., Christmas Sale" class="form-input" />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Month</label>
+              <select [(ngModel)]="currentSale.month" class="form-select">
+                <option *ngFor="let month of monthNames; let i = index" [value]="i + 1">{{ month }}</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Day</label>
+              <input type="number" [(ngModel)]="currentSale.day" min="1" max="31" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Duration (days)</label>
+              <input type="number" [(ngModel)]="currentSale.duration" min="1" max="365" class="form-input" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Sale Strategy & Discounts</label>
+            <div class="strategy-group">
+              <!-- Psychological Strategy -->
+              <div class="strategy-option" [class.active]="currentSale.isPsychologicalSale">
+                <div class="strategy-check">
+                    <input type="checkbox" [(ngModel)]="currentSale.isPsychologicalSale" id="check-psych">
+                    <label for="check-psych">
+                        <span class="strategy-title">Psychological Sale</span>
+                        <span class="strategy-desc">Inflates original price for larger perceived discount.</span>
+                    </label>
+                </div>
+                <div class="strategy-input" *ngIf="currentSale.isPsychologicalSale">
+                    <label>Markup %</label>
+                    <input type="number" [(ngModel)]="currentSale.psychologicalDiscount" min="5" max="95" step="5">
+                </div>
+              </div>
+
+              <!-- Actual Strategy -->
+              <div class="strategy-option border-t" [class.active]="currentSale.isActualSale">
+                <div class="strategy-check">
+                    <input type="checkbox" [(ngModel)]="currentSale.isActualSale" id="check-actual">
+                    <label for="check-actual">
+                        <span class="strategy-title">Actual Sale</span>
+                        <span class="strategy-desc">Reduces transaction price (Pay Less).</span>
+                    </label>
+                </div>
+                <div class="strategy-input" *ngIf="currentSale.isActualSale">
+                    <label>Discount %</label>
+                    <input type="number" [(ngModel)]="currentSale.actualDiscount" min="5" max="80" step="5">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Banner Customization -->
+        <div class="form-section">
+          <div class="section-top-row">
+            <h4>Banner Customization</h4>
+            <button type="button" class="ai-btn" (click)="generateAiPitch()" [disabled]="isGeneratingAi" title="Generate with Gemma AI">
+              <span class="material-symbols-outlined" [class.spin]="isGeneratingAi">
+                {{ isGeneratingAi ? 'autorenew' : 'auto_awesome' }}
+              </span>
+              <span>{{ isGeneratingAi ? 'Thinking...' : 'AI Pitch' }}</span>
+            </button>
+          </div>
+          <div class="form-row">
+            <div class="form-group icon-group">
+              <label class="form-label">Icon (Emoji)</label>
+              <input type="text" [(ngModel)]="currentSale.bannerIcon" maxlength="2" class="form-input icon-input" />
+            </div>
+            <div class="form-group flex-1">
+              <label class="form-label">Banner Title</label>
+              <input type="text" [(ngModel)]="currentSale.bannerTitle" placeholder="e.g., 🎁 Christmas Sale!" class="form-input" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Banner Message</label>
+            <input type="text" [(ngModel)]="currentSale.bannerMessage" placeholder="e.g., Celebrate Christmas with amazing discounts!" class="form-input" />
+          </div>
+        </div>
+
+        <!-- Product Filtering -->
+        <div class="form-section">
+          <h4>Product Filtering (Optional)</h4>
+          <div class="form-group">
+            <label class="form-label">Include Keywords (comma-separated)</label>
+            <textarea [(ngModel)]="holidayKeywordsString" placeholder="e.g., lechon, food, party, gift, cake" rows="2" class="form-textarea"></textarea>
+            <small>Products containing these keywords will be on sale</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Exclude Keywords (comma-separated)</label>
+            <textarea [(ngModel)]="excludeKeywordsString" placeholder="e.g., sand, cement, holloblock, construction" rows="2" class="form-textarea"></textarea>
+            <small>Products containing these keywords will NOT be on sale</small>
+          </div>
+        </div>
+
+        <!-- Status -->
+        <div class="form-section">
+          <label class="checkbox-label">
+            <input type="checkbox" [(ngModel)]="currentSale.isActive" />
+            <span>Sale is Active</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-cancel" (click)="closeModal()">Cancel</button>
+        <button class="btn-submit" (click)="saveSale()">
+          <span class="material-symbols-outlined">{{ isEditing ? 'save' : 'add' }}</span>
+          {{ isEditing ? 'Save Changes' : 'Create Sale' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -13,7 +13,9 @@ import { InventoryService } from '../../services/inventory.service';
 import { ReservationService } from '../../services/reservation.service';
 import { CustomerService } from '../../services/customer.service';
 import { DialogService } from '../../services/dialog.service';
+import { SaleService } from '../../services/sale.service';
 import { Product } from '../../models/inventory.models';
+import { SaleEvent } from '../../models/sale.model';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { take } from 'rxjs/operators';
 
@@ -39,9 +41,31 @@ export class ReservationComponent implements OnInit, OnDestroy {
   notes = '';
   paymentOption = '';
   searchQuery = '';
+  selectedCategory = 'All'; // Category filter
   paymentOptions = ['Cash on Delivery', 'Gcash', 'Bank Transfer'];
   pickupDate: string = ''; // YYYY-MM-DD
   pickupTime: string = '';
+
+  // Special Events Calendar for automatic sales
+  // Current active sale (loaded from Firestore)
+  currentSale: {
+    name: string;
+    discount: number;
+    endsIn: number;
+    endDate: Date;
+    bannerTitle?: string;
+    bannerMessage?: string;
+    bannerIcon?: string;
+    holidayKeywords?: string[];
+    excludeKeywords?: string[];
+    saleType?: 'actual' | 'psychological';
+    isActualSale?: boolean;
+    actualDiscount?: number;
+    isPsychologicalSale?: boolean;
+    psychologicalDiscount?: number;
+  } | null = null;
+  countdown = { days: 0, hours: 0, minutes: 0, seconds: 0 };
+  private countdownInterval: any = null;
 
   orderItems: OrderItem[] = [];
   selectedProduct: Product | null = null;
@@ -59,6 +83,7 @@ export class ReservationComponent implements OnInit, OnDestroy {
     private reservationService: ReservationService,
     private customerService: CustomerService,
     private dialogService: DialogService,
+    private saleService: SaleService,
     private router: Router
   ) {}
 
@@ -89,6 +114,16 @@ export class ReservationComponent implements OnInit, OnDestroy {
     this.generateCalendar();
     this.loadProducts();
 
+    // Start listening to sales from Firestore and check for active sales
+    this.saleService.startListening();
+    this.subscriptions.add(
+      this.saleService.getSales().subscribe((sales) => {
+        if (sales.length > 0) {
+          this.checkCurrentSale();
+        }
+      })
+    );
+
     // Setup scroll listener on public-container
     setTimeout(() => this.setupScrollListener(), 100);
   }
@@ -116,6 +151,12 @@ export class ReservationComponent implements OnInit, OnDestroy {
         this.onScroll.bind(this)
       );
     }
+    // Clear countdown interval
+    if (this.countdownInterval) {
+      clearInterval(this.countdownInterval);
+    }
+    // Stop listening to Firestore sales
+    this.saleService.stopListening();
   }
 
   openChat(): void {
@@ -133,17 +174,369 @@ export class ReservationComponent implements OnInit, OnDestroy {
     );
   }
 
+  /**
+   * Check if there's an active special event sale (from Firestore)
+   */
+  private checkCurrentSale(): void {
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const sales = this.saleService['salesSubject'].value;
+
+    for (const sale of sales) {
+      if (!sale.isActive) continue;
+
+      const eventStart = new Date(now.getFullYear(), sale.month - 1, sale.day);
+      const eventEnd = new Date(eventStart);
+      eventEnd.setDate(eventEnd.getDate() + sale.duration);
+      eventEnd.setHours(23, 59, 59, 999);
+
+      // Handle year wrap-around
+      if (sale.month === 12 && currentMonth === 1) {
+        eventStart.setFullYear(now.getFullYear() - 1);
+        eventEnd.setFullYear(now.getFullYear());
+      }
+
+      if (now >= eventStart && now <= eventEnd) {
+        const daysRemaining = Math.ceil(
+          (eventEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        this.currentSale = {
+          name: sale.name,
+          discount: sale.discount,
+          endsIn: daysRemaining,
+          endDate: eventEnd,
+          bannerTitle: sale.bannerTitle,
+          bannerMessage: sale.bannerMessage,
+          bannerIcon: sale.bannerIcon,
+          holidayKeywords: sale.holidayKeywords,
+          excludeKeywords: sale.excludeKeywords,
+          saleType: sale.saleType,
+          isActualSale: sale.isActualSale,
+          actualDiscount: sale.actualDiscount,
+          isPsychologicalSale: sale.isPsychologicalSale,
+          psychologicalDiscount: sale.psychologicalDiscount,
+        };
+        this.startCountdown();
+        return;
+      }
+    }
+    this.currentSale = null;
+  }
+
+  /**
+   * Start the countdown timer
+   */
+  private startCountdown(): void {
+    if (this.countdownInterval) {
+      clearInterval(this.countdownInterval);
+    }
+    this.updateCountdown();
+    this.countdownInterval = setInterval(() => this.updateCountdown(), 1000);
+  }
+
+  /**
+   * Update countdown values
+   */
+  private updateCountdown(): void {
+    if (!this.currentSale) return;
+
+    const now = new Date().getTime();
+    const end = this.currentSale.endDate.getTime();
+    const diff = end - now;
+
+    if (diff <= 0) {
+      this.countdown = { days: 0, hours: 0, minutes: 0, seconds: 0 };
+      this.currentSale = null;
+      if (this.countdownInterval) {
+        clearInterval(this.countdownInterval);
+      }
+      return;
+    }
+
+    this.countdown = {
+      days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+      hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+      minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+      seconds: Math.floor((diff % (1000 * 60)) / 1000),
+    };
+  }
+
+  /**
+   * Generate a pseudo-random but consistent discount for a product
+   * Uses product ID hash to create consistent randomization
+   */
+  private getProductSeed(productId: string): number {
+    let hash = 0;
+    for (let i = 0; i < productId.length; i++) {
+      hash = (hash << 5) - hash + productId.charCodeAt(i);
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash);
+  }
+
+  // Default keywords (fallback if sale doesn't specify)
+  private defaultHolidayKeywords = [
+    'lechon',
+    'food',
+    'party',
+    'cake',
+    'drink',
+    'beverage',
+    'wine',
+    'ham',
+    'fruit',
+    'meat',
+    'chicken',
+    'pork',
+    'beef',
+    'seafood',
+    'fish',
+    'dessert',
+    'candy',
+    'chocolate',
+    'gift',
+    'decoration',
+    'light',
+    'ornament',
+    'toy',
+    'clothing',
+    'dress',
+    'shirt',
+    'shoes',
+    'bag',
+    'watch',
+    'jewelry',
+    'electronics',
+    'phone',
+    'laptop',
+    'tablet',
+    'appliance',
+    'kitchen',
+  ];
+
+  private defaultExcludeKeywords = [
+    'sand',
+    'gravel',
+    'cement',
+    'holloblock',
+    'hollow',
+    'block',
+    'steel',
+    'rebar',
+    'wire',
+    'nail',
+    'lumber',
+    'wood',
+    'plywood',
+    'paint',
+    'tile',
+    'pipe',
+    'pvc',
+    'fitting',
+    'construction',
+    'building',
+    'hardware',
+  ];
+
+  /**
+   * Check if a product is holiday-related (eligible for sale)
+   * Uses keywords from currentSale if available, otherwise defaults
+   */
+  isHolidayItem(product: Product): boolean {
+    const name = product.name.toLowerCase();
+    const category = (product.category || '').toLowerCase();
+
+    // Get keywords from current sale or use defaults
+    const excludeKeywords =
+      this.currentSale?.excludeKeywords || this.defaultExcludeKeywords;
+    const holidayKeywords =
+      this.currentSale?.holidayKeywords || this.defaultHolidayKeywords;
+
+    // Check if it's explicitly excluded
+    for (const keyword of excludeKeywords) {
+      if (name.includes(keyword) || category.includes(keyword)) {
+        return false;
+      }
+    }
+
+    // Check if it matches holiday keywords
+    for (const keyword of holidayKeywords) {
+      if (name.includes(keyword) || category.includes(keyword)) {
+        return true;
+      }
+    }
+
+    // Default: items not in construction/hardware categories are on sale
+    return !['construction', 'hardware', 'building', 'industrial'].includes(
+      category
+    );
+  }
+
+  /**
+   * Check if a specific product should show as on sale
+   */
+  isProductOnSale(product: Product): boolean {
+    return this.isSaleActive && this.isHolidayItem(product);
+  }
+
+  /**
+   * Get randomized discount percentage for a specific product
+   * Varies from base discount ± 15% for variety
+   * ADJUSTED based on stock level ("actual sold" proxy):
+   * - High stock (>20): +Discount (Clearance)
+   * - Low stock (<5): -Discount (Scarcity)
+   */
+  calculateDynamicDiscount(product: Product, baseDiscount: number): number {
+    const seed = this.getProductSeed(product.id);
+    const baseVariation = (seed % 25) - 15;
+
+    let stockAdjustment = 0;
+    if (product.quantity > 20) stockAdjustment = 5 + (seed % 6);
+    else if (product.quantity < 5) stockAdjustment = -5 - (seed % 6);
+
+    const adjusted = Math.min(
+      95,
+      Math.max(15, baseDiscount + baseVariation + stockAdjustment)
+    );
+    return Math.round(adjusted / 5) * 5;
+  }
+
+  getProductDiscount(product: Product): number {
+    if (!this.currentSale || !this.isHolidayItem(product)) return 0;
+
+    const final = this.getFinalPrice(product);
+    const original = this.getOriginalPrice(product);
+
+    if (original <= final) return 0;
+    return Math.round(((original - final) / original) * 100);
+  }
+
+  getOriginalPrice(product: Product): number {
+    if (!this.currentSale || !this.isHolidayItem(product)) return product.price;
+
+    const isActual = this.currentSale.isActualSale;
+    const isPsych = this.currentSale.isPsychologicalSale;
+    const actDisc = this.currentSale.actualDiscount || 0;
+    const psyDisc = this.currentSale.psychologicalDiscount || 0;
+
+    // Fallback for legacy
+    if (isActual === undefined && isPsych === undefined) {
+      const type = this.currentSale.saleType || 'psychological';
+      if (type === 'actual') return product.price;
+      // Psych fallback (using legacy 'discount' property? Accessing via 'this.currentSale.discount' might be tricky if type def says it's missing on SaleEvent?)
+      // Actually SaleEvent helper/interface usually has 'discount'.
+      // But in Step 1076 I removed it? No, I KEPT it.
+      // 'discount' logic in older code used 'this.currentSale.discount'.
+      // I'll grab it safely.
+      const fallbackDisc = (this.currentSale as any).discount || 30;
+      const disc = this.calculateDynamicDiscount(product, fallbackDisc);
+      return Math.ceil(product.price / (1 - disc / 100) / 10) * 10;
+    }
+
+    if (isPsych) {
+      // Inflate from the Final Price (so badge matches input)
+      const finalPrice = this.getFinalPrice(product);
+      const dynamicPsyDisc = this.calculateDynamicDiscount(product, psyDisc);
+      const multiplier = 1 - dynamicPsyDisc / 100;
+      const inflated = finalPrice / multiplier;
+      return Math.ceil(inflated / 10) * 10;
+    }
+
+    return product.price;
+  }
+
+  getFinalPrice(product: Product): number {
+    if (!this.currentSale || !this.isHolidayItem(product)) return product.price;
+
+    const isActual = this.currentSale.isActualSale;
+    const actDisc = this.currentSale.actualDiscount || 0;
+
+    // Fallback
+    if (isActual === undefined) {
+      if (this.currentSale.saleType === 'actual') {
+        const fallbackDisc = (this.currentSale as any).discount || 30;
+        const disc = this.calculateDynamicDiscount(product, fallbackDisc);
+        return product.price * (1 - disc / 100);
+      }
+      return product.price;
+    }
+
+    if (isActual) {
+      const dynamicActDisc = this.calculateDynamicDiscount(product, actDisc);
+      return product.price * (1 - dynamicActDisc / 100);
+    }
+
+    return product.price;
+  }
+
+  /**
+   * Check if sale is active
+   */
+  get isSaleActive(): boolean {
+    return this.currentSale !== null;
+  }
+
+  // Banner Interactivity
+  scrollToFeaturedDeals() {
+    // Small delay to ensure view is ready if toggled
+    setTimeout(() => {
+      const element = document.getElementById('featured-deals');
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+  }
+
+  get urgencyLevel(): 'normal' | 'warning' | 'critical' {
+    if (this.countdown.days >= 3) return 'normal';
+    if (this.countdown.days >= 1) return 'warning';
+    return 'critical'; // < 24 hours
+  }
+
+  get urgencyText(): string {
+    switch (this.urgencyLevel) {
+      case 'critical':
+        return 'HURRY! ENDING SOON';
+      case 'warning':
+        return 'Time is Running Out';
+      default:
+        return 'Ends in';
+    }
+  }
+
+  // Get unique categories from products
+  get categories(): string[] {
+    const cats = new Set(this.products.map((p) => p.category || 'Other'));
+    return ['All', ...Array.from(cats).sort()];
+  }
+
   get filteredProducts(): Product[] {
     let result = this.products;
+
+    // Filter by category
+    if (this.selectedCategory && this.selectedCategory !== 'All') {
+      result = result.filter((p) => p.category === this.selectedCategory);
+    }
+
+    // Filter by search query
     if (this.searchQuery) {
       const q = this.searchQuery.toLowerCase();
-      result = this.products.filter(
+      result = result.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
           (p.category && p.category.toLowerCase().includes(q))
       );
     }
     return result;
+  }
+
+  // Low stock detection (subtle urgency without revealing exact numbers)
+  isLowStock(product: Product): boolean {
+    return product.quantity > 0 && product.quantity <= 10;
+  }
+
+  isVeryLowStock(product: Product): boolean {
+    return product.quantity > 0 && product.quantity <= 3;
   }
 
   // Step completion checks
@@ -203,7 +596,7 @@ export class ReservationComponent implements OnInit, OnDestroy {
 
   get totalAmount(): number {
     return this.orderItems.reduce(
-      (sum, item) => sum + item.product.price * item.quantity,
+      (sum, item) => sum + this.getFinalPrice(item.product) * item.quantity,
       0
     );
   }
@@ -327,7 +720,7 @@ export class ReservationComponent implements OnInit, OnDestroy {
             productId: i.product.id,
             productName: i.product.name,
             quantity: i.quantity,
-            price: i.product.price,
+            price: this.getFinalPrice(i.product),
           })),
           totalAmount: this.totalAmount,
           notes: fullNotes,
@@ -355,7 +748,7 @@ export class ReservationComponent implements OnInit, OnDestroy {
         items: this.orderItems.map((i) => ({
           name: i.product.name,
           quantity: i.quantity,
-          price: i.product.price,
+          price: this.getFinalPrice(i.product),
         })),
         totalAmount: this.totalAmount,
         paymentMethod: this.paymentOption || 'Not Specified',
@@ -399,6 +792,31 @@ export class ReservationComponent implements OnInit, OnDestroy {
   makeNewReservation(): void {
     this.successMessage = '';
     this.resetForm();
+  }
+
+  // Sale Table Pagination
+  salePage = 1;
+  salePageSize = 5;
+
+  get discountedProducts(): Product[] {
+    return this.products.filter((p) => this.isProductOnSale(p));
+  }
+
+  get paginatedSaleProducts(): Product[] {
+    const start = (this.salePage - 1) * this.salePageSize;
+    return this.discountedProducts.slice(start, start + this.salePageSize);
+  }
+
+  get saleTotalPages(): number {
+    return Math.ceil(this.discountedProducts.length / this.salePageSize);
+  }
+
+  nextSalePage() {
+    if (this.salePage < this.saleTotalPages) this.salePage++;
+  }
+
+  prevSalePage() {
+    if (this.salePage > 1) this.salePage--;
   }
 
   goBack(): void {

@@ -124,6 +124,13 @@ export const routes: Routes = [
             (m) => m.UserManagementComponent
           ),
       },
+      {
+        path: 'sales',
+        loadComponent: () =>
+          import(
+            './components/sales-management/sales-management.component'
+          ).then((m) => m.SalesManagementComponent),
+      },
     ],
   },
 
