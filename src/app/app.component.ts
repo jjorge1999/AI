@@ -61,6 +61,12 @@ export class AppComponent implements OnInit, OnDestroy {
     this.userService.isLoggedIn$.subscribe((loggedIn) => {
       this.isLoggedIn = loggedIn;
       if (this.isLoggedIn) {
+        // Refresh user info from localStorage after login
+        this.userRole = localStorage.getItem('jjm_role') || 'user';
+        this.userFullName =
+          localStorage.getItem('jjm_fullname') ||
+          localStorage.getItem('jjm_username') ||
+          'User';
         this.inventoryService.reloadData();
       }
     });
