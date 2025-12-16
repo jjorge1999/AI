@@ -108,7 +108,9 @@
               <button class="qty-btn" (click)="decrementItem(i)">
                 <span class="material-icon">remove</span>
               </button>
-              <span class="qty-value">{{ item.quantity }}</span>
+              <button class="qty-value-btn" (click)="openQuantityModal(i)" title="Click to enter quantity">
+                {{ item.quantity }}
+              </button>
               <button class="qty-btn" (click)="incrementItem(i)" [disabled]="item.quantity >= item.product.quantity">
                 <span class="material-icon">add</span>
               </button>
@@ -434,6 +436,72 @@
     <div class="modal-actions">
       <button class="btn-cancel" (click)="closeNotesModal()">Cancel</button>
       <button class="btn-save" (click)="closeNotesModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Quantity Modal -->
+<div class="modal-overlay" *ngIf="isQuantityModalOpen" (click)="closeQuantityModal()">
+  <div class="modal-content small qty-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><span class="material-icon">pin</span> Set Quantity</h3>
+      <button class="modal-close" (click)="closeQuantityModal()">
+        <span class="material-icon">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <!-- Current Product Info -->
+      <div class="qty-product-info" *ngIf="cart[quantityModalIndex]">
+        <span class="qty-product-name">{{ cart[quantityModalIndex].product.name }}</span>
+        <span class="qty-stock-info">Max: {{ quantityModalMax }} in stock</span>
+      </div>
+
+      <!-- Quantity Input with +/- -->
+      <div class="qty-input-group">
+        <button class="qty-modal-btn" (click)="decrementModalQty()" [disabled]="quantityModalValue <= 1">
+          <span class="material-icon">remove</span>
+        </button>
+        <input 
+          type="number" 
+          [(ngModel)]="quantityModalValue" 
+          min="1" 
+          [max]="quantityModalMax"
+          class="qty-input"
+        />
+        <button class="qty-modal-btn" (click)="incrementModalQty()" [disabled]="quantityModalValue >= quantityModalMax">
+          <span class="material-icon">add</span>
+        </button>
+      </div>
+
+      <!-- Quick Quantity Buttons -->
+      <div class="qty-quick-btns">
+        <button 
+          *ngFor="let q of [1, 5, 10, 25]"
+          class="quick-qty-btn" 
+          [class.active]="quantityModalValue === q"
+          [disabled]="q > quantityModalMax"
+          (click)="setQuickQuantity(q)"
+        >
+          {{ q }}
+        </button>
+        <button 
+          class="quick-qty-btn max-btn" 
+          [class.active]="quantityModalValue === quantityModalMax"
+          (click)="setQuickQuantity(quantityModalMax)"
+        >
+          MAX
+        </button>
+      </div>
+
+      <!-- Validation Hint -->
+      <p class="qty-hint" *ngIf="quantityModalValue > quantityModalMax">
+        <span class="material-icon">warning</span>
+        Exceeds available stock. Will be set to {{ quantityModalMax }}.
+      </p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" (click)="closeQuantityModal()">Cancel</button>
+      <button class="btn-save" (click)="applyQuantity()">Apply</button>
     </div>
   </div>
 </div>

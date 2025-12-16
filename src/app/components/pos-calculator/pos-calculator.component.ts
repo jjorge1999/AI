@@ -95,6 +95,12 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
   editDeliveryTime: string = '';
   editDeliveryNotes: string = '';
 
+  // Quantity modal state
+  isQuantityModalOpen = false;
+  quantityModalIndex: number = -1;
+  quantityModalValue: number = 1;
+  quantityModalMax: number = 1;
+
   // Pagination for Pending Deliveries
   pendingPage: number = 1;
   pendingPageSize: number = 5;
@@ -998,5 +1004,61 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     this.deliveryDate = '';
     this.deliveryTime = '';
     this.deliveryNotes = '';
+  }
+
+  // Quantity Modal Methods
+  openQuantityModal(index: number): void {
+    const item = this.cart[index];
+    if (!item) return;
+
+    this.quantityModalIndex = index;
+    this.quantityModalValue = item.quantity;
+    this.quantityModalMax = item.product.quantity;
+    this.isQuantityModalOpen = true;
+  }
+
+  closeQuantityModal(): void {
+    this.isQuantityModalOpen = false;
+    this.quantityModalIndex = -1;
+  }
+
+  applyQuantity(): void {
+    if (this.quantityModalIndex < 0) return;
+
+    const item = this.cart[this.quantityModalIndex];
+    if (!item) return;
+
+    // Validate quantity
+    let newQty = Math.floor(this.quantityModalValue);
+    if (isNaN(newQty) || newQty < 1) {
+      newQty = 1;
+    } else if (newQty > this.quantityModalMax) {
+      newQty = this.quantityModalMax;
+    }
+
+    item.quantity = newQty;
+    item.total = this.calculateItemTotal(item);
+
+    this.closeQuantityModal();
+  }
+
+  incrementModalQty(): void {
+    if (this.quantityModalValue < this.quantityModalMax) {
+      this.quantityModalValue++;
+    }
+  }
+
+  decrementModalQty(): void {
+    if (this.quantityModalValue > 1) {
+      this.quantityModalValue--;
+    }
+  }
+
+  setQuickQuantity(value: number): void {
+    if (value <= this.quantityModalMax) {
+      this.quantityModalValue = value;
+    } else {
+      this.quantityModalValue = this.quantityModalMax;
+    }
   }
 }

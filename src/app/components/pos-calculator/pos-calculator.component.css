@@ -1290,4 +1290,193 @@
   }
 }
 
+/* ========================================
+   Quantity Value Button (Clickable)
+   ======================================== */
+.qty-value-btn {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  text-align: center;
+  background: transparent;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.qty-value-btn:hover {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+  border-style: solid;
+}
+
+/* ========================================
+   Quantity Modal Styles
+   ======================================== */
+.qty-modal .modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  align-items: center;
+}
+
+.qty-product-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.qty-product-name {
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: 1rem;
+}
+
+.qty-stock-info {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.qty-input-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  background: var(--color-bg);
+  padding: var(--space-sm);
+  border-radius: var(--radius-xl);
+}
+
+.qty-modal-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.qty-modal-btn:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: white;
+  transform: scale(1.1);
+}
+
+.qty-modal-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.qty-modal-btn .material-icon {
+  font-size: 24px;
+}
+
+.qty-input {
+  width: 80px;
+  height: 56px;
+  text-align: center;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.qty-input:focus {
+  border-color: var(--color-primary);
+}
+
+/* Hide spinner for number input */
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+.qty-input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.qty-quick-btns {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.quick-qty-btn {
+  min-width: 48px;
+  height: 40px;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.quick-qty-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: rgba(19, 127, 236, 0.1);
+  color: var(--color-primary);
+}
+
+.quick-qty-btn.active {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.quick-qty-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.quick-qty-btn.max-btn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border-color: #10b981;
+}
+
+.quick-qty-btn.max-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  border-color: #059669;
+}
+
+.quick-qty-btn.max-btn.active {
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.qty-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.75rem;
+  color: #f59e0b;
+  margin: 0;
+}
+
+.qty-hint .material-icon {
+  font-size: 16px;
+}
 
