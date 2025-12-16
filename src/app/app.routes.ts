@@ -26,10 +26,22 @@ const adminGuard = () => {
   return true;
 };
 
+// Public guard - prevents logged-in users from accessing public pages
+const publicGuard = () => {
+  const router = inject(Router);
+  const isLoggedIn = localStorage.getItem('jjm_logged_in') === 'true';
+
+  if (isLoggedIn) {
+    return router.createUrlTree(['/home']);
+  }
+  return true;
+};
+
 export const routes: Routes = [
-  // Public routes
+  // Public routes (logged-in users redirected to home)
   {
     path: 'login',
+    canActivate: [publicGuard],
     loadComponent: () =>
       import('./components/login/login.component').then(
         (m) => m.LoginComponent
