@@ -453,9 +453,9 @@
                                 </div>
                             </div>
                             
-                            <!-- Social Proof Section (Compact) -->
+                            <!-- Social Proof Section -->
                             <div class="social-proof-section bg-gradient-to-r from-blue-50 to-purple-50 dark:from-[#1a2432] dark:to-[#1e2a3d] rounded-lg p-3 border border-blue-100 dark:border-blue-900/30">
-                                <!-- Header with inline stats -->
+                                <!-- Header with toggle button -->
                                 <div class="flex items-center justify-between mb-2">
                                     <div class="flex items-center gap-1.5">
                                         <span class="material-symbols-outlined text-blue-600 dark:text-blue-400 text-base">groups</span>
@@ -465,16 +465,42 @@
                                             Live
                                         </span>
                                     </div>
-                                    <div class="flex items-center gap-2 text-[10px]">
-                                        <span class="text-blue-600 dark:text-blue-400 font-bold">{{ recentReservationsToday }} today</span>
-                                        <span class="text-gray-400">•</span>
-                                        <span class="text-purple-600 dark:text-purple-400 font-bold">{{ recentReservationsWeek }} this week</span>
+                                    <button 
+                                        (click)="activityViewExpanded = !activityViewExpanded"
+                                        class="p-1 rounded hover:bg-white/50 dark:hover:bg-[#233348]/50 transition-colors"
+                                        [attr.title]="activityViewExpanded ? 'Compact view' : 'Expand view'">
+                                        <span class="material-symbols-outlined text-gray-500 dark:text-gray-400 text-sm">
+                                            {{ activityViewExpanded ? 'unfold_less' : 'unfold_more' }}
+                                        </span>
+                                    </button>
+                                </div>
+                                
+                                <!-- Compact Stats (always visible) -->
+                                <div class="flex items-center gap-2 text-[10px] mb-2">
+                                    <span class="text-blue-600 dark:text-blue-400 font-bold">{{ recentReservationsToday }} today</span>
+                                    <span class="text-gray-400">•</span>
+                                    <span class="text-purple-600 dark:text-purple-400 font-bold">{{ recentReservationsWeek }} this week</span>
+                                </div>
+                                
+                                <!-- Expanded Stats Grid (only when expanded) -->
+                                <div *ngIf="activityViewExpanded" class="grid grid-cols-3 gap-2 mb-3">
+                                    <div class="text-center p-2 bg-white/60 dark:bg-[#233348]/60 rounded-lg">
+                                        <div class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ recentReservationsToday }}</div>
+                                        <div class="text-[9px] text-gray-500 dark:text-gray-400 uppercase tracking-wider">Today</div>
+                                    </div>
+                                    <div class="text-center p-2 bg-white/60 dark:bg-[#233348]/60 rounded-lg">
+                                        <div class="text-lg font-bold text-purple-600 dark:text-purple-400">{{ recentReservationsWeek }}</div>
+                                        <div class="text-[9px] text-gray-500 dark:text-gray-400 uppercase tracking-wider">This Week</div>
+                                    </div>
+                                    <div class="text-center p-2 bg-white/60 dark:bg-[#233348]/60 rounded-lg">
+                                        <div class="text-lg font-bold text-orange-600 dark:text-orange-400">{{ busyDatesCount }}</div>
+                                        <div class="text-[9px] text-gray-500 dark:text-gray-400 uppercase tracking-wider">Busy Dates</div>
                                     </div>
                                 </div>
                                 
-                                <!-- Show only 2 recent activities -->
+                                <!-- Recent Activities List -->
                                 <div class="space-y-1">
-                                    <div *ngFor="let activity of recentActivities.slice(0, 2)" 
+                                    <div *ngFor="let activity of activityViewExpanded ? recentActivities : recentActivities.slice(0, 2)" 
                                          class="flex items-center gap-2 p-1 bg-white/40 dark:bg-[#233348]/40 rounded transition-all duration-300"
                                          [class.animate-slideIn]="activity.isNew">
                                         <div class="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-[8px] font-bold shrink-0">
@@ -487,20 +513,20 @@
                                     </div>
                                 </div>
                                 
-                                <!-- Busy dates inline -->
+                                <!-- Busy dates -->
                                 <div class="flex items-center gap-1.5 mt-2 pt-2 border-t border-gray-200/50 dark:border-gray-700/50 flex-wrap">
                                     <span class="text-[9px] text-gray-500 dark:text-gray-400 flex items-center gap-0.5">
                                         <span class="material-symbols-outlined text-orange-500 text-[10px]">event_busy</span>
                                         Busy:
                                     </span>
-                                    <span *ngFor="let date of busyDates.slice(0, 2)" 
+                                    <span *ngFor="let date of activityViewExpanded ? busyDates : busyDates.slice(0, 2)" 
                                           class="text-[9px] px-1.5 py-0.5 rounded-full"
                                           [ngClass]="{
                                               'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400': date.level === 'high',
                                               'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400': date.level === 'medium',
                                               'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400': date.level === 'low'
                                           }">
-                                        {{ date.label }}
+                                        {{ date.label }}{{ activityViewExpanded ? ' (' + date.count + ')' : '' }}
                                     </span>
                                 </div>
                             </div>

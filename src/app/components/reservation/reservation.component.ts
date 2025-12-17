@@ -79,6 +79,9 @@ export class ReservationComponent implements OnInit, OnDestroy {
   isSummarySticky = false;
   private scrollContainer: HTMLElement | null = null;
 
+  // Social proof view toggle (compact by default)
+  activityViewExpanded = false;
+
   constructor(
     private inventoryService: InventoryService,
     private reservationService: ReservationService,
