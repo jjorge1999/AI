@@ -106,9 +106,23 @@
 
                         <!-- Featured Deals Table -->
                         <div *ngIf="currentSale && discountedProducts.length > 0" id="featured-deals" class="flex flex-col gap-4 animate-fadeIn scroll-mt-24">
-                            <div class="flex items-center gap-2">
-                                <span class="material-symbols-outlined text-orange-500">local_fire_department</span>
-                                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Featured Deals</h3>
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-orange-500 text-xl translate-y-[3px]">local_fire_department</span>
+                                    <h3 class="text-lg font-bold text-gray-900 dark:text-white leading-tight">Featured Deals</h3>
+                                </div>
+                                
+                                <!-- Sort Dropdown -->
+                                <div class="relative flex items-center gap-2">
+                                    <span class="text-xs text-gray-500 dark:text-[#92a9c9] hidden sm:inline">Sort by:</span>
+                                    <select [(ngModel)]="saleSortBy" (ngModelChange)="setSaleSortBy($event)" class="text-xs sm:text-sm bg-white dark:bg-[#233348] border border-gray-300 dark:border-gray-600 rounded-lg px-2 sm:px-3 py-1.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-[#1269e2] focus:border-transparent cursor-pointer transition-all hover:border-blue-500 dark:hover:border-[#1269e2]">
+                                        <option value="discount">🔥 Best Discount</option>
+                                        <option value="price-low">💰 Lowest Price</option>
+                                        <option value="price-high">💎 Highest Price</option>
+                                        <option value="stock">⚡ Low Stock First</option>
+                                        <option value="name">🔤 A-Z</option>
+                                    </select>
+                                </div>
                             </div>
                             
                             <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1a2432] shadow-sm">
@@ -130,8 +144,17 @@
                                                         <div class="size-10 rounded-lg bg-gray-100 dark:bg-[#324867] flex items-center justify-center shrink-0 bg-cover bg-center border border-gray-200 dark:border-gray-600" [style.backgroundImage]="product.imageUrl ? 'url(' + product.imageUrl + ')' : ''">
                                                              <span *ngIf="!product.imageUrl" class="material-symbols-outlined text-gray-400 text-sm">inventory_2</span>
                                                         </div>
-                                                        <div class="flex flex-col">
-                                                            <span class="line-clamp-1 font-semibold">{{ product.name }}</span>
+                                                        <div class="flex flex-col gap-0.5">
+                                                            <div class="flex items-center gap-1.5">
+                                                                <span class="line-clamp-1 font-semibold">{{ product.name }}</span>
+                                                                <!-- Urgency Label for Low Stock -->
+                                                                <span *ngIf="isVeryLowStock(product)" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white uppercase animate-pulse whitespace-nowrap">
+                                                                    On-Demand
+                                                                </span>
+                                                                <span *ngIf="isLowStock(product) && !isVeryLowStock(product)" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500 text-white uppercase whitespace-nowrap">
+                                                                    Limited
+                                                                </span>
+                                                            </div>
                                                             <span class="text-xs text-orange-500 font-medium sm:hidden">-{{ getProductDiscount(product) }}% OFF</span>
                                                         </div>
                                                     </div>

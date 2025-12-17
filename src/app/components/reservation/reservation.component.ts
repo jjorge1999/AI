@@ -794,12 +794,57 @@ export class ReservationComponent implements OnInit, OnDestroy {
     this.resetForm();
   }
 
-  // Sale Table Pagination
+  // Sale Table Pagination and Sorting
   salePage = 1;
   salePageSize = 5;
+  saleSortBy: 'discount' | 'price-low' | 'price-high' | 'stock' | 'name' =
+    'discount';
 
   get discountedProducts(): Product[] {
-    return this.products.filter((p) => this.isProductOnSale(p));
+    const filtered = this.products.filter((p) => this.isProductOnSale(p));
+    return this.sortSaleProducts(filtered);
+  }
+
+  private sortSaleProducts(products: Product[]): Product[] {
+    const sorted = [...products];
+
+    switch (this.saleSortBy) {
+      case 'discount':
+        // Sort by highest discount first
+        return sorted.sort(
+          (a, b) => this.getProductDiscount(b) - this.getProductDiscount(a)
+        );
+
+      case 'price-low':
+        // Sort by lowest price first
+        return sorted.sort(
+          (a, b) => this.getFinalPrice(a) - this.getFinalPrice(b)
+        );
+
+      case 'price-high':
+        // Sort by highest price first
+        return sorted.sort(
+          (a, b) => this.getFinalPrice(b) - this.getFinalPrice(a)
+        );
+
+      case 'stock':
+        // Sort by stock level (low stock first for urgency)
+        return sorted.sort((a, b) => a.quantity - b.quantity);
+
+      case 'name':
+        // Sort alphabetically A-Z
+        return sorted.sort((a, b) => a.name.localeCompare(b.name));
+
+      default:
+        return sorted;
+    }
+  }
+
+  setSaleSortBy(
+    sortBy: 'discount' | 'price-low' | 'price-high' | 'stock' | 'name'
+  ) {
+    this.saleSortBy = sortBy;
+    this.salePage = 1; // Reset to first page when sorting changes
   }
 
   get paginatedSaleProducts(): Product[] {
