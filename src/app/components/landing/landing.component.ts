@@ -5,6 +5,7 @@ import { Subscription } from 'rxjs';
 import { InventoryService } from '../../services/inventory.service';
 import { CustomerService } from '../../services/customer.service';
 import { Product, Sale, Customer } from '../../models/inventory.models';
+import { DialogService } from '../../services/dialog.service';
 
 interface KpiCard {
   title: string;
@@ -51,6 +52,7 @@ export class LandingComponent implements OnInit, OnDestroy {
   categories: CategoryData[] = [];
   recentOrders: RecentOrder[] = [];
   lowStockItems: LowStockItem[] = [];
+  pendingDeliveries: Sale[] = []; // Added for Pending Deliveries
 
   // Chart data points (for SVG path)
   salesChartPath = '';
@@ -68,7 +70,8 @@ export class LandingComponent implements OnInit, OnDestroy {
   constructor(
     private inventoryService: InventoryService,
     private customerService: CustomerService,
-    private router: Router
+    private router: Router,
+    private dialogService: DialogService // Injected
   ) {
     this.userName =
       localStorage.getItem('jjm_fullname') ||
@@ -121,8 +124,69 @@ export class LandingComponent implements OnInit, OnDestroy {
     this.calculateCategories();
     this.loadRecentOrders();
     this.loadLowStockItems();
+    this.loadPendingDeliveries(); // Added
     this.generateChartPaths();
   }
+
+  // ... (existing updateDashboardData calls)
+
+  private loadPendingDeliveries(): void {
+    this.pendingDeliveries = this.sales
+      .filter((s) => s.pending === true)
+      .sort((a, b) => {
+        const dateA = a.deliveryDate ? new Date(a.deliveryDate).getTime() : 0;
+        const dateB = b.deliveryDate ? new Date(b.deliveryDate).getTime() : 0;
+        return dateA - dateB;
+      });
+  }
+
+  markAsDelivered(sale: Sale): void {
+    this.dialogService
+      .confirm('Mark this order as delivered?', 'Confirm Delivery')
+      .subscribe((confirm) => {
+        if (confirm) {
+          this.inventoryService.completePendingSale(sale.id);
+        }
+      });
+  }
+
+  confirmReservation(sale: Sale): void {
+    this.dialogService
+      .confirm('Confirm this reservation?', 'Approve Reservation')
+      .subscribe((confirm) => {
+        if (confirm) {
+          this.inventoryService.confirmReservation(sale);
+        }
+      });
+  }
+
+  cancelOrder(sale: Sale): void {
+    this.dialogService
+      .confirm('Cancel and delete this order?', 'Cancel Order')
+      .subscribe((confirm) => {
+        if (confirm) {
+          this.inventoryService.deleteSale(sale.id);
+        }
+      });
+  }
+
+  callCustomer(sale: Sale): void {
+    // Attempt to find phone number
+    let phone = sale.customerContact;
+
+    if (!phone && sale.customerId) {
+      const customer = this.customers.find((c) => c.id === sale.customerId);
+      if (customer) phone = customer.phoneNumber;
+    }
+
+    if (phone) {
+      window.location.href = `tel:${phone}`;
+    } else {
+      this.dialogService.warning('No phone number available', 'Cannot Call');
+    }
+  }
+
+  // ... (rest of methods)
 
   private calculateKpis(): void {
     // Total Stock Value
@@ -254,7 +318,7 @@ export class LandingComponent implements OnInit, OnDestroy {
     }
   }
 
-  private getCustomerDisplayName(sale: Sale): string {
+  getCustomerDisplayName(sale: Sale): string {
     // 1. First check if customerName is directly on the sale
     if (sale.customerName && sale.customerName.trim()) {
       return sale.customerName;

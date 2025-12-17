@@ -119,6 +119,72 @@
     </div>
   </div>
 
+  <!-- Pending Deliveries Section -->
+  <div class="table-card pending-section" *ngIf="pendingDeliveries.length > 0">
+    <div class="table-header">
+      <div class="header-title-group">
+        <h3 class="table-title">Pending Deliveries</h3>
+        <span class="badge-count">{{ pendingDeliveries.length }}</span>
+      </div>
+    </div>
+    <div class="table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Customer</th>
+            <th>Delivery Schedule</th>
+            <th>Status</th>
+            <th class="text-right">Quick Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of pendingDeliveries" class="table-row">
+             <td>
+               <div class="item-info">
+                 <span class="order-id">{{ item.productName }}</span>
+                 <span class="item-qty" *ngIf="item.quantitySold > 1">x{{ item.quantitySold }}</span>
+               </div>
+               <div class="order-sub" *ngIf="item.orderId">{{ item.orderId | slice:4:12 }}</div>
+             </td>
+             <td>{{ getCustomerDisplayName(item) }}</td>
+             <td>
+               <div class="delivery-date-cell" *ngIf="item.deliveryDate">
+                 <span class="material-icon">event</span>
+                 <span>{{ item.deliveryDate | date:'MMM d, y' }}</span>
+                 <span class="time-badge">{{ item.deliveryDate | date:'shortTime' }}</span>
+               </div>
+               <span *ngIf="!item.deliveryDate" class="text-muted">Not scheduled</span>
+             </td>
+             <td>
+                <span class="status-badge" [ngClass]="item.reservationStatus === 'pending_confirmation' ? 'status-processing' : 'status-pending'">
+                  {{ item.reservationStatus === 'pending_confirmation' ? 'Unconfirmed' : 'Pending' }}
+                </span>
+             </td>
+             <td class="text-right actions-cell">
+                <button class="action-btn call" (click)="callCustomer(item)" title="Call Customer">
+                  <span class="material-icon">phone</span>
+                  <span class="btn-label">Call</span>
+                </button>
+                <button class="action-btn confirm" (click)="confirmReservation(item)" title="Confirm Reservation" *ngIf="item.reservationStatus === 'pending_confirmation'">
+                  <span class="material-icon">check_circle</span>
+                  <span class="btn-label">Confirm</span>
+                </button>
+                <button class="action-btn deliver" (click)="markAsDelivered(item)" title="Mark as Delivered" *ngIf="item.reservationStatus !== 'pending_confirmation'">
+                  <span class="material-icon">local_shipping</span>
+                  <span class="btn-label">Deliver</span>
+                </button>
+                <button class="action-btn cancel" (click)="cancelOrder(item)" title="Cancel Order">
+                  <span class="material-icon">cancel</span>
+                  <span class="btn-label">Cancel</span>
+                </button>
+             </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- Bottom Grid: Tables -->
   <div class="tables-grid">
     <!-- Recent Orders Table -->
