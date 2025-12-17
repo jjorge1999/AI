@@ -40,8 +40,9 @@
                             </div>
                         </div>
 
-                        <!-- Sale Banner (Interactive & Mobile Responsive) -->
+                        <!-- Sale Banner (Interactive & Mobile Responsive) - Only show when there's an active sale -->
                         <div 
+                             *ngIf="currentSale"
                              (click)="scrollToFeaturedDeals()"
                              class="relative overflow-hidden rounded-xl bg-gradient-to-r from-red-500 via-pink-500 to-orange-500 p-4 sm:p-5 shadow-lg animate-pulse-subtle cursor-pointer group hover:shadow-2xl hover:scale-[1.005] sm:hover:scale-[1.01] transition-all duration-300 ring-offset-2 hover:ring-2 ring-red-400 dark:ring-offset-[#101822]">
                             <!-- Background Shimmer -->

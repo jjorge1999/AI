@@ -161,13 +161,44 @@ export class AiService {
   /**
    * Generate text specifically using Gemma via Hugging Face Inference Providers
    * Uses OpenAI-compatible chat completions format
+   * Falls back to alternative free models if rate limited
    */
+
+  // List of models to try in order (primary + fallbacks)
+  private readonly AI_MODELS = [
+    'google/gemma-2-2b-it', // Primary - Gemma
+    'meta-llama/Llama-3.2-3B-Instruct', // Fallback 1 - Llama
+    'mistralai/Mistral-7B-Instruct-v0.3', // Fallback 2 - Mistral
+    'Qwen/Qwen2.5-1.5B-Instruct', // Fallback 3 - Qwen (smaller)
+  ];
+
+  private currentModelIndex = 0;
+
   generateWithGemma(prompt: string): Observable<string | null> {
     const hfToken = this.getHfToken();
     if (!hfToken) {
       console.warn('AI Service: No Hugging Face token available for Gemma API');
       return of(null);
     }
+
+    return this.tryModelWithFallback(prompt, hfToken, 0);
+  }
+
+  /**
+   * Try a model, fall back to next if rate limited (402)
+   */
+  private tryModelWithFallback(
+    prompt: string,
+    hfToken: string,
+    modelIndex: number
+  ): Observable<string | null> {
+    if (modelIndex >= this.AI_MODELS.length) {
+      console.warn('AI Service: All models exhausted, falling back to local');
+      return of(null);
+    }
+
+    const model = this.AI_MODELS[modelIndex];
+    console.log(`AI Service: Trying model ${model}`);
 
     return from(
       fetch(this.HF_API_URL, {
@@ -177,7 +208,7 @@ export class AiService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemma-2-2b-it',
+          model: model,
           messages: [{ role: 'user', content: prompt }],
           max_tokens: 150,
           temperature: 0.7,
@@ -188,40 +219,54 @@ export class AiService {
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           console.error(
-            'AI Service: Gemma API error',
+            `AI Service: Model ${model} error`,
             response.status,
             errorData
           );
 
+          // Rate limit or payment required - try next model
+          if (response.status === 402 || response.status === 429) {
+            console.log(
+              `AI Service: ${model} rate limited, trying next model...`
+            );
+            return { tryNext: true };
+          }
+
           if (response.status === 503) {
             console.log(
-              'AI Service: Gemma model is loading, retrying in 5s...'
+              `AI Service: ${model} is loading, trying next model...`
             );
-            await new Promise((resolve) => setTimeout(resolve, 5000));
-            // Recursive retry needs to be handled carefully in Observables, usually using retryWhen or expand.
-            // For simplicity here, we'll return null to trigger fallback, or we could just error.
-            // To faithfully replicate await recursion:
-            throw new Error('503 Service Unavailable');
+            return { tryNext: true };
           }
+
           return null;
         }
         return response.json();
       }),
-      map((data: any) => {
-        if (!data) return null;
+      switchMap((data: any) => {
+        // If we need to try the next model
+        if (data && data.tryNext) {
+          return this.tryModelWithFallback(prompt, hfToken, modelIndex + 1);
+        }
+
+        if (!data) return of(null);
         if (data.choices && data.choices.length > 0) {
           const message = data.choices[0].message;
-          return message?.content?.trim() || null;
+          const content = message?.content?.trim() || null;
+          if (content) {
+            console.log(`AI Service: Successfully used model ${model}`);
+            this.currentModelIndex = modelIndex; // Remember working model
+          }
+          return of(content);
         }
-        return null;
+        return of(null);
       }),
       catchError((e) => {
-        if (e.message === '503 Service Unavailable') {
-          // Simple retry logic could be added here or in the caller.
-          // Since we can't easily recurse with simple return in this structure without `expand`, returning null causes fallback.
-          return of(null);
+        console.error(`AI Service: ${model} failed`, e);
+        // Try next model on error
+        if (modelIndex + 1 < this.AI_MODELS.length) {
+          return this.tryModelWithFallback(prompt, hfToken, modelIndex + 1);
         }
-        console.error('AI Service: Gemma generation failed', e);
         return of(null);
       })
     );
@@ -257,6 +302,7 @@ export class AiService {
 
   /**
    * Chat-style generation with Gemma (for more complex conversations)
+   * Also falls back to alternative models if rate limited
    */
   chatWithGemma(
     messages: { role: 'user' | 'model' | 'assistant'; content: string }[]
@@ -273,6 +319,25 @@ export class AiService {
       content: msg.content,
     }));
 
+    return this.tryChatWithFallback(formattedMessages, hfToken, 0);
+  }
+
+  /**
+   * Try chat with a model, fall back to next if rate limited
+   */
+  private tryChatWithFallback(
+    messages: { role: string; content: string }[],
+    hfToken: string,
+    modelIndex: number
+  ): Observable<string | null> {
+    if (modelIndex >= this.AI_MODELS.length) {
+      console.warn('AI Service: All models exhausted for chat');
+      return of(null);
+    }
+
+    const model = this.AI_MODELS[modelIndex];
+    console.log(`AI Service: Trying chat model ${model}`);
+
     return from(
       fetch(this.HF_API_URL, {
         method: 'POST',
@@ -281,8 +346,8 @@ export class AiService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemma-2-2b-it',
-          messages: formattedMessages,
+          model: model,
+          messages: messages,
           max_tokens: 200,
           temperature: 0.7,
         }),
@@ -292,24 +357,45 @@ export class AiService {
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           console.error(
-            'AI Service: Gemma chat error',
+            `AI Service: Chat model ${model} error`,
             response.status,
             errorData
           );
+
+          // Rate limit or payment required - try next model
+          if (
+            response.status === 402 ||
+            response.status === 429 ||
+            response.status === 503
+          ) {
+            console.log(`AI Service: ${model} unavailable, trying next...`);
+            return { tryNext: true };
+          }
           return null;
         }
         return response.json();
       }),
-      map((data: any) => {
-        if (!data) return null;
+      switchMap((data: any) => {
+        if (data && data.tryNext) {
+          return this.tryChatWithFallback(messages, hfToken, modelIndex + 1);
+        }
+
+        if (!data) return of(null);
         if (data.choices && data.choices.length > 0) {
           const message = data.choices[0].message;
-          return message?.content?.trim() || null;
+          const content = message?.content?.trim() || null;
+          if (content) {
+            console.log(`AI Service: Chat successfully used model ${model}`);
+          }
+          return of(content);
         }
-        return null;
+        return of(null);
       }),
       catchError((e) => {
-        console.error('AI Service: Gemma chat failed', e);
+        console.error(`AI Service: Chat ${model} failed`, e);
+        if (modelIndex + 1 < this.AI_MODELS.length) {
+          return this.tryChatWithFallback(messages, hfToken, modelIndex + 1);
+        }
         return of(null);
       })
     );
