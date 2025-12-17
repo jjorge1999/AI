@@ -1,0 +1,92 @@
+<div 
+  *ngIf="activeAds.length > 0" 
+  class="ads-slider-container"
+  (mouseenter)="onMouseEnter()"
+  (mouseleave)="onMouseLeave()"
+>
+  <!-- Slider Wrapper -->
+  <div class="slider-wrapper">
+    <!-- Current Ad Display -->
+    <div 
+      *ngIf="currentAd" 
+      class="ad-slide"
+      [class.fadeIn]="isTransitioning"
+      (click)="onAdClick(currentAd)"
+      [class.clickable]="currentAd.targetUrl"
+    >
+      <!-- Image Ad -->
+      <img 
+        *ngIf="currentAd.type === 'image'"
+        [src]="currentAd.mediaUrl"
+        [alt]="currentAd.title"
+        class="ad-media"
+        loading="lazy"
+        (error)="onMediaError(currentAd)"
+      />
+
+      <!-- Video Ad -->
+      <video 
+        *ngIf="currentAd.type === 'video'"
+        #videoPlayer
+        [src]="currentAd.mediaUrl"
+        class="ad-media"
+        autoplay
+        muted
+        playsinline
+        (ended)="onVideoEnded()"
+        (error)="onMediaError(currentAd)"
+      ></video>
+
+      <!-- Ad Overlay Info -->
+      <div class="ad-overlay">
+        <div class="ad-info">
+          <h3 class="ad-title">{{ currentAd.title }}</h3>
+          <p *ngIf="currentAd.description" class="ad-description">
+            {{ currentAd.description }}
+          </p>
+        </div>
+        
+        <!-- External Link Indicator -->
+        <span *ngIf="currentAd.targetUrl" class="link-indicator">
+          <span class="material-icon">open_in_new</span>
+          Visit
+        </span>
+      </div>
+    </div>
+
+    <!-- Navigation Arrows -->
+    <button 
+      *ngIf="activeAds.length > 1"
+      class="nav-btn prev-btn" 
+      (click)="prevSlide()"
+      aria-label="Previous ad"
+    >
+      <span class="material-icon">chevron_left</span>
+    </button>
+    <button 
+      *ngIf="activeAds.length > 1"
+      class="nav-btn next-btn" 
+      (click)="nextSlide()"
+      aria-label="Next ad"
+    >
+      <span class="material-icon">chevron_right</span>
+    </button>
+
+    <!-- Slide Indicators -->
+    <div *ngIf="activeAds.length > 1" class="slide-indicators">
+      <button
+        *ngFor="let ad of activeAds; let i = index"
+        [class.active]="i === currentAdIndex"
+        (click)="goToSlide(i)"
+        [attr.aria-label]="'Go to slide ' + (i + 1)"
+        class="indicator-dot"
+      ></button>
+    </div>
+  </div>
+
+  <!-- Ad Counter -->
+  <div *ngIf="activeAds.length > 1" class="ad-counter">
+    {{ currentAdIndex + 1 }} / {{ activeAds.length }}
+  </div>
+</div>
+

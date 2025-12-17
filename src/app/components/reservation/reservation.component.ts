@@ -18,6 +18,7 @@ import { Product } from '../../models/inventory.models';
 import { SaleEvent } from '../../models/sale.model';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { take } from 'rxjs/operators';
+import { AdsSliderComponent } from '../ads-slider/ads-slider.component';
 
 interface OrderItem {
   product: Product;
@@ -27,7 +28,7 @@ interface OrderItem {
 @Component({
   selector: 'app-reservation',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AdsSliderComponent],
   templateUrl: './reservation.component.html',
   styleUrl: './reservation.component.css',
 })

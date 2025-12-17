@@ -118,6 +118,7 @@ export class AppComponent implements OnInit, OnDestroy {
         else if (url.includes('/logs')) this.activeTab = 'logs';
         else if (url.includes('/users')) this.activeTab = 'users';
         else if (url.includes('/sales')) this.activeTab = 'sales';
+        else if (url.includes('/ads')) this.activeTab = 'ads';
       });
   }
 
@@ -261,6 +262,7 @@ export class AppComponent implements OnInit, OnDestroy {
       logs: 'Activity Logs',
       users: 'User Management',
       sales: 'Sales & Promotions',
+      ads: 'Ad Inventory',
     };
     return titles[this.activeTab] || 'Dashboard';
   }

@@ -140,6 +140,16 @@
           <span class="material-icon" [class.fill]="activeTab === 'sales'">local_offer</span>
           <span class="nav-label" *ngIf="!isSidebarCollapsed">Sales & Promos</span>
         </a>
+        <a 
+          *ngIf="userRole === 'admin'"
+          class="nav-item" 
+          routerLink="/ads"
+          routerLinkActive="active"
+          (click)="closeMobileSidebar()"
+        >
+          <span class="material-icon" [class.fill]="activeTab === 'ads'">campaign</span>
+          <span class="nav-label" *ngIf="!isSidebarCollapsed">Ad Inventory</span>
+        </a>
       </nav>
 
 
@@ -169,9 +179,13 @@
             <span class="material-icon">notifications</span>
             <span class="notification-dot" *ngIf="totalUnreadMessages > 0"></span>
           </button>
+          <button class="quick-nav-btn" routerLink="/ads" *ngIf="userRole === 'admin'" title="Ad Inventory">
+            <span class="material-icon">campaign</span>
+            <span class="btn-text">Ads</span>
+          </button>
           <button class="add-item-btn" routerLink="/add-product">
             <span class="material-icon">add</span>
-            <span class="btn-text">Add Item</span>
+            <span class="btn-text">Add Inventory</span>
           </button>
         </div>
       </div>

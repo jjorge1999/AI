@@ -480,6 +480,34 @@ body.dark-theme .theme-btn:hover {
   font-weight: 600;
 }
 
+/* Quick Navigation Button (for Ads, etc.) */
+.quick-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quick-nav-btn:hover {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.quick-nav-btn .material-icon {
+  font-size: 20px;
+}
+
 /* Content Area */
 .content-area {
   flex: 1;

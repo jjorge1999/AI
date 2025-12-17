@@ -1,0 +1,441 @@
+<div class="ads-container">
+  <!-- Header Section -->
+  <header class="page-header">
+    <div class="header-content">
+      <div class="header-title-section">
+        <h2 class="page-title">Ad Inventory</h2>
+        <p class="page-subtitle">Manage your advertising campaigns, track performance, and create engaging content.</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn-primary" (click)="uploadNewAd()">
+          <span class="material-icon">add_circle</span>
+          Upload New Ad
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Stats Cards -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-content">
+        <div class="stat-info">
+          <span class="stat-label">Total Ads</span>
+          <span class="stat-value">{{ ads.length | number }}</span>
+        </div>
+        <div class="stat-icon-container blue">
+          <span class="material-icon">campaign</span>
+        </div>
+      </div>
+      <div class="stat-trend trend-up">
+        <span class="material-icon">trending_up</span>
+        {{ getActiveAdsCount() }}
+        <span class="trend-label">active campaigns</span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-content">
+        <div class="stat-info">
+          <span class="stat-label">Total Views</span>
+          <span class="stat-value">{{ getTotalViews() | number }}</span>
+        </div>
+        <div class="stat-icon-container purple">
+          <span class="material-icon">visibility</span>
+        </div>
+      </div>
+      <div class="stat-trend">
+        <span class="trend-label">Across all campaigns</span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-content">
+        <div class="stat-info">
+          <span class="stat-label">Avg. CTR</span>
+          <span class="stat-value">{{ getAverageCTR() }}%</span>
+        </div>
+        <div class="stat-icon-container orange">
+          <span class="material-icon">mouse</span>
+        </div>
+      </div>
+      <div class="stat-trend" [class.trend-up]="getAverageCTR() > 2">
+        <span class="trend-label">Click-through rate</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters & Search -->
+  <div class="filters-section">
+    <div class="filters-left">
+      <div class="search-box">
+        <span class="material-icon search-icon">search</span>
+        <input 
+          type="text" 
+          [(ngModel)]="searchQuery" 
+          class="search-input" 
+          placeholder="Search ads by title or description..."
+        />
+      </div>
+    </div>
+    <div class="filters-right">
+      <select class="filter-select" [(ngModel)]="selectedFilter">
+        <option value="all">All Types</option>
+        <option value="video">Video Ads</option>
+        <option value="image">Image Ads</option>
+      </select>
+      <select class="filter-select" [(ngModel)]="selectedStatus">
+        <option value="all">All Status</option>
+        <option value="active">Active</option>
+        <option value="paused">Paused</option>
+        <option value="pending">Pending</option>
+        <option value="draft">Draft</option>
+      </select>
+      <select class="filter-select" [(ngModel)]="sortBy">
+        <option value="newest">Newest First</option>
+        <option value="oldest">Oldest First</option>
+        <option value="views">Most Views</option>
+        <option value="title">A-Z</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Ads Grid -->
+  <div class="table-card">
+    <div class="table-header">
+      <h3 class="table-title">Active Campaigns</h3>
+      <div class="view-toggle">
+        <button 
+          class="view-btn" 
+          [class.active]="viewMode === 'grid'"
+          (click)="setViewMode('grid')"
+          title="Grid View"
+        >
+          <span class="material-icon">view_module</span>
+        </button>
+        <button 
+          class="view-btn" 
+          [class.active]="viewMode === 'list'"
+          (click)="setViewMode('list')"
+          title="List View"
+        >
+          <span class="material-icon">list</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Grid View -->
+    <div *ngIf="viewMode === 'grid'" class="ads-grid">
+      <div *ngFor="let ad of filteredAds" class="ad-card">
+        <div class="ad-thumbnail" [ngClass]="getAspectRatioClass(ad.aspectRatio)">
+          <img 
+            #adImage
+            *ngIf="ad.thumbnailUrl" 
+            [src]="ad.thumbnailUrl" 
+            [alt]="ad.title || 'Ad preview'" 
+            class="ad-image"
+            (error)="adImage.style.display='none'"
+          />
+          <div class="ad-placeholder" [style.display]="ad.thumbnailUrl ? 'none' : 'flex'">
+            <span class="material-icon">{{ ad.type === 'video' ? 'movie' : 'image' }}</span>
+            <p>{{ ad.type === 'video' ? 'Video Ad' : 'Image Ad' }}</p>
+          </div>
+          <div class="ad-overlay">
+            <span *ngIf="ad.type === 'video'" class="ad-type-badge">
+              <span class="material-icon">play_circle</span>
+              {{ ad.duration }}
+            </span>
+            <span class="ad-status-badge" [ngClass]="'status-' + ad.status">
+              {{ ad.status }}
+            </span>
+          </div>
+        </div>
+        <div class="ad-content">
+          <h4 class="ad-title">{{ ad.title }}</h4>
+          <p class="ad-description">{{ ad.description | slice:0:60 }}{{ ad.description && ad.description.length > 60 ? '...' : '' }}</p>
+          <div class="ad-stats">
+            <div class="ad-stat" *ngIf="ad.views">
+              <span class="material-icon">visibility</span>
+              {{ formatViews(ad.views) }}
+            </div>
+            <div class="ad-stat" *ngIf="ad.ctr">
+              <span class="material-icon">mouse</span>
+              {{ ad.ctr }}% CTR
+            </div>
+            <div class="ad-stat">
+              <span class="material-icon">aspect_ratio</span>
+              {{ ad.aspectRatio }}
+            </div>
+          </div>
+          <div class="ad-actions">
+            <button class="action-btn" (click)="toggleAdStatus(ad)" [title]="ad.status === 'active' ? 'Pause' : 'Activate'">
+              <span class="material-icon">{{ ad.status === 'active' ? 'pause_circle' : 'play_circle' }}</span>
+            </button>
+            <button class="action-btn" (click)="editAd(ad)" title="Edit">
+              <span class="material-icon">edit</span>
+            </button>
+            <button class="action-btn delete" (click)="deleteAd(ad)" title="Delete">
+              <span class="material-icon">delete</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div *ngIf="filteredAds.length === 0" class="empty-state-grid">
+        <span class="material-icon">campaign</span>
+        <p>No ads found</p>
+        <button class="btn-primary" (click)="uploadNewAd()">
+          <span class="material-icon">add_circle</span>
+          Create Your First Ad
+        </button>
+      </div>
+    </div>
+
+    <!-- List View -->
+    <div *ngIf="viewMode === 'list'" class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Ad</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Performance</th>
+            <th>Format</th>
+            <th>Uploaded</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let ad of filteredAds" class="table-row">
+            <td>
+              <div class="product-cell">
+                <div 
+                  class="product-image" 
+                  [style.backgroundImage]="ad.thumbnailUrl ? 'url(' + ad.thumbnailUrl + ')' : 'none'"
+                  [style.background]="!ad.thumbnailUrl ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : ''"
+                  [title]="ad.title || 'Ad preview'"
+                >
+                  <span *ngIf="!ad.thumbnailUrl" class="material-icon no-image">{{ ad.type === 'video' ? 'movie' : 'image' }}</span>
+                </div>
+                <div>
+                  <span class="product-name">{{ ad.title }}</span>
+                  <p class="ad-desc-mini">{{ ad.description | slice:0:40 }}...</p>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="category-badge">
+                <span class="material-icon mini">{{ ad.type === 'video' ? 'movie' : 'image' }}</span>
+                {{ ad.type }}
+              </span>
+            </td>
+            <td>
+              <span class="status-badge" [ngClass]="'status-' + ad.status">
+                <span class="status-dot"></span>
+                {{ ad.status }}
+              </span>
+            </td>
+            <td>
+              <div class="performance-cell">
+                <div class="perf-item" *ngIf="ad.views">
+                  <span class="material-icon mini">visibility</span>
+                  {{ formatViews(ad.views) }}
+                </div>
+                <div class="perf-item" *ngIf="ad.ctr">
+                  <span class="material-icon mini">mouse</span>
+                  {{ ad.ctr }}%
+                </div>
+              </div>
+            </td>
+            <td class="format-cell">
+              {{ ad.aspectRatio }} • {{ ad.resolution }}
+            </td>
+            <td class="date-cell">
+              {{ ad.uploadDate | date:'MMM d, y' }}
+            </td>
+            <td class="text-right">
+              <div class="action-buttons">
+                <button class="action-btn" (click)="toggleAdStatus(ad)" [title]="ad.status === 'active' ? 'Pause' : 'Activate'">
+                  <span class="material-icon">{{ ad.status === 'active' ? 'pause' : 'play_arrow' }}</span>
+                </button>
+                <button class="action-btn" (click)="editAd(ad)" title="Edit">
+                  <span class="material-icon">edit</span>
+                </button>
+                <button class="action-btn" (click)="deleteAd(ad)" title="Delete">
+                  <span class="material-icon">delete</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="filteredAds.length === 0">
+            <td colspan="7" class="empty-row">
+              <div class="empty-state">
+                <span class="material-icon">campaign</span>
+                <p>No ads match your filters</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal-overlay" *ngIf="showUploadModal" (click)="closeUploadModal()">
+  <div class="modal-content upload-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>
+        <span class="material-icon">{{ isEditMode ? 'edit' : 'cloud_upload' }}</span>
+        {{ isEditMode ? 'Edit Ad' : 'Upload New Ad' }}
+      </h3>
+      <button class="modal-close" (click)="closeUploadModal()">
+        <span class="material-icon">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <!-- Title -->
+      <div class="form-group">
+        <label>Ad Title *</label>
+        <input 
+          type="text" 
+          [(ngModel)]="uploadForm.title" 
+          placeholder="Enter a catchy title for your ad"
+        />
+      </div>
+
+      <!-- Type Selection -->
+      <div class="form-group">
+        <label>Ad Type *</label>
+        <div class="type-selector">
+          <button 
+            type="button" 
+            class="type-btn" 
+            [class.active]="uploadForm.type === 'image'"
+            (click)="uploadForm.type = 'image'"
+          >
+            <span class="material-icon">image</span>
+            Image
+          </button>
+          <button 
+            type="button" 
+            class="type-btn" 
+            [class.active]="uploadForm.type === 'video'"
+            (click)="uploadForm.type = 'video'"
+          >
+            <span class="material-icon">movie</span>
+            Video
+          </button>
+        </div>
+      </div>
+
+      <!-- Media Upload -->
+      <div class="form-group">
+        <label>{{ uploadForm.type === 'video' ? 'Video' : 'Image' }} File *</label>
+        <div class="file-upload-area">
+          <input 
+            type="file" 
+            (change)="onMediaFileSelected($event)" 
+            [accept]="uploadForm.type === 'video' ? 'video/*' : 'image/*'"
+            class="file-input"
+            id="mediaFile"
+          />
+          <label for="mediaFile" class="file-label">
+            <span class="material-icon">{{ uploadForm.mediaFile ? 'check_circle' : 'cloud_upload' }}</span>
+            <span class="file-text">
+              {{ uploadForm.mediaFile ? uploadForm.mediaFile.name : 'Click to upload ' + uploadForm.type }}
+            </span>
+          </label>
+        </div>
+        <p class="field-hint">📦 Images will be automatically compressed to max 2MB and optimized for web</p>
+      </div>
+
+      <!-- Thumbnail (for videos) -->
+      <div class="form-group" *ngIf="uploadForm.type === 'video'">
+        <label>Thumbnail (Optional)</label>
+        <div class="file-upload-area small">
+          <input 
+            type="file" 
+            (change)="onThumbnailFileSelected($event)" 
+            accept="image/*"
+            class="file-input"
+            id="thumbnailFile"
+          />
+          <label for="thumbnailFile" class="file-label">
+            <span class="material-icon mini">{{ uploadForm.thumbnailFile ? 'check_circle' : 'add_photo_alternate' }}</span>
+            <span class="file-text">
+              {{ uploadForm.thumbnailFile ? uploadForm.thumbnailFile.name : 'Upload custom thumbnail' }}
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Aspect Ratio -->
+      <div class="form-group">
+        <label>Aspect Ratio</label>
+        <select [(ngModel)]="uploadForm.aspectRatio">
+          <option value="16:9">16:9 (Landscape)</option>
+          <option value="9:16">9:16 (Portrait)</option>
+          <option value="1:1">1:1 (Square)</option>
+          <option value="4:5">4:5 (Portrait)</option>
+          <option value="4:3">4:3 (Standard)</option>
+        </select>
+      </div>
+
+      <!-- Description with AI -->
+      <div class="form-group">
+        <div class="label-row">
+          <label>Ad Caption / Description</label>
+          <button 
+            type="button" 
+            class="ai-btn" 
+            (click)="generateAdCaption()" 
+            [disabled]="isGeneratingCaption || !uploadForm.title"
+            title="Generate AI-powered caption"
+          >
+            <span *ngIf="!isGeneratingCaption" class="material-icon">auto_awesome</span>
+            <span *ngIf="isGeneratingCaption" class="material-icon spin">refresh</span>
+            {{ isGeneratingCaption ? 'Generating...' : 'AI Caption' }}
+          </button>
+        </div>
+        <textarea 
+          [(ngModel)]="uploadForm.description" 
+          rows="3" 
+          placeholder="Enter compelling ad description or let AI write it for you..."
+        ></textarea>
+        <p class="field-hint">💡 Tip: Add your ad title first, then click "AI Caption" for expert marketing copy</p>
+      </div>
+
+      <!-- Target URL -->
+      <div class="form-group">
+        <label>Target URL (Optional)</label>
+        <input 
+          type="url" 
+          [(ngModel)]="uploadForm.targetUrl" 
+          placeholder="https://example.com"
+        />
+      </div>
+
+      <!-- Status -->
+      <div class="form-group">
+        <label>Status</label>
+        <select [(ngModel)]="uploadForm.status">
+          <option value="draft">Draft</option>
+          <option value="pending">Pending Review</option>
+          <option value="active">Active</option>
+          <option value="paused">Paused</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeUploadModal()" [disabled]="isUploading || isCompressing">Cancel</button>
+      <button class="btn-save" (click)="submitAd()" [disabled]="isUploading || isCompressing">
+        <span *ngIf="!isUploading && !isCompressing" class="material-icon">cloud_upload</span>
+        <span *ngIf="isCompressing" class="material-icon spin">hourglass_empty</span>
+        <span *ngIf="isUploading && !isCompressing" class="material-icon spin">refresh</span>
+        {{ isCompressing ? 'Compressing...' : (isUploading ? 'Uploading...' : 'Upload Ad') }}
+      </button>
+    </div>
+  </div>
+</div>

@@ -143,6 +143,14 @@ export const routes: Routes = [
             './components/sales-management/sales-management.component'
           ).then((m) => m.SalesManagementComponent),
       },
+      {
+        path: 'ads',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./components/ads-management/ads-management.component').then(
+            (m) => m.AdsManagementComponent
+          ),
+      },
     ],
   },
 
