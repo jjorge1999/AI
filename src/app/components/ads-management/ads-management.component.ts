@@ -193,7 +193,7 @@ export class AdsManagementComponent implements OnInit, OnDestroy {
     this.showUploadModal = true;
   }
 
-  async submitAd(): Promise<void> {
+  submitAd(): void {
     // Validation
     if (!this.uploadForm.title) {
       this.dialogService.warning(
@@ -214,92 +214,125 @@ export class AdsManagementComponent implements OnInit, OnDestroy {
 
     this.isUploading = true;
 
-    try {
-      if (this.isEditMode && this.editingAdId) {
-        // UPDATE existing ad
-        const updateData: Partial<Ad> = {
-          title: this.uploadForm.title,
-          status: this.uploadForm.status,
-          aspectRatio: this.uploadForm.aspectRatio,
-          description: this.uploadForm.description,
-          targetUrl: this.uploadForm.targetUrl,
-          updatedAt: new Date(),
-        };
+    if (this.isEditMode && this.editingAdId) {
+      // UPDATE existing ad
+      const updateData: Partial<Ad> = {
+        title: this.uploadForm.title,
+        status: this.uploadForm.status,
+        aspectRatio: this.uploadForm.aspectRatio,
+        description: this.uploadForm.description,
+        targetUrl: this.uploadForm.targetUrl,
+        updatedAt: new Date(),
+      };
 
-        // If new media file is uploaded, include it
-        if (this.uploadForm.mediaFile) {
-          // Get video duration if it's a video
-          if (this.uploadForm.type === 'video') {
-            const duration = await this.adsService.getVideoDuration(
-              this.uploadForm.mediaFile
-            );
+      // If video with new media file, get duration first
+      if (this.uploadForm.type === 'video' && this.uploadForm.mediaFile) {
+        this.adsService.getVideoDuration(this.uploadForm.mediaFile).subscribe({
+          next: (duration) => {
             (updateData as any).duration = duration;
-          }
-          // The service will handle uploading the new media
-        }
-
-        await this.adsService.updateAd(this.editingAdId, updateData as any);
-        this.dialogService.success('Ad updated successfully!', 'Success');
+            this.performUpdate(updateData);
+          },
+          error: (err) => {
+            console.error('Error getting video duration:', err);
+            this.performUpdate(updateData); // Continue without duration
+          },
+        });
       } else {
-        // CREATE new ad
-        // Get video duration if it's a video
-        if (this.uploadForm.type === 'video' && this.uploadForm.mediaFile) {
-          const duration = await this.adsService.getVideoDuration(
-            this.uploadForm.mediaFile
-          );
-          (this.uploadForm as any).duration = duration;
-        }
-
-        await this.adsService.createAd(this.uploadForm, this.userId);
-        this.dialogService.success('Ad uploaded successfully!', 'Success');
+        this.performUpdate(updateData);
       }
-
-      this.closeUploadModal();
-    } catch (error) {
-      console.error('Error submitting ad:', error);
-      this.dialogService.error(
-        `Failed to ${
-          this.isEditMode ? 'update' : 'upload'
-        } ad. Please try again.`,
-        'Submission Failed'
-      );
-    } finally {
-      this.isUploading = false;
+    } else {
+      // CREATE new ad
+      if (this.uploadForm.type === 'video' && this.uploadForm.mediaFile) {
+        this.adsService.getVideoDuration(this.uploadForm.mediaFile).subscribe({
+          next: (duration) => {
+            (this.uploadForm as any).duration = duration;
+            this.performCreate();
+          },
+          error: (err) => {
+            console.error('Error getting video duration:', err);
+            this.performCreate(); // Continue without duration
+          },
+        });
+      } else {
+        this.performCreate();
+      }
     }
   }
 
-  async toggleAdStatus(ad: Ad): Promise<void> {
+  private performUpdate(updateData: Partial<Ad>): void {
+    if (!this.editingAdId) return;
+
+    this.adsService.updateAd(this.editingAdId, updateData as any).subscribe({
+      next: () => {
+        this.dialogService.success('Ad updated successfully!', 'Success');
+        this.closeUploadModal();
+        this.isUploading = false;
+      },
+      error: (err) => {
+        console.error('Error updating ad:', err);
+        this.dialogService.error(
+          'Failed to update ad. Please try again.',
+          'Update Failed'
+        );
+        this.isUploading = false;
+      },
+    });
+  }
+
+  private performCreate(): void {
+    this.adsService.createAd(this.uploadForm, this.userId).subscribe({
+      next: () => {
+        this.dialogService.success('Ad uploaded successfully!', 'Success');
+        this.closeUploadModal();
+        this.isUploading = false;
+      },
+      error: (err) => {
+        console.error('Error creating ad:', err);
+        this.dialogService.error(
+          'Failed to upload ad. Please try again.',
+          'Upload Failed'
+        );
+        this.isUploading = false;
+      },
+    });
+  }
+
+  toggleAdStatus(ad: Ad): void {
     const newStatus = ad.status === 'active' ? 'paused' : 'active';
 
-    try {
-      await this.adsService.updateAdStatus(ad.id, newStatus);
-      this.dialogService.success(
-        `Ad ${newStatus === 'active' ? 'activated' : 'paused'} successfully!`,
-        'Status Updated'
-      );
-    } catch (error) {
-      console.error('Error updating status:', error);
-      this.dialogService.error('Failed to update ad status.', 'Error');
-    }
+    this.adsService.updateAdStatus(ad.id, newStatus).subscribe({
+      next: () => {
+        this.dialogService.success(
+          `Ad ${newStatus === 'active' ? 'activated' : 'paused'} successfully!`,
+          'Status Updated'
+        );
+      },
+      error: (err) => {
+        console.error('Error updating status:', err);
+        this.dialogService.error('Failed to update ad status.', 'Error');
+      },
+    });
   }
 
-  async deleteAd(ad: Ad): Promise<void> {
-    const confirmed = await this.dialogService
+  deleteAd(ad: Ad): void {
+    this.dialogService
       .confirm(
         `Are you sure you want to delete "${ad.title}"? This action cannot be undone.`,
         'Delete Ad'
       )
-      .toPromise();
-
-    if (confirmed) {
-      try {
-        await this.adsService.deleteAd(ad.id);
-        this.dialogService.success('Ad deleted successfully!', 'Deleted');
-      } catch (error) {
-        console.error('Error deleting ad:', error);
-        this.dialogService.error('Failed to delete ad.', 'Error');
-      }
-    }
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          this.adsService.deleteAd(ad.id).subscribe({
+            next: () => {
+              this.dialogService.success('Ad deleted successfully!', 'Deleted');
+            },
+            error: (err) => {
+              console.error('Error deleting ad:', err);
+              this.dialogService.error('Failed to delete ad.', 'Error');
+            },
+          });
+        }
+      });
   }
 
   /**

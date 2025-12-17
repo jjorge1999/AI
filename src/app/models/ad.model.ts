@@ -3,8 +3,8 @@ export interface Ad {
   title: string;
   type: 'video' | 'image';
   status: 'active' | 'paused' | 'pending' | 'draft';
-  thumbnailUrl: string;
-  mediaUrl: string; // Full video/image URL
+  thumbnailBase64: string; // Base64 encoded thumbnail (data URL)
+  mediaBase64: string; // Base64 encoded media (data URL)
   duration?: string; // for videos (e.g., "00:15")
   views?: number;
   ctr?: number; // click-through rate for images

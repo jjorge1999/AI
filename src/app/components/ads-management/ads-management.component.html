@@ -130,13 +130,13 @@
         <div class="ad-thumbnail" [ngClass]="getAspectRatioClass(ad.aspectRatio)">
           <img 
             #adImage
-            *ngIf="ad.thumbnailUrl" 
-            [src]="ad.thumbnailUrl" 
+            *ngIf="ad.thumbnailBase64" 
+            [src]="ad.thumbnailBase64" 
             [alt]="ad.title || 'Ad preview'" 
             class="ad-image"
             (error)="adImage.style.display='none'"
           />
-          <div class="ad-placeholder" [style.display]="ad.thumbnailUrl ? 'none' : 'flex'">
+          <div class="ad-placeholder" [style.display]="ad.thumbnailBase64 ? 'none' : 'flex'">
             <span class="material-icon">{{ ad.type === 'video' ? 'movie' : 'image' }}</span>
             <p>{{ ad.type === 'video' ? 'Video Ad' : 'Image Ad' }}</p>
           </div>
@@ -212,11 +212,11 @@
               <div class="product-cell">
                 <div 
                   class="product-image" 
-                  [style.backgroundImage]="ad.thumbnailUrl ? 'url(' + ad.thumbnailUrl + ')' : 'none'"
-                  [style.background]="!ad.thumbnailUrl ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : ''"
+                  [style.backgroundImage]="ad.thumbnailBase64 ? 'url(' + ad.thumbnailBase64 + ')' : 'none'"
+                  [style.background]="!ad.thumbnailBase64 ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : ''"
                   [title]="ad.title || 'Ad preview'"
                 >
-                  <span *ngIf="!ad.thumbnailUrl" class="material-icon no-image">{{ ad.type === 'video' ? 'movie' : 'image' }}</span>
+                  <span *ngIf="!ad.thumbnailBase64" class="material-icon no-image">{{ ad.type === 'video' ? 'movie' : 'image' }}</span>
                 </div>
                 <div>
                   <span class="product-name">{{ ad.title }}</span>

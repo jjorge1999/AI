@@ -25,6 +25,7 @@ export class AdsSliderComponent implements OnInit, OnDestroy, AfterViewInit {
   currentAdIndex = 0;
   currentAd: Ad | null = null;
   isTransitioning = false;
+  isLoading = true; // Loading state
   autoPlayInterval: any;
 
   // Track ads that failed to load
@@ -39,6 +40,8 @@ export class AdsSliderComponent implements OnInit, OnDestroy, AfterViewInit {
   constructor(private adsService: AdsService) {}
 
   ngOnInit(): void {
+    // Begin listening for real‑time ad updates
+    this.adsService.startListening();
     this.loadActiveAds();
   }
 
@@ -49,6 +52,8 @@ export class AdsSliderComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ngOnDestroy(): void {
     this.stopAutoPlay();
+    // Clean up the AdsService listener
+    this.adsService.stopListening();
     this.subscription.unsubscribe();
   }
 
@@ -56,6 +61,7 @@ export class AdsSliderComponent implements OnInit, OnDestroy, AfterViewInit {
    * Load only active ads from the service
    */
   private loadActiveAds(): void {
+    this.isLoading = true;
     this.subscription.add(
       this.adsService.getAds().subscribe((ads: Ad[]) => {
         console.log('📢 Ads Slider: Fetched all ads:', ads.length);
@@ -72,6 +78,8 @@ export class AdsSliderComponent implements OnInit, OnDestroy, AfterViewInit {
           this.currentAd = this.activeAds[0];
           this.trackImpression(this.currentAd);
         }
+
+        this.isLoading = false;
       })
     );
   }
@@ -232,7 +240,9 @@ export class AdsSliderComponent implements OnInit, OnDestroy, AfterViewInit {
     console.warn(
       `⚠️ Ads Slider: Failed to load media for ad: "${ad.title}" (ID: ${ad.id})`
     );
-    console.log(`⚠️ Ads Slider: Media URL: ${ad.mediaUrl}`);
+    console.log(
+      `⚠️ Ads Slider: Media Base64 length: ${ad.mediaBase64?.length || 0}`
+    );
 
     // Mark this ad as failed
     this.failedAdIds.add(ad.id);

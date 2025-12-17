@@ -1,5 +1,14 @@
+<!-- Loading State -->
+<div *ngIf="isLoading" class="ads-loading-container">
+  <div class="ads-loading-spinner">
+    <span class="material-icon spin">hourglass_empty</span>
+  </div>
+  <p>Loading ads...</p>
+</div>
+
+<!-- Ads Slider -->
 <div 
-  *ngIf="activeAds.length > 0" 
+  *ngIf="!isLoading && activeAds.length > 0" 
   class="ads-slider-container"
   (mouseenter)="onMouseEnter()"
   (mouseleave)="onMouseLeave()"
@@ -17,7 +26,7 @@
       <!-- Image Ad -->
       <img 
         *ngIf="currentAd.type === 'image'"
-        [src]="currentAd.mediaUrl"
+        [src]="currentAd.mediaBase64"
         [alt]="currentAd.title"
         class="ad-media"
         loading="lazy"
@@ -28,7 +37,7 @@
       <video 
         *ngIf="currentAd.type === 'video'"
         #videoPlayer
-        [src]="currentAd.mediaUrl"
+        [src]="currentAd.mediaBase64"
         class="ad-media"
         autoplay
         muted
@@ -90,3 +99,8 @@
   </div>
 </div>
 
+<!-- Empty State -->
+<div *ngIf="!isLoading && activeAds.length === 0" class="ads-empty-placeholder">
+  <span class="material-icon">campaign</span>
+  <p>No ads to display</p>
+</div>

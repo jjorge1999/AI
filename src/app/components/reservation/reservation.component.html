@@ -41,7 +41,7 @@
                         </div>
 
                         <!-- Sale Banner (Interactive & Mobile Responsive) -->
-                        <div *ngIf="currentSale" 
+                        <div 
                              (click)="scrollToFeaturedDeals()"
                              class="relative overflow-hidden rounded-xl bg-gradient-to-r from-red-500 via-pink-500 to-orange-500 p-4 sm:p-5 shadow-lg animate-pulse-subtle cursor-pointer group hover:shadow-2xl hover:scale-[1.005] sm:hover:scale-[1.01] transition-all duration-300 ring-offset-2 hover:ring-2 ring-red-400 dark:ring-offset-[#101822]">
                             <!-- Background Shimmer -->
@@ -56,16 +56,16 @@
                                 <!-- Icon & Text -->
                                 <div class="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
                                     <div class="flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-white/20 rounded-full backdrop-blur-md shadow-inner group-hover:scale-110 group-hover:rotate-12 transition-all duration-500 border border-white/20 shrink-0">
-                                        <span class="text-2xl sm:text-3xl filter drop-shadow-sm">{{ currentSale.bannerIcon || '🎉' }}</span>
+                                         <span class="text-2xl sm:text-3xl filter drop-shadow-sm">{{ currentSale?.bannerIcon || '🎉' }}</span>
                                     </div>
                                     <div class="min-w-0 flex-1">
                                         <h3 class="text-white font-black text-lg sm:text-xl tracking-tight drop-shadow-md group-hover:text-yellow-100 transition-colors truncate">
-                                            {{ currentSale.bannerTitle || currentSale.name }}
+                                             {{ currentSale?.bannerTitle || currentSale?.name }}
                                         </h3>
                                         <div class="flex flex-wrap items-center gap-2 mt-0.5">
                                             <span class="bg-white/90 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm shrink-0">SALE</span>
                                             <p class="text-white/95 text-xs sm:text-sm font-medium group-hover:translate-x-1 transition-transform truncate">
-                                                {{ currentSale.bannerMessage || 'Tap to view exclusive deals!' }}
+                                                 {{ currentSale?.bannerMessage || 'Tap to view exclusive deals!' }}
                                             </p>
                                         </div>
                                     </div>
