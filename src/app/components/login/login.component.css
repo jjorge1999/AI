@@ -26,6 +26,7 @@
 .login-wrapper {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   flex-direction: row;
   background-color: var(--background-dark);

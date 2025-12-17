@@ -3,6 +3,7 @@
   margin: 0 auto;
   padding: 20px;
   min-height: 100vh;
+  min-height: 100dvh;
   background: linear-gradient(135deg, #1e293b, #0f172a);
   color: white;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;

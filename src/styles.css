@@ -199,33 +199,7 @@ section,
   }
 }
 
-body::before {
-  content: '';
-  position: fixed;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: 
-    radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(147, 51, 234, 0.08) 0%, transparent 50%),
-    radial-gradient(circle at 40% 20%, rgba(16, 185, 129, 0.06) 0%, transparent 50%);
-  animation: backgroundMove 20s ease-in-out infinite;
-  z-index: -1;
-  pointer-events: none;
-}
 
-@keyframes backgroundMove {
-  0%, 100% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  33% {
-    transform: translate(5%, -5%) rotate(120deg);
-  }
-  66% {
-    transform: translate(-5%, 5%) rotate(240deg);
-  }
-}
 
 body::after {
   content: '';
@@ -255,13 +229,7 @@ body::after {
   opacity: 0.5;
 }
 
-/* Dark theme background */
-body.dark-theme::before {
-  background: 
-    radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(147, 51, 234, 0.12) 0%, transparent 50%),
-    radial-gradient(circle at 40% 20%, rgba(16, 185, 129, 0.08) 0%, transparent 50%);
-}
+
 
 /* Typography */
 h1,
@@ -295,11 +263,12 @@ h6 {
 }
 
 /* Form Elements */
+/* Form Elements */
 input,
 select,
 textarea {
   font-family: inherit;
-  font-size: 0.9375rem;
+  font-size: 1rem; /* 16px to prevent iOS auto-zoom */
   padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -357,15 +326,17 @@ button::before {
   pointer-events: none; /* Fix Safari clickability issue */
 }
 
-button:hover::before {
-  width: 300px;
-  height: 300px;
-}
+@media (hover: hover) {
+  button:hover::before {
+    width: 300px;
+    height: 300px;
+  }
 
-button:hover {
-  background: var(--color-primary-dark);
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 8px 16px rgba(30, 64, 175, 0.3);
+  button:hover {
+    background: var(--color-primary-dark);
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 16px rgba(30, 64, 175, 0.3);
+  }
 }
 
 button:active {
@@ -410,14 +381,16 @@ button:disabled:hover::before {
   pointer-events: none;
 }
 
-.card:hover {
-  box-shadow: var(--shadow-xl);
-  transform: translateY(-4px);
-  border-color: rgba(59, 130, 246, 0.3);
-}
+@media (hover: hover) {
+  .card:hover {
+    box-shadow: var(--shadow-xl);
+    transform: translateY(-4px);
+    border-color: rgba(59, 130, 246, 0.3);
+  }
 
-.card:hover::before {
-  opacity: 1;
+  .card:hover::before {
+    opacity: 1;
+  }
 }
 
 /* Utility Classes */

@@ -95,6 +95,7 @@
         right: max(32px, calc((100vw - 1200px) / 2));
         width: 360px;
         max-height: calc(100vh - 100px);
+        max-height: calc(100dvh - 100px);
         overflow-y: auto;
         z-index: 100;
     }

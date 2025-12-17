@@ -29,6 +29,7 @@
 .app-layout {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   width: 100%;
   overflow: hidden;
   background: var(--color-bg);
@@ -602,6 +603,8 @@ body.dark-theme .theme-btn:hover {
   50% { transform: translateY(-4px); }
 }
 
+
+
 .chat-label {
   font-weight: 700;
   letter-spacing: 0.3px;
@@ -615,6 +618,7 @@ body.dark-theme .theme-btn:hover {
   max-width: calc(100vw - 48px);
   height: 650px;
   max-height: calc(100vh - 120px);
+  max-height: calc(100dvh - 120px);
   opacity: 0;
   transform: translateY(20px) scale(0.95);
   pointer-events: none;
