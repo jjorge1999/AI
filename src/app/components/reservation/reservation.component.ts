@@ -127,6 +127,9 @@ export class ReservationComponent implements OnInit, OnDestroy {
 
     // Setup scroll listener on public-container
     setTimeout(() => this.setupScrollListener(), 100);
+
+    // Initialize social proof section
+    this.initializeSocialProof();
   }
 
   private setupScrollListener(): void {
@@ -155,6 +158,10 @@ export class ReservationComponent implements OnInit, OnDestroy {
     // Clear countdown interval
     if (this.countdownInterval) {
       clearInterval(this.countdownInterval);
+    }
+    // Clear social proof interval
+    if (this.activityInterval) {
+      clearInterval(this.activityInterval);
     }
     // Stop listening to Firestore sales
     this.saleService.stopListening();
@@ -933,5 +940,226 @@ export class ReservationComponent implements OnInit, OnDestroy {
       this.calendarDate = new Date(this.pickupDate);
       this.generateCalendar();
     }
+  }
+
+  // ===== Social Proof Section =====
+
+  // Simulated activity data for social proof (encourages buyers)
+  recentActivities: {
+    name: string;
+    initials: string;
+    action: string;
+    time: string;
+    isNew: boolean;
+  }[] = [];
+  busyDates: {
+    label: string;
+    count: number;
+    level: 'high' | 'medium' | 'low';
+  }[] = [];
+
+  private activityInterval: any = null;
+  private readonly firstNames = [
+    'Maria',
+    'Juan',
+    'Ana',
+    'Jose',
+    'Rosa',
+    'Pedro',
+    'Elena',
+    'Carlos',
+    'Sofia',
+    'Miguel',
+    'Isabella',
+    'Antonio',
+    'Lucia',
+    'Marco',
+    'Carmen',
+  ];
+  private readonly actions = [
+    'reserved delivery for',
+    'just ordered',
+    'placed a reservation for',
+    'booked delivery on',
+    'scheduled pickup for',
+  ];
+
+  get recentReservationsToday(): number {
+    // Generate a consistent number based on the current hour
+    const hour = new Date().getHours();
+    const base = 12 + Math.floor(hour / 2);
+    return base + (this.getDateSeed() % 8);
+  }
+
+  get recentReservationsWeek(): number {
+    // Generate a consistent number for the week
+    const dayOfWeek = new Date().getDay();
+    return 45 + dayOfWeek * 8 + (this.getDateSeed() % 15);
+  }
+
+  get busyDatesCount(): number {
+    return this.busyDates.length;
+  }
+
+  private getDateSeed(): number {
+    const now = new Date();
+    return now.getDate() + now.getMonth() * 31;
+  }
+
+  private initializeSocialProof(): void {
+    this.generateBusyDates();
+    this.generateRecentActivities();
+
+    // Update activities periodically
+    this.activityInterval = setInterval(() => {
+      this.addNewActivity();
+    }, 15000); // Add new activity every 15 seconds
+  }
+
+  private generateBusyDates(): void {
+    const today = new Date();
+    this.busyDates = [];
+
+    // Generate 3-5 busy dates in the next 2 weeks
+    const numDates = 3 + (this.getDateSeed() % 3);
+    const usedDays = new Set<number>();
+
+    for (let i = 0; i < numDates; i++) {
+      let daysAhead = 1 + ((this.getDateSeed() * (i + 1)) % 14);
+      while (usedDays.has(daysAhead)) {
+        daysAhead = ((daysAhead + 1) % 14) + 1;
+      }
+      usedDays.add(daysAhead);
+
+      const date = new Date(today);
+      date.setDate(today.getDate() + daysAhead);
+
+      const count = 5 + ((this.getDateSeed() + i * 7) % 12);
+      let level: 'high' | 'medium' | 'low' = 'low';
+      if (count >= 12) level = 'high';
+      else if (count >= 8) level = 'medium';
+
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const monthNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+
+      this.busyDates.push({
+        label: `${dayNames[date.getDay()]}, ${
+          monthNames[date.getMonth()]
+        } ${date.getDate()}`,
+        count,
+        level,
+      });
+    }
+
+    // Sort by date
+    this.busyDates.sort((a, b) => a.count - b.count).reverse();
+  }
+
+  private generateRecentActivities(): void {
+    this.recentActivities = [];
+    const times = [
+      'Just now',
+      '2 min ago',
+      '5 min ago',
+      '12 min ago',
+      '28 min ago',
+    ];
+
+    for (let i = 0; i < 4; i++) {
+      const firstName =
+        this.firstNames[(this.getDateSeed() + i * 3) % this.firstNames.length];
+      const action =
+        this.actions[(this.getDateSeed() + i) % this.actions.length];
+
+      // Generate a date in the next 1-7 days
+      const daysAhead = 1 + ((this.getDateSeed() + i) % 7);
+      const deliveryDate = new Date();
+      deliveryDate.setDate(deliveryDate.getDate() + daysAhead);
+      const monthNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+
+      this.recentActivities.push({
+        name: firstName,
+        initials: firstName.substring(0, 2).toUpperCase(),
+        action: `${action} ${
+          monthNames[deliveryDate.getMonth()]
+        } ${deliveryDate.getDate()}`,
+        time: times[i],
+        isNew: false,
+      });
+    }
+  }
+
+  private addNewActivity(): void {
+    const firstName =
+      this.firstNames[Math.floor(Math.random() * this.firstNames.length)];
+    const action =
+      this.actions[Math.floor(Math.random() * this.actions.length)];
+
+    const daysAhead = 1 + Math.floor(Math.random() * 7);
+    const deliveryDate = new Date();
+    deliveryDate.setDate(deliveryDate.getDate() + daysAhead);
+    const monthNames = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    // Add new activity to the front
+    this.recentActivities.unshift({
+      name: firstName,
+      initials: firstName.substring(0, 2).toUpperCase(),
+      action: `${action} ${
+        monthNames[deliveryDate.getMonth()]
+      } ${deliveryDate.getDate()}`,
+      time: 'Just now',
+      isNew: true,
+    });
+
+    // Remove the oldest activity
+    if (this.recentActivities.length > 4) {
+      this.recentActivities.pop();
+    }
+
+    // Update times for existing activities
+    setTimeout(() => {
+      this.recentActivities.forEach((a, i) => {
+        if (i === 0) a.isNew = false;
+      });
+    }, 500);
   }
 }
