@@ -5,6 +5,7 @@ import { Subscription } from 'rxjs';
 import { InventoryService } from '../../services/inventory.service';
 import { DialogService } from '../../services/dialog.service';
 import { Expense } from '../../models/inventory.models';
+import { DeviceService } from '../../services/device.service';
 
 interface ExpenseStats {
   totalSpend: number;
@@ -22,7 +23,8 @@ interface ExpenseStats {
 })
 export class ExpensesComponent implements OnInit, OnDestroy {
   expenses: Expense[] = [];
-  private subscription: Subscription | null = null;
+  viewMode: 'table' | 'grid' = 'table';
+  private subscriptions: Subscription[] = [];
 
   // Search and filtering
   searchQuery = '';
@@ -57,22 +59,32 @@ export class ExpensesComponent implements OnInit, OnDestroy {
 
   constructor(
     private inventoryService: InventoryService,
-    private dialogService: DialogService
+    private dialogService: DialogService,
+    private deviceService: DeviceService
   ) {}
 
   ngOnInit(): void {
-    this.subscription = this.inventoryService
-      .getExpenses()
-      .subscribe((expenses) => {
+    this.subscriptions.push(
+      this.inventoryService.getExpenses().subscribe((expenses) => {
         this.expenses = expenses.sort(
           (a, b) =>
             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         );
-      });
+      })
+    );
+
+    // Auto-switch to grid view on mobile
+    this.subscriptions.push(
+      this.deviceService.isMobile$.subscribe((isMobile) => {
+        if (isMobile) {
+          this.viewMode = 'grid';
+        }
+      })
+    );
   }
 
   ngOnDestroy(): void {
-    this.subscription?.unsubscribe();
+    this.subscriptions.forEach((sub) => sub.unsubscribe());
   }
 
   // Stats calculation

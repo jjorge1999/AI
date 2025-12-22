@@ -23,6 +23,7 @@ import { UserService } from '../../services/user.service';
 import { CallService } from '../../services/call.service';
 import { AiService } from '../../services/ai.service';
 import { DialogService } from '../../services/dialog.service';
+import { NotificationService } from '../../services/notification.service';
 import {
   Message,
   Sale,
@@ -117,7 +118,8 @@ export class ChatComponent
     private callService: CallService,
     private aiService: AiService,
     private inventoryService: InventoryService,
-    private dialogService: DialogService
+    private dialogService: DialogService,
+    private notificationService: NotificationService
   ) {
     // Request notification permission immediately
     this.requestNotificationPermission();
@@ -448,46 +450,34 @@ export class ChatComponent
     // 2. Guest/Customer Logic
     const savedCustomerInfo = localStorage.getItem('chatCustomerInfo');
     if (savedCustomerInfo) {
-      const parsedInfo = JSON.parse(savedCustomerInfo);
+      setTimeout(() => {
+        try {
+          const parsedInfo = JSON.parse(savedCustomerInfo);
+          if (parsedInfo && parsedInfo.name) {
+            this.customerInfo = parsedInfo;
+            this.senderName = this.customerInfo.name;
+            this.isRegistered = true;
 
-      // No expiration check - customers stay logged in until explicit logout
-      // Trust localStorage and auto-login immediately
-      this.customerInfo = parsedInfo;
-      this.senderName = this.customerInfo.name;
-      this.isRegistered = true;
+            this.inventoryService.reloadData();
+            this.loadMessages();
 
-      // CRITICAL: Reload Inventory Service to fetch customer's sales data
-      this.inventoryService.reloadData();
-
-      this.loadMessages();
-
-      // Start listening for calls on my channel
-      if (this.incomingCallListener) {
-        // @ts-ignore
-        typeof this.incomingCallListener === 'function'
-          ? this.incomingCallListener()
-          : this.incomingCallListener.unsubscribe();
-      }
-      this.incomingCallListener = this.callService.listenForIncomingCalls(
-        this.senderName
-      );
-
-      this.startHeartbeat();
-
-      // Check for pending reservation and auto-send to chat
-      this.sendPendingReservationToChat();
-
-      // Optional: Verify against customer list in background (non-blocking)
-      const foundCustomer = this.allCustomers.find(
-        (c) => c.phoneNumber === parsedInfo.phoneNumber
-      );
-      if (!foundCustomer) {
-        console.log(
-          'Customer not yet in database, but logged in via localStorage'
-        );
-      }
+            if (this.incomingCallListener) {
+              // @ts-ignore
+              typeof this.incomingCallListener === 'function'
+                ? this.incomingCallListener()
+                : this.incomingCallListener.unsubscribe();
+            }
+            this.incomingCallListener = this.callService.listenForIncomingCalls(
+              this.senderName
+            );
+            this.startHeartbeat();
+            this.sendPendingReservationToChat();
+          }
+        } catch (e) {
+          console.error('Error parsing savedCustomerInfo', e);
+        }
+      }, 50);
     } else {
-      // No saved info, new guest
       this.getLocation(true);
     }
   }
@@ -701,6 +691,7 @@ Thank you for your reservation! A staff member will contact you to confirm.`;
 
   unreadCounts: { [key: string]: number } = {};
   private conversationMessageCounts: { [key: string]: number } = {};
+  private messagesInitialized = false;
 
   // Audio/Call States
   isSpeakerOn = false;
@@ -715,8 +706,17 @@ Thank you for your reservation! A staff member will contact you to confirm.`;
   private notifyUser(message: Message): void {
     if (this.isMyMessage(message)) return;
 
+    // 1. Play local chat sound (keep current implementation)
     this.playNotificationSound();
 
+    // 2. Push to the new global Notification Center in the header
+    this.notificationService.pushNotification(
+      `New message from ${message.senderName}`,
+      message.text || 'Received a new attachment or audio message',
+      'message'
+    );
+
+    // 3. System notification if app is hidden
     if (
       document.hidden &&
       'Notification' in window &&
@@ -817,7 +817,7 @@ Thank you for your reservation! A staff member will contact you to confirm.`;
                   !this.isMyMessage(m)
               ).length;
 
-              if (currentCount > prevCount) {
+              if (this.messagesInitialized && currentCount > prevCount) {
                 // Trigger notification for ANY new message in ANY conversation
                 const lastMsg = latestMsgMap.get(convId);
                 if (lastMsg) {
@@ -827,6 +827,7 @@ Thank you for your reservation! A staff member will contact you to confirm.`;
               this.conversationMessageCounts[convId] = currentCount;
             });
           }
+          this.messagesInitialized = true;
 
           // Calculate and Emit Total Unread
           let totalUnread = 0;
@@ -840,7 +841,10 @@ Thank you for your reservation! A staff member will contact you to confirm.`;
               (m) => !m.isRead && !this.isMyMessage(m)
             ).length;
           }
-          this.totalUnreadCountChange.emit(totalUnread);
+          // Use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
+          setTimeout(() => {
+            this.totalUnreadCountChange.emit(totalUnread);
+          }, 0);
 
           this.updateFilteredMessages(!this.isAppUser);
         },
@@ -904,22 +908,7 @@ Thank you for your reservation! A staff member will contact you to confirm.`;
 
       // Notification Logic (Sound/Popups) - Only if 'notify' is true
       if (notify && !this.isMyMessage(lastMsg)) {
-        this.playNotificationSound();
-
-        // System Notification if hidden
-        if (
-          document.hidden &&
-          'Notification' in window &&
-          Notification.permission === 'granted'
-        ) {
-          new Notification('New Message', {
-            body: lastMsg.text || 'You received a new audio message',
-            icon: '/assets/logo.png', // Ensure this exists or use default
-          });
-          document.title = `(${
-            newCount - previousCount
-          }) New Message - JJM Inventory`;
-        }
+        this.notifyUser(lastMsg);
       }
     }
 

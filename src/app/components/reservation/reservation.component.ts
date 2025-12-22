@@ -359,9 +359,9 @@ export class ReservationComponent implements OnInit, OnDestroy {
 
     // Get keywords from current sale or use defaults
     const excludeKeywords =
-      this.currentSale?.excludeKeywords || this.defaultExcludeKeywords;
+      this.currentSale!.excludeKeywords || this.defaultExcludeKeywords;
     const holidayKeywords =
-      this.currentSale?.holidayKeywords || this.defaultHolidayKeywords;
+      this.currentSale!.holidayKeywords || this.defaultHolidayKeywords;
 
     // Check if it's explicitly excluded
     for (const keyword of excludeKeywords) {
@@ -705,7 +705,7 @@ export class ReservationComponent implements OnInit, OnDestroy {
 
       // Only create customer if they don't exist
       if (!existingCustomer) {
-        const targetUserId = this.orderItems[0]?.product?.userId;
+        const targetUserId = this.orderItems[0].product.userId;
 
         await firstValueFrom(
           this.customerService.addCustomer({

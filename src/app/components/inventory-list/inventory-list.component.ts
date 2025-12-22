@@ -6,6 +6,7 @@ import { CustomerService } from '../../services/customer.service';
 import { DialogService } from '../../services/dialog.service';
 import { Product, Sale, Customer } from '../../models/inventory.models';
 import { Subscription } from 'rxjs';
+import { DeviceService } from '../../services/device.service';
 
 @Component({
   selector: 'app-inventory-list',
@@ -19,6 +20,7 @@ export class InventoryListComponent implements OnInit, OnDestroy {
   products: Product[] = [];
   sales: Sale[] = [];
   customers: Customer[] = [];
+  inventoryViewMode: 'table' | 'grid' = 'table'; // Added for List/Grid view
   private subscriptions: Subscription = new Subscription();
 
   // Category filter
@@ -68,7 +70,8 @@ export class InventoryListComponent implements OnInit, OnDestroy {
   constructor(
     private inventoryService: InventoryService,
     private customerService: CustomerService,
-    private dialogService: DialogService
+    private dialogService: DialogService,
+    private deviceService: DeviceService
   ) {}
 
   ngOnInit(): void {
@@ -90,6 +93,15 @@ export class InventoryListComponent implements OnInit, OnDestroy {
     this.subscriptions.add(
       this.customerService.getCustomers().subscribe((customers) => {
         this.customers = customers;
+      })
+    );
+
+    // Auto-switch to grid view on mobile
+    this.subscriptions.add(
+      this.deviceService.isMobile$.subscribe((isMobile) => {
+        if (isMobile) {
+          this.inventoryViewMode = 'grid';
+        }
       })
     );
   }

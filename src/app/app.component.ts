@@ -1,4 +1,10 @@
-import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  HostListener,
+  NgZone,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   RouterOutlet,
@@ -13,7 +19,13 @@ import { DialogComponent } from './components/dialog/dialog.component';
 import { LoadingComponent } from './components/loading/loading.component';
 import { ChatComponent } from './components/chat/chat.component';
 import { Subscription } from 'rxjs';
-import { filter } from 'rxjs/operators';
+import { filter, take } from 'rxjs/operators';
+import {
+  NotificationService,
+  AdminNotification,
+} from './services/notification.service';
+import { DialogService } from './services/dialog.service';
+import { Sale } from './models/inventory.models';
 
 @Component({
   selector: 'app-root',
@@ -41,6 +53,9 @@ export class AppComponent implements OnInit, OnDestroy {
   userRole = '';
   isChatOpen = false;
   totalUnreadMessages = 0;
+  notificationCount = 0;
+  recentNotifications: AdminNotification[] = [];
+  showNotifications = false;
   showReservation = false;
   isVisionAid = false;
 
@@ -55,7 +70,10 @@ export class AppComponent implements OnInit, OnDestroy {
     private inventoryService: InventoryService,
     private chatService: ChatService,
     private userService: UserService,
-    private router: Router
+    private notificationService: NotificationService,
+    private dialogService: DialogService,
+    private router: Router,
+    private ngZone: NgZone
   ) {
     // Check login status via service for reactivity
     this.userService.isLoggedIn$.subscribe((loggedIn) => {
@@ -68,7 +86,22 @@ export class AppComponent implements OnInit, OnDestroy {
           localStorage.getItem('jjm_username') ||
           'User';
         this.inventoryService.reloadData();
+
+        // FCM Setup
+        this.notificationService.requestPermission();
+        this.notificationService.listenForMessages();
+
+        // Check delivery reminders on login
+        this.checkDeliveryReminders();
       }
+    });
+
+    this.notificationService.notificationCount$.subscribe((count) => {
+      this.notificationCount = count;
+    });
+
+    this.notificationService.notifications$.subscribe((notifs) => {
+      this.recentNotifications = notifs;
     });
 
     this.userRole = localStorage.getItem('jjm_role') || 'user';
@@ -135,7 +168,10 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private onOpenChatBubble = (): void => {
-    this.isChatOpen = true;
+    this.ngZone.run(() => {
+      this.isChatOpen = true;
+      console.log('AppComponent: Chat opened via event');
+    });
   };
 
   ngOnDestroy() {
@@ -160,6 +196,24 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isDarkTheme = !this.isDarkTheme;
     this.applyTheme();
     localStorage.setItem('jjm_theme', this.isDarkTheme ? 'dark' : 'light');
+  }
+
+  toggleNotifications(event: MouseEvent): void {
+    event.stopPropagation();
+    this.showNotifications = !this.showNotifications;
+    if (this.showNotifications) {
+      this.notificationService.resetNotificationCount();
+    }
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    this.showNotifications = false;
+  }
+
+  clearNotifications(): void {
+    this.notificationService.clearNotifications();
+    this.showNotifications = false;
   }
 
   toggleVisionAid(): void {
@@ -265,5 +319,119 @@ export class AppComponent implements OnInit, OnDestroy {
       ads: 'Ad Inventory',
     };
     return titles[this.activeTab] || 'Dashboard';
+  }
+
+  private checkDeliveryReminders(): void {
+    // Wait for sales data to be loaded (not empty) then check
+    this.inventoryService
+      .getSales()
+      .pipe(
+        filter((sales) => sales && sales.length > 0),
+        take(1)
+      )
+      .subscribe((sales: Sale[]) => {
+        console.log('AppComponent: Sales data received, length:', sales.length);
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+
+        // Filter only pending sales with delivery dates
+        const pendingSales = sales.filter(
+          (s) =>
+            s.deliveryDate &&
+            (s.pending === true || (s as any).pending === 'true')
+        );
+
+        console.log(
+          'AppComponent: Found',
+          pendingSales.length,
+          'pending sales with delivery dates'
+        );
+
+        pendingSales.forEach((sale: Sale) => {
+          if (!sale.deliveryDate) return;
+
+          const delivery = new Date(sale.deliveryDate);
+          const diffMs = delivery.getTime() - now.getTime();
+          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+          console.log(
+            `AppComponent: Checking "${sale.productName}", diffDays: ${diffDays}, pending: ${sale.pending}`
+          );
+
+          // Trigger for Today (0), Tomorrow (1), Upcoming (2), or Overdue (<0)
+          if (diffDays <= 2) {
+            this.notifyDeliveryReminder(sale, diffDays);
+          }
+        });
+      });
+  }
+
+  private notifyDeliveryReminder(sale: Sale, daysAhead: number): void {
+    const delivery = new Date(sale.deliveryDate!);
+    const dateStr = delivery.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+    let title: string;
+    let message: string;
+    let type: AdminNotification['type'] = 'reminder';
+
+    if (daysAhead < 0) {
+      title = 'Overdue Delivery 🚨';
+      message = `Delivery for "${sale.productName}" is OVERDUE by ${Math.abs(
+        daysAhead
+      )} day(s) (was due ${dateStr}).`;
+    } else if (daysAhead === 0) {
+      title = 'Delivery Due Today 🚚';
+      message = `Delivery for "${sale.productName}" is due TODAY (${dateStr}).`;
+    } else {
+      title = 'Upcoming Delivery 🚚';
+      message = `Delivery for "${sale.productName}" is due in ${daysAhead} day(s) (${dateStr}).`;
+    }
+
+    // 1. Add to the new notification UI
+    const isNew = this.notificationService.pushNotification(
+      title,
+      message,
+      'reminder'
+    );
+
+    // 2. Play alert sound ONLY if it's a new notification
+    if (isNew) {
+      this.playReminderSound();
+
+      // 3. Optional: Show a dialog if it's super critical (overdue)
+      if (daysAhead < 0) {
+        this.dialogService.alert(message, title, 'warning');
+      }
+    }
+  }
+
+  private playReminderSound(): void {
+    try {
+      const audioContext = new (window.AudioContext ||
+        (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(
+        0.01,
+        audioContext.currentTime + 0.5
+      );
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+    } catch (e) {
+      console.warn('Could not play reminder sound:', e);
+    }
   }
 }

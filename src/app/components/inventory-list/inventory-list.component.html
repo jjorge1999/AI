@@ -70,12 +70,21 @@
     <div class="table-header">
       <h3 class="table-title">Available Inventory</h3>
       <div class="table-actions">
+        <div class="view-controls">
+          <button class="view-btn" [class.active]="inventoryViewMode === 'table'" (click)="inventoryViewMode = 'table'" title="Table View">
+            <span class="material-icon">view_list</span>
+          </button>
+          <button class="view-btn" [class.active]="inventoryViewMode === 'grid'" (click)="inventoryViewMode = 'grid'" title="Grid View">
+            <span class="material-icon">grid_view</span>
+          </button>
+        </div>
         <select class="filter-select" [(ngModel)]="availableProductsPageSize" (change)="onAvailablePageSizeChange()">
           <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }} / page</option>
         </select>
       </div>
     </div>
-    <div class="table-wrapper">
+    <!-- Table View -->
+    <div class="table-wrapper" *ngIf="inventoryViewMode === 'table'">
       <table class="data-table">
         <thead>
           <tr>
@@ -141,6 +150,48 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Grid View (Cards) -->
+    <div class="inventory-grid" *ngIf="inventoryViewMode === 'grid'">
+      <div class="inventory-card" *ngFor="let p of paginatedAvailableProducts">
+        <div class="card-image" [style.backgroundImage]="p.imageUrl ? 'url(' + p.imageUrl + ')' : 'none'">
+          <span *ngIf="!p.imageUrl" class="material-icon no-image">inventory_2</span>
+          <span class="category-badge overlay">{{ p.category }}</span>
+        </div>
+        
+        <div class="card-content">
+          <div class="card-header">
+            <h4 class="product-name">{{ p.name }}</h4>
+            <span class="price">₱{{ p.price | number:'1.2-2' }}</span>
+          </div>
+          
+          <div class="stock-level">
+            <div class="stock-info">
+              <span class="stock-count" [class.low]="p.quantity < 10">{{ p.quantity }}</span>
+              <span class="stock-max">Items left</span>
+            </div>
+            <div class="stock-bar-bg">
+              <div class="stock-bar" [style.width.%]="(p.quantity / 100) * 100" [class.low]="p.quantity < 10"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-actions">
+          <button class="action-btn edit" (click)="openEditModal(p)">
+            <span class="material-icon">edit</span>
+            <span>Edit</span>
+          </button>
+          <button class="action-btn restock" (click)="onRestock(p)">
+            <span class="material-icon">add_circle</span>
+            <span>Restock</span>
+          </button>
+        </div>
+      </div>
+      <div *ngIf="paginatedAvailableProducts.length === 0" class="empty-state">
+        <span class="material-icon">inventory_2</span>
+        <p>No available products</p>
+      </div>
     </div>
     <div class="table-footer" *ngIf="availableProductsTotalPages > 1">
       <p class="page-info">

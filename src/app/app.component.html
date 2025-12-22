@@ -175,10 +175,45 @@
       <div class="header-right">
         <!-- Quick Actions -->
         <div class="header-actions">
-          <button class="notification-btn" title="Notifications">
-            <span class="material-icon">notifications</span>
-            <span class="notification-dot" *ngIf="totalUnreadMessages > 0"></span>
-          </button>
+          <div class="notification-wrapper">
+            <button class="notification-btn" 
+                    [class.has-notifications]="notificationCount > 0"
+                    title="Notifications" (click)="toggleNotifications($event)">
+              <span class="material-icon">notifications</span>
+            </button>
+            <span class="notification-badge-header" *ngIf="notificationCount > 0">{{ notificationCount }}</span>
+            <div class="notification-pulse" *ngIf="notificationCount > 0"></div>
+
+            <!-- Notifications Dropdown -->
+            <div class="notifications-dropdown" *ngIf="showNotifications" (click)="$event.stopPropagation()">
+              <div class="dropdown-header">
+                <h3>Notifications</h3>
+                <button (click)="clearNotifications()" class="clear-all-btn">Clear All</button>
+              </div>
+              <div class="notifications-list" *ngIf="recentNotifications.length > 0">
+                <div *ngFor="let notif of recentNotifications" 
+                     class="notification-item" 
+                     [class.unread]="!notif.read">
+                  <div class="notif-icon" [ngClass]="notif.type">
+                    <span class="material-icon" *ngIf="notif.type === 'message'">chat</span>
+                    <span class="material-icon" *ngIf="notif.type === 'reservation'">event</span>
+                    <span class="material-icon" *ngIf="notif.type === 'delivery'">local_shipping</span>
+                    <span class="material-icon" *ngIf="notif.type === 'reminder'">notification_important</span>
+                    <span class="material-icon" *ngIf="notif.type === 'system'">info</span>
+                  </div>
+                  <div class="notif-content">
+                    <p class="notif-title">{{ notif.title }}</p>
+                    <p class="notif-body">{{ notif.body }}</p>
+                    <span class="notif-time">{{ notif.timestamp | date:'shortTime' }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="no-notifications" *ngIf="recentNotifications.length === 0">
+                <span class="material-icon">notifications_off</span>
+                <p>No recent notifications</p>
+              </div>
+            </div>
+          </div>
           <button class="quick-nav-btn" routerLink="/ads" *ngIf="userRole === 'admin'" title="Ad Inventory">
             <span class="material-icon">campaign</span>
             <span class="btn-text">Ads</span>

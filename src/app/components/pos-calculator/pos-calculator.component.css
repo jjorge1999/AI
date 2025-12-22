@@ -496,6 +496,7 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-sm);
+  overflow: visible;
 }
 
 .action-btn {
@@ -511,6 +512,7 @@
   cursor: pointer;
   transition: all 0.2s;
   position: relative;
+  overflow: visible; /* Ensure absolute children aren't clipped */
 }
 
 .action-btn:hover {
@@ -533,8 +535,9 @@
 
 .pending-badge {
   position: absolute;
-  top: -4px;
-  right: -4px;
+  top: 0;
+  right: 0;
+  transform: translate(40%, -40%); /* Center badge on the corner */
   background: #ef4444;
   color: white;
   font-size: 0.625rem;
@@ -543,6 +546,11 @@
   border-radius: 9999px;
   min-width: 18px;
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 /* Delivery Summary */

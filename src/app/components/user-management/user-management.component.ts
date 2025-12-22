@@ -6,6 +6,7 @@ import { UserService } from '../../services/user.service';
 import { DialogService } from '../../services/dialog.service';
 import { SettingsService } from '../../services/settings.service';
 import { User } from '../../models/inventory.models';
+import { DeviceService } from '../../services/device.service';
 
 @Component({
   selector: 'app-user-management',
@@ -18,6 +19,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
   users: User[] = [];
   filteredUsers: User[] = [];
   isLoading = false;
+  viewMode: 'table' | 'grid' = 'table';
   private subscriptions: Subscription[] = [];
 
   // Search and filters
@@ -50,7 +52,8 @@ export class UserManagementComponent implements OnInit, OnDestroy {
   constructor(
     private userService: UserService,
     private dialogService: DialogService,
-    private settingsService: SettingsService
+    private settingsService: SettingsService,
+    private deviceService: DeviceService
   ) {}
 
   ngOnInit(): void {
@@ -63,6 +66,15 @@ export class UserManagementComponent implements OnInit, OnDestroy {
         this.isGemmaConfigured = this.settingsService.isGemmaConfigured();
         if (settings.huggingFaceToken && !this.showAiSettings) {
           this.hfToken = settings.huggingFaceToken.substring(0, 10) + '...';
+        }
+      })
+    );
+
+    // Auto-switch to grid view on mobile
+    this.subscriptions.push(
+      this.deviceService.isMobile$.subscribe((isMobile) => {
+        if (isMobile) {
+          this.viewMode = 'grid';
         }
       })
     );

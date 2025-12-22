@@ -119,8 +119,24 @@
     <div class="table-header">
       <h3 class="section-title">Discounted Inventory</h3>
       <div class="table-actions">
-
-
+        <div class="view-controls">
+          <button 
+            class="view-btn" 
+            [class.active]="viewMode === 'table'"
+            (click)="viewMode = 'table'"
+            title="List View"
+          >
+            <span class="material-symbols-outlined">view_list</span>
+          </button>
+          <button 
+            class="view-btn" 
+            [class.active]="viewMode === 'grid'"
+            (click)="viewMode = 'grid'"
+            title="Grid View"
+          >
+            <span class="material-symbols-outlined">grid_view</span>
+          </button>
+        </div>
         <!-- Search placeholder -->
         <div class="search-box">
           <span class="material-symbols-outlined">search</span>
@@ -129,7 +145,8 @@
       </div>
     </div>
 
-    <div class="table-container">
+    <!-- Table View -->
+    <div class="table-container" *ngIf="viewMode === 'table'">
       <table class="inventory-table">
         <thead>
           <tr>
@@ -159,11 +176,34 @@
             </td>
             <td>{{ product.saleName }}</td>
           </tr>
-          <tr *ngIf="discountedProducts.length === 0">
-            <td colspan="6" class="text-center py-4 text-muted">No products currently on sale.</td>
-          </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Grid View -->
+    <div class="discounted-grid" *ngIf="viewMode === 'grid'">
+      <div *ngFor="let product of paginatedProducts" class="discounted-card">
+        <div class="discounted-card-header">
+          <div class="product-img-large" [style.backgroundImage]="product.imageUrl ? 'url(' + product.imageUrl + ')' : ''">
+            <span *ngIf="!product.imageUrl" class="material-symbols-outlined">inventory_2</span>
+          </div>
+          <div class="discount-badge-large">-{{ product.discountPercent }}%</div>
+        </div>
+        <div class="discounted-card-body">
+          <h4 class="product-name">{{ product.name }}</h4>
+          <span class="category-badge">{{ product.category }}</span>
+          <div class="price-row">
+            <span class="original-price strikethrough">{{ product.basePrice | currency:'PHP' }}</span>
+            <span class="sale-price-value">{{ product.salePrice | currency:'PHP' }}</span>
+          </div>
+          <p class="campaign-label">{{ product.saleName }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="discountedProducts.length === 0" class="empty-state-card">
+      <p class="text-center text-muted">No products currently on sale.</p>
     </div>
     
     <!-- Pagination Controls -->

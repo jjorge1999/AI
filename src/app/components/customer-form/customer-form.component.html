@@ -7,6 +7,24 @@
         <p class="page-subtitle">Manage customer profiles, history, and contact details.</p>
       </div>
       <div class="header-actions">
+        <div class="view-controls">
+          <button 
+            class="view-btn" 
+            [class.active]="viewMode === 'table'"
+            (click)="viewMode = 'table'"
+            title="List View"
+          >
+            <span class="material-icon">view_list</span>
+          </button>
+          <button 
+            class="view-btn" 
+            [class.active]="viewMode === 'grid'"
+            (click)="viewMode = 'grid'"
+            title="Grid View"
+          >
+            <span class="material-icon">grid_view</span>
+          </button>
+        </div>
         <button class="btn-add" (click)="openAddModal()">
           <span class="material-icon">add</span>
           <span>Add Customer</span>
@@ -40,36 +58,75 @@
     </div>
   </header>
 
-  <!-- Customer Table -->
-  <div class="table-container">
-    <table class="customer-table">
-      <thead>
-        <tr>
-          <th class="col-name">Name</th>
-          <th class="col-phone">Phone</th>
-          <th class="col-status">Status</th>
-          <th class="col-spend">Total Spent</th>
-          <th class="col-active">Last Active</th>
-          <th class="col-actions">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          *ngFor="let cust of paginatedCustomers"
-          class="customer-row"
-          [class.active-row]="getCustomerStatus(cust) === 'active'"
-          (click)="openProfileModal(cust)"
-        >
-          <td class="col-name">
-            <div class="customer-name-cell">
-              <div class="avatar" [ngClass]="getAvatarColor(cust.name)">
-                {{ getCustomerInitials(cust.name) }}
+  <!-- Customer Content -->
+  <div class="customer-content">
+    <!-- Table View -->
+    <div class="table-container" *ngIf="viewMode === 'table'">
+      <table class="customer-table">
+        <thead>
+          <tr>
+            <th class="col-name">Name</th>
+            <th class="col-phone">Phone</th>
+            <th class="col-status">Status</th>
+            <th class="col-spend">Total Spent</th>
+            <th class="col-active">Last Active</th>
+            <th class="col-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            *ngFor="let cust of paginatedCustomers"
+            class="customer-row"
+            [class.active-row]="getCustomerStatus(cust) === 'active'"
+            (click)="openProfileModal(cust)"
+          >
+            <td class="col-name">
+              <div class="customer-name-cell">
+                <div class="avatar" [ngClass]="getAvatarColor(cust.name)">
+                  {{ getCustomerInitials(cust.name) }}
+                </div>
+                <span class="customer-name">{{ cust.name }}</span>
               </div>
-              <span class="customer-name">{{ cust.name }}</span>
-            </div>
-          </td>
-          <td class="col-phone">{{ cust.phoneNumber || '—' }}</td>
-          <td class="col-status">
+            </td>
+            <td class="col-phone">{{ cust.phoneNumber || '—' }}</td>
+            <td class="col-status">
+              <span
+                class="status-badge"
+                [ngClass]="{
+                  'status-active': getCustomerStatus(cust) === 'active',
+                  'status-lead': getCustomerStatus(cust) === 'lead',
+                  'status-inactive': getCustomerStatus(cust) === 'inactive'
+                }"
+              >
+                <span class="status-dot"></span>
+                {{ getCustomerStatus(cust) | titlecase }}
+              </span>
+            </td>
+            <td class="col-spend">{{ formatCurrency(getCustomerStats(cust).totalSpent) }}</td>
+            <td class="col-active">{{ getLastActive(cust) }}</td>
+            <td class="col-actions" (click)="$event.stopPropagation()">
+              <div class="action-buttons">
+                <button class="action-btn" (click)="openEditModal(cust)" title="Edit">
+                  <span class="material-icon">edit</span>
+                </button>
+                <button class="action-btn danger" (click)="deleteCustomer(cust.id)" title="Delete">
+                  <span class="material-icon">delete</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Grid View -->
+    <div class="customer-grid" *ngIf="viewMode === 'grid'">
+      <div *ngFor="let cust of paginatedCustomers" class="customer-card" (click)="openProfileModal(cust)">
+        <div class="customer-card-header">
+          <div class="avatar-large" [ngClass]="getAvatarColor(cust.name)">
+            {{ getCustomerInitials(cust.name) }}
+          </div>
+          <div class="status-indicator">
             <span
               class="status-badge"
               [ngClass]="{
@@ -81,55 +138,73 @@
               <span class="status-dot"></span>
               {{ getCustomerStatus(cust) | titlecase }}
             </span>
-          </td>
-          <td class="col-spend">{{ formatCurrency(getCustomerStats(cust).totalSpent) }}</td>
-          <td class="col-active">{{ getLastActive(cust) }}</td>
-          <td class="col-actions" (click)="$event.stopPropagation()">
-            <div class="action-buttons">
-              <button class="action-btn" (click)="openEditModal(cust)" title="Edit">
-                <span class="material-icon">edit</span>
-              </button>
-              <button class="action-btn danger" (click)="deleteCustomer(cust.id)" title="Delete">
-                <span class="material-icon">delete</span>
-              </button>
-            </div>
-          </td>
-        </tr>
-        <tr *ngIf="paginatedCustomers.length === 0">
-          <td colspan="6" class="empty-row">
-            <div class="empty-state">
-              <span class="material-icon">group_off</span>
-              <p>No customers found</p>
-              <button class="btn-add-small" (click)="openAddModal()">Add your first customer</button>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+          </div>
+        </div>
 
-  <!-- Pagination -->
-  <div class="pagination-bar" *ngIf="filteredCustomers.length > 0">
-    <p class="pagination-info">
-      Showing {{ showingFrom }}-{{ showingTo }} of {{ filteredCustomers.length }} customers
-    </p>
-    <div class="pagination-controls" *ngIf="totalPages > 1">
-      <button class="pagination-btn" [disabled]="currentPage === 1" (click)="prevPage()">
-        <span class="material-icon">chevron_left</span>
-      </button>
-      <div class="page-numbers">
-        <button
-          *ngFor="let page of getPageNumbers()"
-          class="page-btn"
-          [class.active]="page === currentPage"
-          (click)="goToPage(page)"
-        >
-          {{ page }}
+        <div class="customer-card-body">
+          <h3 class="customer-name">{{ cust.name }}</h3>
+          <p class="customer-phone">
+            <span class="material-icon">call</span>
+            {{ cust.phoneNumber || 'No phone' }}
+          </p>
+          <div class="customer-stats">
+            <div class="stat-item">
+              <span class="stat-label">Spent</span>
+              <span class="stat-value">{{ formatCurrency(getCustomerStats(cust).totalSpent) }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Orders</span>
+              <span class="stat-value">{{ getCustomerStats(cust).orderCount }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="customer-card-footer">
+          <span class="last-active">Active {{ getLastActive(cust) }}</span>
+          <div class="card-actions" (click)="$event.stopPropagation()">
+            <button class="icon-btn" (click)="openEditModal(cust)">
+              <span class="material-icon">edit</span>
+            </button>
+            <button class="icon-btn danger" (click)="deleteCustomer(cust.id)">
+              <span class="material-icon">delete</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty/Loading States -->
+    <div *ngIf="paginatedCustomers.length === 0" class="empty-state-card">
+      <div class="empty-state">
+        <span class="material-icon">group_off</span>
+        <p>No customers found</p>
+        <button class="btn-add-small" (click)="openAddModal()">Add your first customer</button>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-bar" *ngIf="filteredCustomers.length > 0">
+      <p class="pagination-info">
+        Showing {{ showingFrom }}-{{ showingTo }} of {{ filteredCustomers.length }} customers
+      </p>
+      <div class="pagination-controls" *ngIf="totalPages > 1">
+        <button class="pagination-btn" [disabled]="currentPage === 1" (click)="prevPage()">
+          <span class="material-icon">chevron_left</span>
+        </button>
+        <div class="page-numbers">
+          <button
+            *ngFor="let page of getPageNumbers()"
+            class="page-btn"
+            [class.active]="page === currentPage"
+            (click)="goToPage(page)"
+          >
+            {{ page }}
+          </button>
+        </div>
+        <button class="pagination-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">
+          <span class="material-icon">chevron_right</span>
         </button>
       </div>
-      <button class="pagination-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">
-        <span class="material-icon">chevron_right</span>
-      </button>
     </div>
   </div>
 </div>

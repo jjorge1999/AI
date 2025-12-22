@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { withCors, corsResponse } from '@/lib/cors';
+import * as admin from 'firebase-admin';
 
 const COLLECTION_NAME = 'messages';
 
@@ -66,7 +67,59 @@ export async function POST(request: Request) {
       });
     } catch (wsError) {
       console.error('Failed to broadcast message:', wsError);
-      // Don't fail the request if broadcast fails
+    }
+
+    // Send FCM Notifications
+    try {
+      const usersSnapshot = await db.collection('users').get();
+      const tokens: string[] = [];
+      usersSnapshot.forEach((doc) => {
+        const userData = doc.data();
+        if (
+          userData.id !== body.userId &&
+          userData.fcmTokens &&
+          Array.isArray(userData.fcmTokens)
+        ) {
+          tokens.push(...userData.fcmTokens);
+        }
+      });
+
+      // Also check fcm_tokens collection for standalone tokens
+      const extraTokensSnapshot = await db
+        .collection('fcm_tokens')
+        .where('userId', '!=', body.userId || '')
+        .get();
+      extraTokensSnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.token) tokens.push(data.token);
+      });
+
+      const uniqueTokens = Array.from(new Set(tokens));
+
+      if (uniqueTokens.length > 0) {
+        const messagePayload = {
+          notification: {
+            title: `New message from ${body.senderName}`,
+            body:
+              body.text.length > 100
+                ? body.text.substring(0, 97) + '...'
+                : body.text,
+          },
+          data: {
+            type: 'chat_message',
+            senderName: body.senderName,
+            messageId: docRef.id,
+          },
+          tokens: uniqueTokens,
+        };
+
+        const response = await admin
+          .messaging()
+          .sendEachForMulticast(messagePayload);
+        console.log(`Successfully sent ${response.successCount} FCM messages`);
+      }
+    } catch (fcmError) {
+      console.error('Failed to send FCM notifications:', fcmError);
     }
 
     return withCors(NextResponse.json(newMessage, { status: 201 }), origin);

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { withCors, corsResponse } from '@/lib/cors';
+import * as admin from 'firebase-admin';
 
 export async function OPTIONS(request: Request) {
   const origin = request.headers.get('origin');
@@ -74,6 +75,51 @@ export async function POST(request: Request) {
     }
 
     await batch.commit();
+
+    // Send FCM Notifications to product owners
+    try {
+      // Better logic: Notify admins and the specific owner if found
+      const usersSnapshot = await db.collection('users').get();
+      const tokens: string[] = [];
+
+      usersSnapshot.forEach((doc) => {
+        const userData = doc.data();
+        if (userData.fcmTokens && Array.isArray(userData.fcmTokens)) {
+          // Notify admins of any new reservation, and owners of their specific products
+          // (For now, we notify all staff/admin to ensure no one misses it)
+          tokens.push(...userData.fcmTokens);
+        }
+      });
+
+      const uniqueTokens = Array.from(new Set(tokens));
+
+      if (uniqueTokens.length > 0) {
+        const messagePayload = {
+          notification: {
+            title: 'New Reservation Received! 📦',
+            body: `${reservation.customerName} has reserved ${reservation.items.length} item(s).`,
+          },
+          data: {
+            type: 'new_reservation',
+            customerName: reservation.customerName,
+            orderId: orderId,
+          },
+          tokens: uniqueTokens,
+        };
+
+        const response = await admin
+          .messaging()
+          .sendEachForMulticast(messagePayload);
+        console.log(
+          `Successfully sent ${response.successCount} FCM messages for new reservation`
+        );
+      }
+    } catch (fcmError) {
+      console.error(
+        'Failed to send FCM notifications for reservation:',
+        fcmError
+      );
+    }
 
     return withCors(
       NextResponse.json(

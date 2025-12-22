@@ -6,6 +6,7 @@ import { CustomerService } from '../../services/customer.service';
 import { InventoryService } from '../../services/inventory.service';
 import { DialogService } from '../../services/dialog.service';
 import { Customer, Sale } from '../../models/inventory.models';
+import { DeviceService } from '../../services/device.service';
 
 interface CustomerStats {
   totalSpent: number;
@@ -24,6 +25,7 @@ export class CustomerFormComponent implements OnInit, OnDestroy {
   customers: Customer[] = [];
   sales: Sale[] = [];
   editingId: string | null = null;
+  viewMode: 'table' | 'grid' = 'table';
 
   // Search and filtering
   searchQuery = '';
@@ -51,7 +53,8 @@ export class CustomerFormComponent implements OnInit, OnDestroy {
   constructor(
     private customerService: CustomerService,
     private inventoryService: InventoryService,
-    private dialogService: DialogService
+    private dialogService: DialogService,
+    private deviceService: DeviceService
   ) {}
 
   ngOnInit(): void {
@@ -66,6 +69,15 @@ export class CustomerFormComponent implements OnInit, OnDestroy {
     this.subscriptions.push(
       this.inventoryService.getSales().subscribe((sales) => {
         this.sales = sales;
+      })
+    );
+
+    // Auto-switch to grid view on mobile
+    this.subscriptions.push(
+      this.deviceService.isMobile$.subscribe((isMobile) => {
+        if (isMobile) {
+          this.viewMode = 'grid';
+        }
       })
     );
   }

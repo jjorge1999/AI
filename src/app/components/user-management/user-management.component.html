@@ -6,10 +6,30 @@
         <h1 class="page-title">User Management</h1>
         <p class="page-subtitle">Manage access, roles, and permissions across the organization.</p>
       </div>
-      <button class="btn-add" (click)="openAddModal()">
-        <span class="material-icon">add</span>
-        <span>Add User</span>
-      </button>
+      <div class="header-actions">
+        <div class="view-controls">
+          <button 
+            class="view-btn" 
+            [class.active]="viewMode === 'table'"
+            (click)="viewMode = 'table'"
+            title="List View"
+          >
+            <span class="material-icon">view_list</span>
+          </button>
+          <button 
+            class="view-btn" 
+            [class.active]="viewMode === 'grid'"
+            (click)="viewMode = 'grid'"
+            title="Grid View"
+          >
+            <span class="material-icon">grid_view</span>
+          </button>
+        </div>
+        <button class="btn-add" (click)="openAddModal()">
+          <span class="material-icon">add</span>
+          <span>Add User</span>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -35,84 +55,130 @@
     </div>
   </div>
 
-  <!-- Users Table -->
-  <div class="table-container">
-    <table class="users-table">
-      <thead>
-        <tr>
-          <th class="col-user">User</th>
-          <th class="col-email">Username</th>
-          <th class="col-role">Role</th>
-          <th class="col-status">Status</th>
-          <th class="col-active">Last Active</th>
-          <th class="col-actions"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let user of paginatedUsers" class="user-row">
-          <td class="user-cell">
-            <div class="user-info">
-              <div class="user-avatar" [ngClass]="getAvatarColor(user)">
-                {{ getUserInitials(user) }}
+  <!-- Users Content -->
+  <div class="users-content">
+    <!-- Table View -->
+    <div class="table-container" *ngIf="viewMode === 'table'">
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th class="col-user">User</th>
+            <th class="col-email">Username</th>
+            <th class="col-role">Role</th>
+            <th class="col-status">Status</th>
+            <th class="col-active">Last Active</th>
+            <th class="col-actions"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let user of paginatedUsers" class="user-row">
+            <td class="user-cell">
+              <div class="user-info">
+                <div class="user-avatar" [ngClass]="getAvatarColor(user)">
+                  {{ getUserInitials(user) }}
+                </div>
+                <span class="user-name">{{ user.fullName || user.username }}</span>
               </div>
-              <span class="user-name">{{ user.fullName || user.username }}</span>
-            </div>
-          </td>
-          <td class="email-cell">{{ user.username }}</td>
-          <td class="role-cell">
+            </td>
+            <td class="email-cell">{{ user.username }}</td>
+            <td class="role-cell">
+              <span class="role-badge" [ngClass]="getRoleBadgeClass(user.role)">
+                {{ user.role | titlecase }}
+              </span>
+            </td>
+            <td class="status-cell">
+              <div class="status-indicator active">
+                <span class="status-dot"></span>
+                <span class="status-text">Active</span>
+              </div>
+            </td>
+            <td class="active-cell">{{ getLastActive(user) }}</td>
+            <td class="actions-cell">
+              <div class="action-buttons">
+                <button class="action-btn" (click)="openEditModal(user)" title="Edit">
+                  <span class="material-icon">edit</span>
+                </button>
+                <button class="action-btn delete" (click)="deleteUser(user.id)" title="Delete">
+                  <span class="material-icon">delete</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Grid View -->
+    <div class="users-grid" *ngIf="viewMode === 'grid'">
+      <div *ngFor="let user of paginatedUsers" class="user-card">
+        <div class="user-card-header">
+          <div class="user-avatar-large" [ngClass]="getAvatarColor(user)">
+            {{ getUserInitials(user) }}
+          </div>
+          <div class="user-card-title">
+            <h3 class="user-name">{{ user.fullName || user.username }}</h3>
+            <p class="user-handle">{{'@'}}{{ user.username }}</p>
+          </div>
+          <div class="user-card-actions">
+            <button class="icon-btn" (click)="openEditModal(user)">
+              <span class="material-icon">edit</span>
+            </button>
+          </div>
+        </div>
+        
+        <div class="user-card-body">
+          <div class="info-row">
+            <span class="material-icon">security</span>
             <span class="role-badge" [ngClass]="getRoleBadgeClass(user.role)">
               {{ user.role | titlecase }}
             </span>
-          </td>
-          <td class="status-cell">
-            <div class="status-indicator active">
-              <span class="status-dot"></span>
-              <span class="status-text">Active</span>
-            </div>
-          </td>
-          <td class="active-cell">{{ getLastActive(user) }}</td>
-          <td class="actions-cell">
-            <div class="action-buttons">
-              <button class="action-btn" (click)="openEditModal(user)" title="Edit">
-                <span class="material-icon">edit</span>
-              </button>
-              <button class="action-btn delete" (click)="deleteUser(user.id)" title="Delete">
-                <span class="material-icon">delete</span>
-              </button>
-            </div>
-          </td>
-        </tr>
-        <tr *ngIf="paginatedUsers.length === 0 && !isLoading">
-          <td colspan="6" class="empty-row">
-            <div class="empty-state">
-              <span class="material-icon">group_off</span>
-              <p>No users found</p>
-              <button class="btn-add-small" (click)="openAddModal()">Add your first user</button>
-            </div>
-          </td>
-        </tr>
-        <tr *ngIf="isLoading">
-          <td colspan="6" class="loading-row">
-            <div class="loading-state">
-              <span class="material-icon">sync</span>
-              <p>Loading users...</p>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+          </div>
+          <div class="info-row">
+            <span class="material-icon">location_on</span>
+            <span class="info-text">{{ user.address || 'No address set' }}</span>
+          </div>
+        </div>
+
+        <div class="user-card-footer">
+          <div class="status-indicator active">
+            <span class="status-dot"></span>
+            <span class="status-text">Active</span>
+          </div>
+          <button class="btn-delete-small" (click)="deleteUser(user.id)">
+            <span class="material-icon">delete</span>
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty States -->
+    <div *ngIf="paginatedUsers.length === 0 && !isLoading" class="empty-state-container">
+      <div class="empty-state">
+        <span class="material-icon">group_off</span>
+        <p>No users found</p>
+        <button class="btn-add-small" (click)="openAddModal()">Add your first user</button>
+      </div>
+    </div>
+
+    <div *ngIf="isLoading" class="loading-state-container">
+      <div class="loading-state">
+        <span class="material-icon">sync</span>
+        <p>Loading users...</p>
+      </div>
+    </div>
 
     <!-- Pagination -->
-    <div class="pagination-bar">
+    <div class="pagination-bar" *ngIf="filteredUsers.length > 0">
       <div class="pagination-info">
         Showing <span class="bold">{{ showingFrom }}-{{ showingTo }}</span> of <span class="bold">{{ filteredUsers.length }}</span> users
       </div>
       <div class="pagination-controls">
         <button class="pagination-btn" [disabled]="currentPage === 1" (click)="prevPage()">
-          Previous
+          <span class="material-icon">chevron_left</span>
         </button>
         <button class="pagination-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">
-          Next
+          <span class="material-icon">chevron_right</span>
         </button>
       </div>
     </div>

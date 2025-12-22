@@ -126,8 +126,16 @@
         <h3 class="table-title">Pending Deliveries</h3>
         <span class="badge-count">{{ pendingDeliveries.length }}</span>
       </div>
+      <div class="view-controls">
+        <button class="view-btn" [class.active]="viewMode === 'table'" (click)="viewMode = 'table'" title="Table View">
+          <span class="material-icon">view_list</span>
+        </button>
+        <button class="view-btn" [class.active]="viewMode === 'grid'" (click)="viewMode = 'grid'" title="Grid View">
+          <span class="material-icon">grid_view</span>
+        </button>
+      </div>
     </div>
-    <div class="table-container">
+    <div class="table-container" *ngIf="viewMode === 'table'">
       <table class="data-table">
         <thead>
           <tr>
@@ -147,7 +155,25 @@
                </div>
                <div class="order-sub" *ngIf="item.orderId">{{ item.orderId | slice:4:12 }}</div>
              </td>
-             <td>{{ getCustomerDisplayName(item) }}</td>
+             <td>
+               <div class="customer-info-cell">
+                 <span class="customer-name">{{ getCustomerDisplayName(item) }}</span>
+                 <div class="customer-details">
+                   <div class="detail-item" *ngIf="getCustomerContact(item)">
+                     <span class="material-icon">phone</span>
+                     <span>{{ getCustomerContact(item) }}</span>
+                   </div>
+                   <div class="detail-item" *ngIf="getCustomerAddress(item)">
+                     <span class="material-icon">location_on</span>
+                     <span>{{ getCustomerAddress(item) }}</span>
+                   </div>
+                   <div class="detail-item notes" *ngIf="item.deliveryNotes">
+                     <span class="material-icon">assignment</span>
+                     <span>"{{ item.deliveryNotes }}"</span>
+                   </div>
+                 </div>
+               </div>
+             </td>
              <td>
                <div class="delivery-date-cell" *ngIf="item.deliveryDate">
                  <span class="material-icon">event</span>
@@ -182,6 +208,63 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Grid View (Cards) -->
+    <div class="delivery-grid" *ngIf="viewMode === 'grid'">
+      <div class="delivery-card" *ngFor="let item of pendingDeliveries">
+        <div class="card-header">
+          <div class="card-title-row">
+            <span class="card-item-name">{{ item.productName }}</span>
+            <span class="item-qty" *ngIf="item.quantitySold > 1">x{{ item.quantitySold }}</span>
+          </div>
+          <span class="status-badge" [ngClass]="item.reservationStatus === 'pending_confirmation' ? 'status-processing' : 'status-pending'">
+            {{ item.reservationStatus === 'pending_confirmation' ? 'Unconfirmed' : 'Pending' }}
+          </span>
+        </div>
+        
+        <div class="card-body">
+          <div class="card-customer-info">
+            <span class="customer-name">{{ getCustomerDisplayName(item) }}</span>
+            <div class="detail-item" *ngIf="getCustomerContact(item)">
+              <span class="material-icon">phone</span>
+              <span>{{ getCustomerContact(item) }}</span>
+            </div>
+          </div>
+
+          <div class="card-delivery-info">
+            <div class="detail-item" *ngIf="item.deliveryDate">
+              <span class="material-icon">event</span>
+              <span>{{ item.deliveryDate | date:'MMM d, y' }} — {{ item.deliveryDate | date:'shortTime' }}</span>
+            </div>
+            <div class="detail-item" *ngIf="getCustomerAddress(item)">
+              <span class="material-icon">location_on</span>
+              <span>{{ getCustomerAddress(item) }}</span>
+            </div>
+            <div class="detail-item notes" *ngIf="item.deliveryNotes">
+              <span class="material-icon">assignment</span>
+              <span>{{ item.deliveryNotes }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-actions">
+          <button class="action-btn call" (click)="callCustomer(item)">
+            <span class="material-icon">phone</span>
+          </button>
+          <button class="action-btn confirm" (click)="confirmReservation(item)" *ngIf="item.reservationStatus === 'pending_confirmation'">
+            <span class="material-icon">check_circle</span>
+            <span>Confirm</span>
+          </button>
+          <button class="action-btn deliver" (click)="markAsDelivered(item)" *ngIf="item.reservationStatus !== 'pending_confirmation'">
+            <span class="material-icon">local_shipping</span>
+            <span>Deliver</span>
+          </button>
+          <button class="action-btn cancel" (click)="cancelOrder(item)">
+            <span class="material-icon">cancel</span>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 

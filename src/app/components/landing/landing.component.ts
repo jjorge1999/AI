@@ -6,6 +6,7 @@ import { InventoryService } from '../../services/inventory.service';
 import { CustomerService } from '../../services/customer.service';
 import { Product, Sale, Customer } from '../../models/inventory.models';
 import { DialogService } from '../../services/dialog.service';
+import { DeviceService } from '../../services/device.service';
 
 interface KpiCard {
   title: string;
@@ -58,6 +59,8 @@ export class LandingComponent implements OnInit, OnDestroy {
   salesChartPath = '';
   costsChartPath = '';
 
+  viewMode: 'table' | 'grid' = 'table'; // Added for List/Grid view
+
   private subscriptions: Subscription[] = [];
   private products: Product[] = [];
   private sales: Sale[] = [];
@@ -71,7 +74,8 @@ export class LandingComponent implements OnInit, OnDestroy {
     private inventoryService: InventoryService,
     private customerService: CustomerService,
     private router: Router,
-    private dialogService: DialogService // Injected
+    private dialogService: DialogService,
+    private deviceService: DeviceService
   ) {
     this.userName =
       localStorage.getItem('jjm_fullname') ||
@@ -113,6 +117,18 @@ export class LandingComponent implements OnInit, OnDestroy {
         this.updateDashboardData();
       })
     );
+
+    // Auto-switch to grid view on mobile
+    this.subscriptions.push(
+      this.deviceService.isMobile$.subscribe((isMobile) => {
+        if (isMobile) {
+          this.viewMode = 'grid';
+        } else {
+          // Optional: switch back to table on desktop if desired
+          // this.viewMode = 'table';
+        }
+      })
+    );
   }
 
   ngOnDestroy(): void {
@@ -132,7 +148,7 @@ export class LandingComponent implements OnInit, OnDestroy {
 
   private loadPendingDeliveries(): void {
     this.pendingDeliveries = this.sales
-      .filter((s) => s.pending === true)
+      .filter((s) => s.pending === true || (s as any).pending === 'true')
       .sort((a, b) => {
         const dateA = a.deliveryDate ? new Date(a.deliveryDate).getTime() : 0;
         const dateB = b.deliveryDate ? new Date(b.deliveryDate).getTime() : 0;
@@ -334,6 +350,24 @@ export class LandingComponent implements OnInit, OnDestroy {
 
     // 3. Fallback to Walk-in Customer
     return 'Walk-in Customer';
+  }
+
+  getCustomerContact(sale: Sale): string {
+    if (sale.customerContact) return sale.customerContact;
+    if (sale.customerId) {
+      const customer = this.customers.find((c) => c.id === sale.customerId);
+      return customer?.phoneNumber || '';
+    }
+    return '';
+  }
+
+  getCustomerAddress(sale: Sale): string {
+    if (sale.customerAddress) return sale.customerAddress;
+    if (sale.customerId) {
+      const customer = this.customers.find((c) => c.id === sale.customerId);
+      return customer?.deliveryAddress || '';
+    }
+    return '';
   }
 
   private getSaleStatus(

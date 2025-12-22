@@ -8,6 +8,7 @@ import { AiService } from '../../services/ai.service'; // Added
 import { SaleEvent } from '../../models/sale.model';
 import { Product } from '../../models/inventory.models';
 import { Subscription, combineLatest } from 'rxjs';
+import { DeviceService } from '../../services/device.service';
 
 @Component({
   selector: 'app-sales-management',
@@ -21,6 +22,7 @@ export class SalesManagementComponent implements OnInit, OnDestroy {
   products: Product[] = [];
   discountedProducts: any[] = [];
   private subscriptions = new Subscription();
+  viewMode: 'table' | 'grid' = 'table';
 
   // Stats
   activeCampaignsCount = 0;
@@ -57,7 +59,8 @@ export class SalesManagementComponent implements OnInit, OnDestroy {
     private saleService: SaleService,
     private inventoryService: InventoryService,
     private dialogService: DialogService,
-    private aiService: AiService
+    private aiService: AiService,
+    private deviceService: DeviceService
   ) {}
 
   isGeneratingAi = false;
@@ -143,6 +146,15 @@ export class SalesManagementComponent implements OnInit, OnDestroy {
         this.products = products;
         this.calculateStats();
         this.updateDiscountedProducts();
+      })
+    );
+
+    // Auto-switch to grid view on mobile
+    this.subscriptions.add(
+      this.deviceService.isMobile$.subscribe((isMobile) => {
+        if (isMobile) {
+          this.viewMode = 'grid';
+        }
       })
     );
   }

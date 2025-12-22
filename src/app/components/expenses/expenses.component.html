@@ -7,6 +7,24 @@
         <p class="page-subtitle">Manage and track your business spending efficiently.</p>
       </div>
       <div class="header-actions">
+        <div class="view-controls">
+          <button 
+            class="view-btn" 
+            [class.active]="viewMode === 'table'"
+            (click)="viewMode = 'table'"
+            title="List View"
+          >
+            <span class="material-icon">view_list</span>
+          </button>
+          <button 
+            class="view-btn" 
+            [class.active]="viewMode === 'grid'"
+            (click)="viewMode = 'grid'"
+            title="Grid View"
+          >
+            <span class="material-icon">grid_view</span>
+          </button>
+        </div>
         <button class="btn-export">
           <span class="material-icon">download</span>
           <span class="btn-text">Export CSV</span>
@@ -95,60 +113,99 @@
     </div>
   </div>
 
-  <!-- Expenses Table -->
-  <div class="table-container">
-    <table class="expense-table">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Description</th>
-          <th>Category</th>
-          <th class="text-right">Amount</th>
-          <th>Notes</th>
-          <th class="text-center">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let exp of paginatedExpenses" class="table-row">
-          <td class="date-cell">{{ formatDate(exp.timestamp) }}</td>
-          <td class="merchant-cell">
-            <div class="merchant-info">
-              <div class="merchant-avatar">{{ getMerchantInitials(exp.productName) }}</div>
-              <span class="merchant-name">{{ exp.productName }}</span>
+  <!-- Expenses Content -->
+  <div class="expenses-content">
+    <!-- Table View -->
+    <div class="table-container" *ngIf="viewMode === 'table'">
+      <table class="expense-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Category</th>
+            <th class="text-right">Amount</th>
+            <th>Notes</th>
+            <th class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let exp of paginatedExpenses" class="table-row">
+            <td class="date-cell">{{ formatDate(exp.timestamp) }}</td>
+            <td class="merchant-cell">
+              <div class="merchant-info">
+                <div class="merchant-avatar">{{ getMerchantInitials(exp.productName) }}</div>
+                <span class="merchant-name">{{ exp.productName }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="category-badge" [attr.data-category]="getCategoryColor('Other')">
+                Other
+              </span>
+            </td>
+            <td class="amount-cell">{{ formatCurrency(exp.price) }}</td>
+            <td class="notes-cell">{{ exp.notes || '—' }}</td>
+            <td class="actions-cell">
+              <div class="action-buttons">
+                <button class="action-btn edit" (click)="openEditModal(exp)" title="Edit">
+                  <span class="material-icon">edit</span>
+                </button>
+                <button class="action-btn delete" (click)="deleteExpense(exp)" title="Delete">
+                  <span class="material-icon">delete</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Grid View -->
+    <div class="expenses-grid" *ngIf="viewMode === 'grid'">
+      <div *ngFor="let exp of paginatedExpenses" class="expense-card">
+        <div class="expense-card-header">
+          <div class="merchant-info-large">
+            <div class="merchant-avatar-large">{{ getMerchantInitials(exp.productName) }}</div>
+            <div class="merchant-details">
+              <h3 class="merchant-name">{{ exp.productName }}</h3>
+              <p class="expense-date">{{ formatDate(exp.timestamp) | date:'MMM dd, yyyy' }}</p>
             </div>
-          </td>
-          <td>
+          </div>
+          <div class="expense-amount">{{ formatCurrency(exp.price) }}</div>
+        </div>
+        
+        <div class="expense-card-body">
+          <div class="category-tag">
             <span class="category-badge" [attr.data-category]="getCategoryColor('Other')">
               Other
             </span>
-          </td>
-          <td class="amount-cell">{{ formatCurrency(exp.price) }}</td>
-          <td class="notes-cell">{{ exp.notes || '—' }}</td>
-          <td class="actions-cell">
-            <div class="action-buttons">
-              <button class="action-btn edit" (click)="openEditModal(exp)" title="Edit">
-                <span class="material-icon">edit</span>
-              </button>
-              <button class="action-btn delete" (click)="deleteExpense(exp)" title="Delete">
-                <span class="material-icon">delete</span>
-              </button>
-            </div>
-          </td>
-        </tr>
-        <tr *ngIf="paginatedExpenses.length === 0">
-          <td colspan="6" class="empty-row">
-            <div class="empty-state">
-              <span class="material-icon">receipt_long</span>
-              <p>No expenses found</p>
-              <button class="btn-add-small" (click)="openAddModal()">Add your first expense</button>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+          </div>
+          <p class="expense-notes" *ngIf="exp.notes">{{ exp.notes }}</p>
+        </div>
+
+        <div class="expense-card-footer">
+          <button class="btn-icon-text" (click)="openEditModal(exp)">
+            <span class="material-icon">edit</span>
+            Edit
+          </button>
+          <button class="btn-icon-text delete" (click)="deleteExpense(exp)">
+            <span class="material-icon">delete</span>
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="paginatedExpenses.length === 0" class="empty-state-card">
+      <div class="empty-state">
+        <span class="material-icon">receipt_long</span>
+        <p>No expenses found</p>
+        <button class="btn-add-small" (click)="openAddModal()">Add your first expense</button>
+      </div>
+    </div>
 
     <!-- Pagination -->
-    <div class="pagination-bar">
+    <div class="pagination-bar" *ngIf="filteredExpenses.length > 0">
       <p class="pagination-info">
         Showing <span class="bold">{{ showingFrom }}</span> to <span class="bold">{{ showingTo }}</span>
         of <span class="bold">{{ filteredExpenses.length }}</span> results
