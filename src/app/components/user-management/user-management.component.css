@@ -891,3 +891,17 @@
 :host-context(body.dark-theme) .pagination-bar {
   background: #101922;
 }
+
+:host-context(body.dark-theme) .user-card,
+:host-context(body.dark-theme) .empty-state-container {
+  background: #1e293b;
+}
+
+:host-context(body.dark-theme) .view-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+:host-context(body.dark-theme) .view-controls {
+  background: #101922;
+}
+

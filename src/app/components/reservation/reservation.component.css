@@ -3,13 +3,24 @@
   width: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #111822;
+  background: var(--color-bg, #f8fafc);
 }
 ::-webkit-scrollbar-thumb {
-  background: #233348;
+  background: var(--color-border, #e2e8f0);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted, #94a3b8);
+}
+
+/* Dark theme scrollbar overrides */
+:host-context(body.dark-theme) ::-webkit-scrollbar-track {
+  background: #111822;
+}
+:host-context(body.dark-theme) ::-webkit-scrollbar-thumb {
+  background: #233348;
+}
+:host-context(body.dark-theme) ::-webkit-scrollbar-thumb:hover {
   background: #324867;
 }
 

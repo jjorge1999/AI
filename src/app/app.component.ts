@@ -25,6 +25,7 @@ import {
   AdminNotification,
 } from './services/notification.service';
 import { DialogService } from './services/dialog.service';
+import { DeviceService } from './services/device.service';
 import { Sale } from './models/inventory.models';
 
 @Component({
@@ -72,6 +73,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private userService: UserService,
     private notificationService: NotificationService,
     private dialogService: DialogService,
+    private deviceService: DeviceService,
     private router: Router,
     private ngZone: NgZone
   ) {
@@ -129,6 +131,17 @@ export class AppComponent implements OnInit, OnDestroy {
     // Load sidebar preference
     const savedCollapsed = localStorage.getItem('jjm_sidebar_collapsed');
     this.isSidebarCollapsed = savedCollapsed === 'true';
+
+    // Auto-collapse sidebar on mobile, expand on desktop
+    this.deviceService.isMobile$.subscribe((isMobile) => {
+      if (isMobile) {
+        this.isSidebarCollapsed = true;
+      } else {
+        // On desktop, restore user preference or default to expanded
+        const preference = localStorage.getItem('jjm_sidebar_collapsed');
+        this.isSidebarCollapsed = preference === 'true';
+      }
+    });
 
     // Expose service for migration
     (window as any).inventoryService = this.inventoryService;

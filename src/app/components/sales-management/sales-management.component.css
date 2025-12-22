@@ -1113,6 +1113,7 @@ body.dark-theme .strategy-option.active {
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -1152,3 +1153,33 @@ body.dark-theme .strategy-option.active {
   border: 1px dashed var(--color-border);
 }
 
+/* ========================================
+   Dark Mode
+   ======================================== */
+:host-context(body.dark-theme) .discounted-card,
+:host-context(body.dark-theme) .empty-state-card {
+  background: #1e293b;
+}
+
+:host-context(body.dark-theme) .discounted-card-header {
+  background: #101922;
+}
+
+:host-context(body.dark-theme) .product-img-large {
+  background: #1e293b;
+}
+
+:host-context(body.dark-theme) .view-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+:host-context(body.dark-theme) .view-controls {
+  background: #101922;
+}
+
+:host-context(body.dark-theme) .stat-card,
+:host-context(body.dark-theme) .campaign-card,
+:host-context(body.dark-theme) .table-section,
+:host-context(body.dark-theme) .modal-content {
+  background: #1e293b;
+}

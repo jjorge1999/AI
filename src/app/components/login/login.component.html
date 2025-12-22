@@ -1,20 +1,20 @@
 <div class="flex min-h-screen w-full flex-row">
   <!-- Left Section: Form -->
-  <div class="flex w-full flex-col px-6 py-8 lg:w-1/2 lg:px-24 xl:px-32 z-10 bg-surface-dark relative">
+  <div class="flex w-full flex-col px-6 py-8 lg:w-1/2 lg:px-24 xl:px-32 z-10 bg-white dark:bg-surface-dark relative">
     <!-- Header Logo -->
     <div class="flex items-center gap-2 mb-8">
       <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/20 text-primary">
         <span class="material-symbols-outlined text-[24px]">inventory_2</span>
       </div>
-      <span class="text-xl font-bold tracking-tight text-main">JJM Inventory</span>
+      <span class="text-xl font-bold tracking-tight text-gray-900 dark:text-white">JJM Inventory</span>
     </div>
     
     <!-- Form Content -->
     <div class="flex flex-1 flex-col justify-center max-w-[480px] w-full mx-auto">
       <!-- Heading -->
       <div class="mb-10 flex flex-col gap-3">
-        <h1 class="text-main text-4xl font-black leading-tight tracking-[-0.033em]">Welcome back</h1>
-        <p class="text-text-secondary text-base font-normal leading-normal">Please enter your details to access your dashboard.</p>
+        <h1 class="text-gray-900 dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">Welcome back</h1>
+        <p class="text-gray-500 dark:text-text-secondary text-base font-normal leading-normal">Please enter your details to access your dashboard.</p>
       </div>
 
 
@@ -23,9 +23,9 @@
       <form class="flex flex-col gap-5" (ngSubmit)="onLogin()">
         <!-- Email Input -->
         <label class="flex flex-col gap-2">
-          <p class="text-main text-sm font-medium leading-normal">Username or Email</p>
+          <p class="text-gray-900 dark:text-white text-sm font-medium leading-normal">Username or Email</p>
           <input 
-            class="form-input flex w-full resize-none overflow-hidden rounded-lg text-main focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-input-border bg-input-bg focus:border-primary h-12 placeholder:text-text-secondary px-4 text-base font-normal leading-normal transition-all duration-200" 
+            class="form-input flex w-full resize-none overflow-hidden rounded-lg text-gray-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-gray-300 dark:border-input-border bg-gray-50 dark:bg-input-bg focus:border-primary h-12 placeholder:text-gray-500 dark:placeholder:text-text-secondary px-4 text-base font-normal leading-normal transition-all duration-200" 
             placeholder="name@company.com" 
             type="text" 
             [(ngModel)]="username" 
@@ -36,17 +36,17 @@
         
         <!-- Password Input -->
         <label class="flex flex-col gap-2">
-          <p class="text-main text-sm font-medium leading-normal">Password</p>
+          <p class="text-gray-900 dark:text-white text-sm font-medium leading-normal">Password</p>
           <div class="relative flex w-full items-center rounded-lg">
             <input 
-              class="form-input flex w-full resize-none overflow-hidden rounded-lg text-main focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-input-border bg-input-bg focus:border-primary h-12 placeholder:text-text-secondary pl-4 pr-12 text-base font-normal leading-normal transition-all duration-200" 
+              class="form-input flex w-full resize-none overflow-hidden rounded-lg text-gray-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-gray-300 dark:border-input-border bg-gray-50 dark:bg-input-bg focus:border-primary h-12 placeholder:text-gray-500 dark:placeholder:text-text-secondary pl-4 pr-12 text-base font-normal leading-normal transition-all duration-200" 
               placeholder="Enter your password" 
               [type]="showPassword ? 'text' : 'password'" 
               [(ngModel)]="password" 
               name="password"
               [disabled]="isLoading"
             />
-            <div class="absolute right-0 flex h-full w-12 items-center justify-center text-text-secondary cursor-pointer hover:text-main transition-colors" (click)="togglePasswordVisibility()">
+            <div class="absolute right-0 flex h-full w-12 items-center justify-center text-gray-500 dark:text-text-secondary cursor-pointer hover:text-gray-900 dark:hover:text-main transition-colors" (click)="togglePasswordVisibility()">
               <span class="material-symbols-outlined text-[20px]">{{ showPassword ? 'visibility' : 'visibility_off' }}</span>
             </div>
           </div>

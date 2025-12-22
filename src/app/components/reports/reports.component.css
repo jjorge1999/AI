@@ -153,7 +153,7 @@
 }
 
 .stat-card.profit-card {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
   border-color: rgba(19, 127, 236, 0.2);
 }
 
@@ -226,7 +226,7 @@
 }
 
 .profit-card .stat-value {
-  color: white;
+  color: #0f172a;
 }
 
 .stat-value.negative-profit {
@@ -693,4 +693,12 @@
 
 :host-context(body.dark-theme) .transactions-table thead {
   background: #101922;
+}
+
+:host-context(body.dark-theme) .stat-card.profit-card {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+}
+
+:host-context(body.dark-theme) .profit-card .stat-value {
+  color: white;
 }
