@@ -1,4 +1,10 @@
 {
+  "builds": [
+    {
+      "src": "backend/next.config.ts",
+      "use": "@vercel/next"
+    }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",
