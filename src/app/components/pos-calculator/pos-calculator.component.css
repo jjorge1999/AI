@@ -305,9 +305,9 @@
 /* Cart Items - KEY: Takes remaining space and scrolls */
 .cart-items {
   flex: 1;
-  min-height: 100px;
+  min-height: 180px;
   overflow-y: auto;
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-xs) var(--space-md);
 }
 
 .cart-item {
@@ -483,19 +483,19 @@
 /* Cart Footer */
 .cart-footer {
   border-top: 1px solid var(--color-border);
-  padding: var(--space-sm) var(--space-lg);
+  padding: var(--space-xs) var(--space-md);
   background: var(--color-surface);
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
   flex-shrink: 0;
 }
 
 /* Quick Actions */
 .quick-actions {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-sm);
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-xs);
   overflow: visible;
 }
 
@@ -504,10 +504,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: var(--space-sm);
+  gap: 2px;
+  padding: var(--space-xs);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--color-bg);
   cursor: pointer;
   transition: all 0.2s;
@@ -521,15 +521,15 @@
 }
 
 .action-btn .material-icon {
-  font-size: 20px;
+  font-size: 18px;
   color: var(--color-primary);
 }
 
 .action-label {
-  font-size: 0.625rem;
+  font-size: 0.55rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
   color: var(--color-text-muted);
 }
 
