@@ -8,6 +8,16 @@ import { Product, Sale, Customer } from '../../models/inventory.models';
 import { DialogService } from '../../services/dialog.service';
 import { DeviceService } from '../../services/device.service';
 
+// Widget configuration interface
+interface DashboardWidget {
+  id: string;
+  title: string;
+  icon: string;
+  size: 'small' | 'medium' | 'large' | 'full';
+  order: number;
+  visible: boolean;
+}
+
 interface KpiCard {
   title: string;
   value: string;
@@ -30,6 +40,13 @@ interface RecentOrder {
   avatar?: string;
   status: 'completed' | 'processing' | 'shipped' | 'pending';
   amount: number;
+  productName: string;
+  quantity: number;
+  timestamp: Date;
+  discount?: number;
+  discountType?: 'amount' | 'percent';
+  cashReceived?: number;
+  change?: number;
 }
 
 interface LowStockItem {
@@ -39,6 +56,35 @@ interface LowStockItem {
   stockLeft: number;
   reorderPoint: number;
   critical: boolean;
+}
+
+interface TopSellingProduct {
+  name: string;
+  unitsSold: number;
+  revenue: number;
+  trend: 'up' | 'down' | 'neutral';
+}
+
+interface TopCustomer {
+  name: string;
+  totalSpent: number;
+  ordersCount: number;
+  lastOrderDate: Date;
+}
+
+interface TodaySummary {
+  totalOrders: number;
+  totalRevenue: number;
+  itemsSold: number;
+  averageOrderValue: number;
+  pendingCount: number;
+}
+
+interface QuickAction {
+  label: string;
+  icon: string;
+  route: string;
+  color: string;
 }
 
 @Component({
@@ -53,13 +99,143 @@ export class LandingComponent implements OnInit, OnDestroy {
   categories: CategoryData[] = [];
   recentOrders: RecentOrder[] = [];
   lowStockItems: LowStockItem[] = [];
-  pendingDeliveries: Sale[] = []; // Added for Pending Deliveries
+  pendingDeliveries: Sale[] = [];
+
+  // New widget data
+  topSellingProducts: TopSellingProduct[] = [];
+  topCustomers: TopCustomer[] = [];
+  todaySummary: TodaySummary = {
+    totalOrders: 0,
+    totalRevenue: 0,
+    itemsSold: 0,
+    averageOrderValue: 0,
+    pendingCount: 0,
+  };
+  quickActions: QuickAction[] = [
+    {
+      label: 'New Sale',
+      icon: 'point_of_sale',
+      route: '/sell',
+      color: '#10b981',
+    },
+    {
+      label: 'Add Product',
+      icon: 'add_box',
+      route: '/add-product',
+      color: '#3b82f6',
+    },
+    {
+      label: 'View Inventory',
+      icon: 'inventory',
+      route: '/inventory',
+      color: '#8b5cf6',
+    },
+    {
+      label: 'Customers',
+      icon: 'people',
+      route: '/customers',
+      color: '#f97316',
+    },
+    {
+      label: 'Reports',
+      icon: 'analytics',
+      route: '/reports',
+      color: '#ec4899',
+    },
+    {
+      label: 'Expenses',
+      icon: 'receipt_long',
+      route: '/expenses',
+      color: '#ef4444',
+    },
+  ];
+
+  // Configurable widgets for the dashboard
+  widgets: DashboardWidget[] = [
+    {
+      id: 'quickActions',
+      title: 'Quick Actions',
+      icon: 'flash_on',
+      size: 'full',
+      order: 0,
+      visible: true,
+    },
+    {
+      id: 'todaySummary',
+      title: "Today's Summary",
+      icon: 'today',
+      size: 'full',
+      order: 1,
+      visible: true,
+    },
+    {
+      id: 'salesChart',
+      title: 'Sales vs Costs',
+      icon: 'show_chart',
+      size: 'large',
+      order: 2,
+      visible: true,
+    },
+    {
+      id: 'categories',
+      title: 'Top Categories',
+      icon: 'category',
+      size: 'medium',
+      order: 3,
+      visible: true,
+    },
+    {
+      id: 'pendingDeliveries',
+      title: 'Pending Deliveries',
+      icon: 'local_shipping',
+      size: 'full',
+      order: 4,
+      visible: true,
+    },
+    {
+      id: 'recentOrders',
+      title: 'Recent Orders',
+      icon: 'receipt',
+      size: 'full',
+      order: 5,
+      visible: true,
+    },
+    {
+      id: 'lowStock',
+      title: 'Low Stock Alerts',
+      icon: 'warning',
+      size: 'medium',
+      order: 6,
+      visible: true,
+    },
+    {
+      id: 'topProducts',
+      title: 'Top Selling Products',
+      icon: 'trending_up',
+      size: 'medium',
+      order: 7,
+      visible: true,
+    },
+    {
+      id: 'topCustomers',
+      title: 'Top Customers',
+      icon: 'people',
+      size: 'medium',
+      order: 8,
+      visible: true,
+    },
+  ];
+
+  // Widget management state
+  isEditMode = false;
+  draggedWidget: DashboardWidget | null = null;
 
   // Chart data points (for SVG path)
   salesChartPath = '';
   costsChartPath = '';
 
-  viewMode: 'table' | 'grid' = 'table'; // Added for List/Grid view
+  viewMode: 'table' | 'grid' = 'table';
+  today = new Date();
 
   private subscriptions: Subscription[] = [];
   private products: Product[] = [];
@@ -92,6 +268,9 @@ export class LandingComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Load saved widget layout
+    this.loadWidgetLayout();
+
     // Load customers for name lookup
     this.customerService.loadCustomers();
 
@@ -140,7 +319,10 @@ export class LandingComponent implements OnInit, OnDestroy {
     this.calculateCategories();
     this.loadRecentOrders();
     this.loadLowStockItems();
-    this.loadPendingDeliveries(); // Added
+    this.loadPendingDeliveries();
+    this.loadTopSellingProducts();
+    this.loadTopCustomers();
+    this.loadTodaySummary();
     this.generateChartPaths();
   }
 
@@ -306,19 +488,26 @@ export class LandingComponent implements OnInit, OnDestroy {
   }
 
   private loadRecentOrders(): void {
-    // Get last 3 sales
+    // Get last 5 sales for more visibility
     const recentSales = [...this.sales]
       .sort(
         (a, b) =>
           new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       )
-      .slice(0, 3);
+      .slice(0, 5);
 
     this.recentOrders = recentSales.map((sale) => ({
       id: `#ORD-${sale.id?.slice(-4) || '0000'}`,
       customer: this.getCustomerDisplayName(sale),
       status: this.getSaleStatus(sale),
       amount: sale.total || 0,
+      productName: sale.productName || 'Unknown Product',
+      quantity: sale.quantitySold || 1,
+      timestamp: new Date(sale.timestamp),
+      discount: sale.discount,
+      discountType: sale.discountType,
+      cashReceived: sale.cashReceived,
+      change: sale.change,
     }));
 
     // If no sales, show sample data
@@ -329,6 +518,9 @@ export class LandingComponent implements OnInit, OnDestroy {
           customer: 'No recent orders',
           status: 'pending',
           amount: 0,
+          productName: 'N/A',
+          quantity: 0,
+          timestamp: new Date(),
         },
       ];
     }
@@ -458,5 +650,351 @@ export class LandingComponent implements OnInit, OnDestroy {
       pending: 'Pending',
     };
     return labels[status] || 'Pending';
+  }
+
+  // New widget methods
+  private loadTopSellingProducts(): void {
+    // Aggregate sales by product
+    const productSales: {
+      [key: string]: { name: string; units: number; revenue: number };
+    } = {};
+
+    this.sales.forEach((sale) => {
+      const key = sale.productId || sale.productName;
+      if (!productSales[key]) {
+        productSales[key] = { name: sale.productName, units: 0, revenue: 0 };
+      }
+      productSales[key].units += sale.quantitySold || 1;
+      productSales[key].revenue += sale.total || 0;
+    });
+
+    // Convert to array and sort by revenue
+    const sortedProducts = Object.values(productSales)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+
+    this.topSellingProducts = sortedProducts.map((p, index) => ({
+      name: p.name,
+      unitsSold: p.units,
+      revenue: p.revenue,
+      trend: index === 0 ? 'up' : index < 3 ? 'neutral' : 'down',
+    }));
+
+    // Placeholder if no data
+    if (this.topSellingProducts.length === 0) {
+      this.topSellingProducts = [
+        {
+          name: 'No sales data yet',
+          unitsSold: 0,
+          revenue: 0,
+          trend: 'neutral',
+        },
+      ];
+    }
+  }
+
+  private loadTopCustomers(): void {
+    // Aggregate sales by customer
+    const customerSpending: {
+      [key: string]: {
+        name: string;
+        spent: number;
+        orders: number;
+        lastDate: Date;
+      };
+    } = {};
+
+    this.sales.forEach((sale) => {
+      const customerId = sale.customerId || 'walk-in';
+      const customerName = this.getCustomerDisplayName(sale);
+
+      if (!customerSpending[customerId]) {
+        customerSpending[customerId] = {
+          name: customerName,
+          spent: 0,
+          orders: 0,
+          lastDate: new Date(sale.timestamp),
+        };
+      }
+      customerSpending[customerId].spent += sale.total || 0;
+      customerSpending[customerId].orders += 1;
+
+      const saleDate = new Date(sale.timestamp);
+      if (saleDate > customerSpending[customerId].lastDate) {
+        customerSpending[customerId].lastDate = saleDate;
+      }
+    });
+
+    // Convert and sort by total spent (exclude walk-in for top customers)
+    const sortedCustomers = Object.entries(customerSpending)
+      .filter(([id]) => id !== 'walk-in')
+      .map(([, data]) => data)
+      .sort((a, b) => b.spent - a.spent)
+      .slice(0, 5);
+
+    this.topCustomers = sortedCustomers.map((c) => ({
+      name: c.name,
+      totalSpent: c.spent,
+      ordersCount: c.orders,
+      lastOrderDate: c.lastDate,
+    }));
+
+    // Placeholder if no registered customer data
+    if (this.topCustomers.length === 0) {
+      this.topCustomers = [
+        {
+          name: 'No customer data yet',
+          totalSpent: 0,
+          ordersCount: 0,
+          lastOrderDate: new Date(),
+        },
+      ];
+    }
+  }
+
+  private loadTodaySummary(): void {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todaySales = this.sales.filter((s) => {
+      const saleDate = new Date(s.timestamp);
+      saleDate.setHours(0, 0, 0, 0);
+      return saleDate.getTime() === today.getTime();
+    });
+
+    const totalRevenue = todaySales.reduce((sum, s) => sum + (s.total || 0), 0);
+    const itemsSold = todaySales.reduce(
+      (sum, s) => sum + (s.quantitySold || 1),
+      0
+    );
+    const pendingCount = this.pendingDeliveries.length;
+
+    this.todaySummary = {
+      totalOrders: todaySales.length,
+      totalRevenue: totalRevenue,
+      itemsSold: itemsSold,
+      averageOrderValue:
+        todaySales.length > 0 ? totalRevenue / todaySales.length : 0,
+      pendingCount: pendingCount,
+    };
+  }
+
+  navigateTo(route: string): void {
+    this.router.navigate([route]);
+  }
+
+  formatCurrencyValue(value: number): string {
+    return new Intl.NumberFormat('en-PH', {
+      style: 'currency',
+      currency: 'PHP',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  }
+
+  // ========================================
+  // Widget Management Methods
+  // ========================================
+
+  toggleEditMode(): void {
+    this.isEditMode = !this.isEditMode;
+    if (!this.isEditMode) {
+      this.saveWidgetLayout();
+    }
+  }
+
+  onDragStart(event: DragEvent, widget: DashboardWidget): void {
+    if (!this.isEditMode) return;
+    this.draggedWidget = widget;
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', widget.id);
+    }
+  }
+
+  onDragOver(event: DragEvent): void {
+    if (!this.isEditMode) return;
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+  }
+
+  onDrop(event: DragEvent, targetWidget: DashboardWidget): void {
+    if (!this.isEditMode || !this.draggedWidget) return;
+    event.preventDefault();
+
+    if (this.draggedWidget.id === targetWidget.id) return;
+
+    // Swap orders
+    const draggedOrder = this.draggedWidget.order;
+    const targetOrder = targetWidget.order;
+
+    this.draggedWidget.order = targetOrder;
+    targetWidget.order = draggedOrder;
+
+    // Re-sort widgets array
+    this.widgets.sort((a, b) => a.order - b.order);
+    this.draggedWidget = null;
+  }
+
+  onDragEnd(): void {
+    this.draggedWidget = null;
+  }
+
+  resizeWidget(
+    widget: DashboardWidget,
+    size: 'small' | 'medium' | 'large' | 'full'
+  ): void {
+    widget.size = size;
+    if (!this.isEditMode) {
+      this.saveWidgetLayout();
+    }
+  }
+
+  toggleWidgetVisibility(widget: DashboardWidget): void {
+    widget.visible = !widget.visible;
+    if (!this.isEditMode) {
+      this.saveWidgetLayout();
+    }
+  }
+
+  getVisibleWidgets(): DashboardWidget[] {
+    return this.widgets
+      .filter((w) => w.visible)
+      .sort((a, b) => a.order - b.order);
+  }
+
+  getWidgetById(id: string): DashboardWidget | undefined {
+    return this.widgets.find((w) => w.id === id);
+  }
+
+  isWidgetVisible(id: string): boolean {
+    const widget = this.getWidgetById(id);
+    return widget ? widget.visible : true;
+  }
+
+  hasHiddenWidgets(): boolean {
+    return this.widgets.some((w) => !w.visible);
+  }
+
+  getWidgetSize(id: string): string {
+    const widget = this.getWidgetById(id);
+    return widget ? widget.size : 'medium';
+  }
+
+  private saveWidgetLayout(): void {
+    const layout = this.widgets.map((w) => ({
+      id: w.id,
+      size: w.size,
+      order: w.order,
+      visible: w.visible,
+    }));
+    localStorage.setItem('jjm_widget_layout', JSON.stringify(layout));
+  }
+
+  private loadWidgetLayout(): void {
+    const saved = localStorage.getItem('jjm_widget_layout');
+    if (saved) {
+      try {
+        const layout = JSON.parse(saved);
+        layout.forEach(
+          (saved: {
+            id: string;
+            size: string;
+            order: number;
+            visible: boolean;
+          }) => {
+            const widget = this.widgets.find((w) => w.id === saved.id);
+            if (widget) {
+              widget.size = saved.size as 'small' | 'medium' | 'large' | 'full';
+              widget.order = saved.order;
+              widget.visible = saved.visible;
+            }
+          }
+        );
+        this.widgets.sort((a, b) => a.order - b.order);
+      } catch (e) {
+        console.warn('Failed to load widget layout:', e);
+      }
+    }
+  }
+
+  resetWidgetLayout(): void {
+    this.widgets = [
+      {
+        id: 'quickActions',
+        title: 'Quick Actions',
+        icon: 'flash_on',
+        size: 'full',
+        order: 0,
+        visible: true,
+      },
+      {
+        id: 'todaySummary',
+        title: "Today's Summary",
+        icon: 'today',
+        size: 'full',
+        order: 1,
+        visible: true,
+      },
+      {
+        id: 'salesChart',
+        title: 'Sales vs Costs',
+        icon: 'show_chart',
+        size: 'large',
+        order: 2,
+        visible: true,
+      },
+      {
+        id: 'categories',
+        title: 'Top Categories',
+        icon: 'category',
+        size: 'medium',
+        order: 3,
+        visible: true,
+      },
+      {
+        id: 'pendingDeliveries',
+        title: 'Pending Deliveries',
+        icon: 'local_shipping',
+        size: 'full',
+        order: 4,
+        visible: true,
+      },
+      {
+        id: 'recentOrders',
+        title: 'Recent Orders',
+        icon: 'receipt',
+        size: 'full',
+        order: 5,
+        visible: true,
+      },
+      {
+        id: 'lowStock',
+        title: 'Low Stock Alerts',
+        icon: 'warning',
+        size: 'medium',
+        order: 6,
+        visible: true,
+      },
+      {
+        id: 'topProducts',
+        title: 'Top Selling Products',
+        icon: 'trending_up',
+        size: 'medium',
+        order: 7,
+        visible: true,
+      },
+      {
+        id: 'topCustomers',
+        title: 'Top Customers',
+        icon: 'people',
+        size: 'medium',
+        order: 8,
+        visible: true,
+      },
+    ];
+    localStorage.removeItem('jjm_widget_layout');
   }
 }

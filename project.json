@@ -1,0 +1,129 @@
+{
+  "$schema": "node_modules/nx/schemas/project-schema.json",
+  "name": "jjm-inventory",
+  "projectType": "application",
+  "generators": {
+    "@schematics/angular:class": {
+      "skipTests": true
+    },
+    "@schematics/angular:component": {
+      "skipTests": true
+    },
+    "@schematics/angular:directive": {
+      "skipTests": true
+    },
+    "@schematics/angular:guard": {
+      "skipTests": true
+    },
+    "@schematics/angular:interceptor": {
+      "skipTests": true
+    },
+    "@schematics/angular:pipe": {
+      "skipTests": true
+    },
+    "@schematics/angular:resolver": {
+      "skipTests": true
+    },
+    "@schematics/angular:service": {
+      "skipTests": true
+    }
+  },
+  "sourceRoot": "src",
+  "prefix": "app",
+  "targets": {
+    "build": {
+      "executor": "@angular-devkit/build-angular:application",
+      "options": {
+        "outputPath": "dist/jjm-inventory",
+        "index": "src/index.html",
+        "browser": "src/main.ts",
+        "polyfills": [
+          "zone.js"
+        ],
+        "tsConfig": "tsconfig.app.json",
+        "assets": [
+          "src/favicon.ico",
+          "src/assets",
+          "src/firebase-messaging-sw.js"
+        ],
+        "styles": [
+          "src/styles.css"
+        ],
+        "scripts": []
+      },
+      "configurations": {
+        "production": {
+          "fileReplacements": [
+            {
+              "replace": "src/environments/environment.ts",
+              "with": "src/environments/environment.prod.ts"
+            }
+          ],
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "1mb",
+              "maximumError": "5mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "1mb",
+              "maximumError": "1mb"
+            }
+          ],
+          "outputHashing": "all"
+        },
+        "development": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true
+        }
+      },
+      "defaultConfiguration": "production"
+    },
+    "serve": {
+      "executor": "@angular-devkit/build-angular:dev-server",
+      "configurations": {
+        "production": {
+          "buildTarget": "jjm-inventory:build:production"
+        },
+        "development": {
+          "buildTarget": "jjm-inventory:build:development"
+        }
+      },
+      "defaultConfiguration": "development"
+    },
+    "extract-i18n": {
+      "executor": "@angular-devkit/build-angular:extract-i18n",
+      "options": {
+        "buildTarget": "jjm-inventory:build"
+      }
+    },
+    "test": {
+      "executor": "@angular-devkit/build-angular:karma",
+      "options": {
+        "polyfills": [
+          "zone.js",
+          "zone.js/testing"
+        ],
+        "tsConfig": "tsconfig.spec.json",
+        "assets": [
+          "src/favicon.ico",
+          "src/assets"
+        ],
+        "styles": [
+          "src/styles.css"
+        ],
+        "scripts": []
+      }
+    },
+    "deploy": {
+      "executor": "angular-cli-ghpages:deploy",
+      "options": {
+        "baseHref": "https://jjorge1999.github.io/AI/",
+        "name": "jjm-inventory",
+        "dir": "dist/jjm-inventory/browser"
+      }
+    }
+  }
+}

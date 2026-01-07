@@ -1,4 +1,4 @@
-<div class="dashboard-container">
+<div class="dashboard-container" [class.edit-mode]="isEditMode">
   <!-- Dashboard Header -->
   <div class="dashboard-header">
     <div class="header-left">
@@ -10,10 +10,18 @@
         <span class="material-icon search-icon">search</span>
         <input type="text" class="search-input" placeholder="Search SKU, Product..." />
       </div>
+      <!-- Edit Mode Controls -->
+      <button class="edit-mode-btn" [class.active]="isEditMode" (click)="toggleEditMode()" title="Customize Dashboard">
+        <span class="material-icon">{{ isEditMode ? 'check' : 'dashboard_customize' }}</span>
+        <span class="btn-text">{{ isEditMode ? 'Done' : 'Customize' }}</span>
+      </button>
+      <button *ngIf="isEditMode" class="reset-layout-btn" (click)="resetWidgetLayout()" title="Reset to Default">
+        <span class="material-icon">restart_alt</span>
+      </button>
     </div>
   </div>
 
-  <!-- KPI Cards Grid -->
+  <!-- KPI Cards Grid (Always visible, not sortable) -->
   <div class="kpi-grid">
     <div class="kpi-card" *ngFor="let kpi of kpiCards">
       <div class="kpi-background-icon">
@@ -21,14 +29,11 @@
       </div>
       <p class="kpi-label">{{ kpi.title }}</p>
       <h3 class="kpi-value">{{ kpi.value }}</h3>
-      <div
-        class="kpi-trend"
-        [ngClass]="{
-          'trend-up': kpi.trend === 'up',
-          'trend-down': kpi.trend === 'down',
-          'trend-neutral': kpi.trend === 'neutral'
-        }"
-      >
+      <div class="kpi-trend" [ngClass]="{
+        'trend-up': kpi.trend === 'up',
+        'trend-down': kpi.trend === 'down',
+        'trend-neutral': kpi.trend === 'neutral'
+      }">
         <span class="material-icon trend-icon" *ngIf="kpi.trend === 'up'">trending_up</span>
         <span class="material-icon trend-icon" *ngIf="kpi.trend === 'down'">trending_down</span>
         <span class="material-icon trend-icon" *ngIf="kpi.trend === 'neutral'">priority_high</span>
@@ -38,300 +43,419 @@
     </div>
   </div>
 
-  <!-- Charts Section -->
-  <div class="charts-grid">
-    <!-- Main Area Chart -->
-    <div class="chart-card chart-main">
-      <div class="chart-header">
-        <div>
-          <h3 class="chart-title">Sales vs Restock Costs</h3>
-          <p class="chart-subtitle">Overview of income against expenses over the last month</p>
-        </div>
-        <select class="chart-select">
-          <option>Last 30 Days</option>
-          <option>Last 90 Days</option>
-          <option>This Year</option>
-        </select>
-      </div>
-      <!-- SVG Chart -->
-      <div class="chart-container">
-        <svg class="chart-svg" viewBox="0 0 100 50" preserveAspectRatio="none">
-          <!-- Grid lines -->
-          <line x1="0" y1="40" x2="100" y2="40" class="chart-grid-line"></line>
-          <line x1="0" y1="30" x2="100" y2="30" class="chart-grid-line"></line>
-          <line x1="0" y1="20" x2="100" y2="20" class="chart-grid-line"></line>
-          <line x1="0" y1="10" x2="100" y2="10" class="chart-grid-line"></line>
-          <!-- Gradient definition -->
-          <defs>
-            <linearGradient id="salesGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stop-color="var(--color-primary)" />
-              <stop offset="100%" stop-color="var(--color-primary)" stop-opacity="0" />
-            </linearGradient>
-          </defs>
-          <!-- Area Fill -->
-          <path
-            d="M0,40 Q10,35 20,25 T40,20 T60,15 T80,25 T100,10 V50 H0 Z"
-            fill="url(#salesGradient)"
-            opacity="0.2"
-          />
-          <!-- Sales Line -->
-          <path
-            [attr.d]="salesChartPath"
-            fill="none"
-            stroke="var(--color-primary)"
-            stroke-width="0.8"
-            stroke-linecap="round"
-            class="chart-line-animate"
-          />
-          <!-- Costs Line -->
-          <path
-            [attr.d]="costsChartPath"
-            fill="none"
-            stroke="var(--color-secondary)"
-            stroke-width="0.5"
-            stroke-dasharray="2,1"
-          />
-        </svg>
-        <!-- X-Axis Labels -->
-        <div class="chart-labels">
-          <span>Week 1</span>
-          <span>Week 2</span>
-          <span>Week 3</span>
-          <span>Week 4</span>
-        </div>
-      </div>
-    </div>
+  <!-- Edit Mode Notice -->
+  <div class="edit-mode-notice">
+    <span class="material-icon">info</span>
+    <span>Drag widgets to reorder • Click controls to resize or hide • Click "Done" when finished</span>
+  </div>
 
-    <!-- Top Categories -->
-    <div class="chart-card chart-categories">
-      <h3 class="chart-title">Top Categories</h3>
-      <div class="categories-list">
-        <div class="category-item" *ngFor="let category of categories">
-          <div class="category-header">
-            <span class="category-name">{{ category.name }}</span>
-            <span class="category-percent">{{ category.percentage }}%</span>
-          </div>
-          <div class="category-bar-bg">
-            <div class="category-bar" [style.width.%]="category.percentage" [style.background]="category.color"></div>
-          </div>
-        </div>
-      </div>
+  <!-- Hidden Widgets Panel -->
+  <div class="hidden-widgets-panel" *ngIf="isEditMode && hasHiddenWidgets()">
+    <div class="hidden-widgets-header">
+      <span class="material-icon">visibility_off</span>
+      <span>Hidden Widgets (click to restore)</span>
+    </div>
+    <div class="hidden-widgets-list">
+      <ng-container *ngFor="let widget of widgets">
+        <button *ngIf="!widget.visible" class="hidden-widget-chip" (click)="toggleWidgetVisibility(widget)">
+          <span class="material-icon">{{ widget.icon }}</span>
+          <span>{{ widget.title }}</span>
+          <span class="material-icon">add</span>
+        </button>
+      </ng-container>
     </div>
   </div>
 
-  <!-- Pending Deliveries Section -->
-  <div class="table-card pending-section" *ngIf="pendingDeliveries.length > 0">
-    <div class="table-header">
-      <div class="header-title-group">
-        <h3 class="table-title">Pending Deliveries</h3>
-        <span class="badge-count">{{ pendingDeliveries.length }}</span>
-      </div>
-      <div class="view-controls">
-        <button class="view-btn" [class.active]="viewMode === 'table'" (click)="viewMode = 'table'" title="Table View">
-          <span class="material-icon">view_list</span>
-        </button>
-        <button class="view-btn" [class.active]="viewMode === 'grid'" (click)="viewMode = 'grid'" title="Grid View">
-          <span class="material-icon">grid_view</span>
-        </button>
-      </div>
-    </div>
-    <div class="table-container" *ngIf="viewMode === 'table'">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th>Customer</th>
-            <th>Delivery Schedule</th>
-            <th>Status</th>
-            <th class="text-right">Quick Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let item of pendingDeliveries" class="table-row">
-             <td>
-               <div class="item-info">
-                 <span class="order-id">{{ item.productName }}</span>
-                 <span class="item-qty" *ngIf="item.quantitySold > 1">x{{ item.quantitySold }}</span>
-               </div>
-               <div class="order-sub" *ngIf="item.orderId">{{ item.orderId | slice:4:12 }}</div>
-             </td>
-             <td>
-               <div class="customer-info-cell">
-                 <span class="customer-name">{{ getCustomerDisplayName(item) }}</span>
-                 <div class="customer-details">
-                   <div class="detail-item" *ngIf="getCustomerContact(item)">
-                     <span class="material-icon">phone</span>
-                     <span>{{ getCustomerContact(item) }}</span>
-                   </div>
-                   <div class="detail-item" *ngIf="getCustomerAddress(item)">
-                     <span class="material-icon">location_on</span>
-                     <span>{{ getCustomerAddress(item) }}</span>
-                   </div>
-                   <div class="detail-item notes" *ngIf="item.deliveryNotes">
-                     <span class="material-icon">assignment</span>
-                     <span>"{{ item.deliveryNotes }}"</span>
-                   </div>
-                 </div>
-               </div>
-             </td>
-             <td>
-               <div class="delivery-date-cell" *ngIf="item.deliveryDate">
-                 <span class="material-icon">event</span>
-                 <span>{{ item.deliveryDate | date:'MMM d, y' }}</span>
-                 <span class="time-badge">{{ item.deliveryDate | date:'shortTime' }}</span>
-               </div>
-               <span *ngIf="!item.deliveryDate" class="text-muted">Not scheduled</span>
-             </td>
-             <td>
-                <span class="status-badge" [ngClass]="item.reservationStatus === 'pending_confirmation' ? 'status-processing' : 'status-pending'">
-                  {{ item.reservationStatus === 'pending_confirmation' ? 'Unconfirmed' : 'Pending' }}
-                </span>
-             </td>
-             <td class="text-right actions-cell">
-                <button class="action-btn call" (click)="callCustomer(item)" title="Call Customer">
-                  <span class="material-icon">phone</span>
-                  <span class="btn-label">Call</span>
-                </button>
-                <button class="action-btn confirm" (click)="confirmReservation(item)" title="Confirm Reservation" *ngIf="item.reservationStatus === 'pending_confirmation'">
-                  <span class="material-icon">check_circle</span>
-                  <span class="btn-label">Confirm</span>
-                </button>
-                <button class="action-btn deliver" (click)="markAsDelivered(item)" title="Mark as Delivered" *ngIf="item.reservationStatus !== 'pending_confirmation'">
-                  <span class="material-icon">local_shipping</span>
-                  <span class="btn-label">Deliver</span>
-                </button>
-                <button class="action-btn cancel" (click)="cancelOrder(item)" title="Cancel Order">
-                  <span class="material-icon">cancel</span>
-                  <span class="btn-label">Cancel</span>
-                </button>
-             </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Grid View (Cards) -->
-    <div class="delivery-grid" *ngIf="viewMode === 'grid'">
-      <div class="delivery-card" *ngFor="let item of pendingDeliveries">
-        <div class="card-header">
-          <div class="card-title-row">
-            <span class="card-item-name">{{ item.productName }}</span>
-            <span class="item-qty" *ngIf="item.quantitySold > 1">x{{ item.quantitySold }}</span>
-          </div>
-          <span class="status-badge" [ngClass]="item.reservationStatus === 'pending_confirmation' ? 'status-processing' : 'status-pending'">
-            {{ item.reservationStatus === 'pending_confirmation' ? 'Unconfirmed' : 'Pending' }}
-          </span>
-        </div>
-        
-        <div class="card-body">
-          <div class="card-customer-info">
-            <span class="customer-name">{{ getCustomerDisplayName(item) }}</span>
-            <div class="detail-item" *ngIf="getCustomerContact(item)">
-              <span class="material-icon">phone</span>
-              <span>{{ getCustomerContact(item) }}</span>
-            </div>
-          </div>
-
-          <div class="card-delivery-info">
-            <div class="detail-item" *ngIf="item.deliveryDate">
-              <span class="material-icon">event</span>
-              <span>{{ item.deliveryDate | date:'MMM d, y' }} — {{ item.deliveryDate | date:'shortTime' }}</span>
-            </div>
-            <div class="detail-item" *ngIf="getCustomerAddress(item)">
-              <span class="material-icon">location_on</span>
-              <span>{{ getCustomerAddress(item) }}</span>
-            </div>
-            <div class="detail-item notes" *ngIf="item.deliveryNotes">
-              <span class="material-icon">assignment</span>
-              <span>{{ item.deliveryNotes }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="card-actions">
-          <button class="action-btn call" (click)="callCustomer(item)">
-            <span class="material-icon">phone</span>
+  <!-- Dynamic Widgets Container -->
+  <div class="widgets-container">
+    <ng-container *ngFor="let widget of getVisibleWidgets()">
+      <!-- Widget Wrapper -->
+      <div 
+        class="widget-wrapper size-{{widget.size}}"
+        [class.dragging]="draggedWidget?.id === widget.id"
+        [draggable]="isEditMode"
+        (dragstart)="onDragStart($event, widget)"
+        (dragover)="onDragOver($event)"
+        (drop)="onDrop($event, widget)"
+        (dragend)="onDragEnd()"
+      >
+        <!-- Widget Controls (Edit Mode) -->
+        <div class="widget-controls">
+          <button class="widget-control-btn" (click)="toggleWidgetVisibility(widget)" title="Hide Widget">
+            <span class="material-icon">visibility_off</span>
           </button>
-          <button class="action-btn confirm" (click)="confirmReservation(item)" *ngIf="item.reservationStatus === 'pending_confirmation'">
-            <span class="material-icon">check_circle</span>
-            <span>Confirm</span>
+          <button class="widget-control-btn" (click)="resizeWidget(widget, 'small')" title="Small" [class.active]="widget.size === 'small'">
+            <span class="material-icon">crop_square</span>
           </button>
-          <button class="action-btn deliver" (click)="markAsDelivered(item)" *ngIf="item.reservationStatus !== 'pending_confirmation'">
-            <span class="material-icon">local_shipping</span>
-            <span>Deliver</span>
+          <button class="widget-control-btn" (click)="resizeWidget(widget, 'medium')" title="Medium" [class.active]="widget.size === 'medium'">
+            <span class="material-icon">crop_7_5</span>
           </button>
-          <button class="action-btn cancel" (click)="cancelOrder(item)">
-            <span class="material-icon">cancel</span>
+          <button class="widget-control-btn" (click)="resizeWidget(widget, 'large')" title="Large" [class.active]="widget.size === 'large'">
+            <span class="material-icon">crop_16_9</span>
+          </button>
+          <button class="widget-control-btn" (click)="resizeWidget(widget, 'full')" title="Full Width" [class.active]="widget.size === 'full'">
+            <span class="material-icon">crop_free</span>
           </button>
         </div>
-      </div>
-    </div>
-  </div>
+        <div class="drag-handle">
+          <span class="material-icon">drag_indicator</span>
+        </div>
 
-  <!-- Bottom Grid: Tables -->
-  <div class="tables-grid">
-    <!-- Recent Orders Table -->
-    <div class="table-card">
-      <div class="table-header">
-        <h3 class="table-title">Recent Orders</h3>
-        <button class="table-action-btn" (click)="navigateToPos()">View All</button>
-      </div>
-      <div class="table-container">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Order ID</th>
-              <th>Customer</th>
-              <th>Status</th>
-              <th class="text-right">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let order of recentOrders" class="table-row">
-              <td class="order-id">{{ order.id }}</td>
-              <td>
-                <div class="customer-cell">
-                  <div class="customer-avatar">{{ order.customer.charAt(0) }}</div>
-                  <span>{{ order.customer }}</span>
+        <!-- Quick Actions Widget -->
+        <ng-container *ngIf="widget.id === 'quickActions'">
+          <div class="quick-actions-bar">
+            <button *ngFor="let action of quickActions" class="quick-action-btn" (click)="navigateTo(action.route)" [style.--action-color]="action.color">
+              <span class="material-icon">{{ action.icon }}</span>
+              <span class="action-label">{{ action.label }}</span>
+            </button>
+          </div>
+        </ng-container>
+
+        <!-- Today's Summary Widget -->
+        <ng-container *ngIf="widget.id === 'todaySummary'">
+          <div class="today-summary-card">
+            <div class="summary-header">
+              <span class="material-icon">today</span>
+              <h3>Today's Summary</h3>
+              <span class="today-date">{{ today | date:'EEEE, MMMM d' }}</span>
+            </div>
+            <div class="summary-stats">
+              <div class="summary-stat">
+                <span class="stat-value">{{ todaySummary.totalOrders }}</span>
+                <span class="stat-label">Orders</span>
+              </div>
+              <div class="summary-stat highlight">
+                <span class="stat-value">{{ formatCurrencyValue(todaySummary.totalRevenue) }}</span>
+                <span class="stat-label">Revenue</span>
+              </div>
+              <div class="summary-stat">
+                <span class="stat-value">{{ todaySummary.itemsSold }}</span>
+                <span class="stat-label">Items Sold</span>
+              </div>
+              <div class="summary-stat">
+                <span class="stat-value">{{ formatCurrencyValue(todaySummary.averageOrderValue) }}</span>
+                <span class="stat-label">Avg. Order</span>
+              </div>
+              <div class="summary-stat" [class.warning]="todaySummary.pendingCount > 0">
+                <span class="stat-value">{{ todaySummary.pendingCount }}</span>
+                <span class="stat-label">Pending</span>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- Sales Chart Widget -->
+        <ng-container *ngIf="widget.id === 'salesChart'">
+          <div class="chart-card chart-main">
+            <div class="chart-header">
+              <div>
+                <h3 class="chart-title">Sales vs Restock Costs</h3>
+                <p class="chart-subtitle">Overview of income against expenses over the last month</p>
+              </div>
+              <select class="chart-select">
+                <option>Last 30 Days</option>
+                <option>Last 90 Days</option>
+                <option>This Year</option>
+              </select>
+            </div>
+            <div class="chart-container">
+              <svg class="chart-svg" viewBox="0 0 100 50" preserveAspectRatio="none">
+                <line x1="0" y1="40" x2="100" y2="40" class="chart-grid-line"></line>
+                <line x1="0" y1="30" x2="100" y2="30" class="chart-grid-line"></line>
+                <line x1="0" y1="20" x2="100" y2="20" class="chart-grid-line"></line>
+                <line x1="0" y1="10" x2="100" y2="10" class="chart-grid-line"></line>
+                <defs>
+                  <linearGradient id="salesGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="var(--color-primary)" />
+                    <stop offset="100%" stop-color="var(--color-primary)" stop-opacity="0" />
+                  </linearGradient>
+                </defs>
+                <path d="M0,40 Q10,35 20,25 T40,20 T60,15 T80,25 T100,10 V50 H0 Z" fill="url(#salesGradient)" opacity="0.2" />
+                <path [attr.d]="salesChartPath" fill="none" stroke="var(--color-primary)" stroke-width="0.8" stroke-linecap="round" class="chart-line-animate" />
+                <path [attr.d]="costsChartPath" fill="none" stroke="var(--color-secondary)" stroke-width="0.5" stroke-dasharray="2,1" />
+              </svg>
+              <div class="chart-labels">
+                <span>Week 1</span>
+                <span>Week 2</span>
+                <span>Week 3</span>
+                <span>Week 4</span>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- Categories Widget -->
+        <ng-container *ngIf="widget.id === 'categories'">
+          <div class="chart-card chart-categories">
+            <h3 class="chart-title">Top Categories</h3>
+            <div class="categories-list">
+              <div class="category-item" *ngFor="let category of categories">
+                <div class="category-header">
+                  <span class="category-name">{{ category.name }}</span>
+                  <span class="category-percent">{{ category.percentage }}%</span>
                 </div>
-              </td>
-              <td>
-                <span class="status-badge" [ngClass]="getStatusClass(order.status)">
-                  {{ getStatusLabel(order.status) }}
-                </span>
-              </td>
-              <td class="text-right amount">₱{{ order.amount | number : '1.2-2' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+                <div class="category-bar-bg">
+                  <div class="category-bar" [style.width.%]="category.percentage" [style.background]="category.color"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ng-container>
 
-    <!-- Low Stock Alerts -->
-    <div class="table-card">
-      <div class="table-header">
-        <h3 class="table-title">Low Stock Alerts</h3>
-        <button class="table-action-btn">Reorder All</button>
-      </div>
-      <div class="alerts-list">
-        <div class="alert-item" *ngFor="let item of lowStockItems">
-          <div class="alert-left">
-            <div class="alert-icon-container">
-              <span class="material-icon">{{ item.icon }}</span>
+        <!-- Pending Deliveries Widget -->
+        <ng-container *ngIf="widget.id === 'pendingDeliveries'">
+          <div class="table-card pending-section" *ngIf="pendingDeliveries.length > 0; else noPending">
+            <div class="table-header">
+              <div class="header-title-group">
+                <h3 class="table-title">Pending Deliveries</h3>
+                <span class="badge-count">{{ pendingDeliveries.length }}</span>
+              </div>
+              <div class="view-controls">
+                <button class="view-btn" [class.active]="viewMode === 'table'" (click)="viewMode = 'table'" title="Table View">
+                  <span class="material-icon">view_list</span>
+                </button>
+                <button class="view-btn" [class.active]="viewMode === 'grid'" (click)="viewMode = 'grid'" title="Grid View">
+                  <span class="material-icon">grid_view</span>
+                </button>
+              </div>
             </div>
-            <div class="alert-info">
-              <p class="alert-name">{{ item.name }}</p>
-              <p class="alert-sku">SKU: {{ item.sku }}</p>
+            <div class="table-container" *ngIf="viewMode === 'table'">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Customer</th>
+                    <th>Delivery Schedule</th>
+                    <th>Status</th>
+                    <th class="text-right">Quick Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let item of pendingDeliveries" class="table-row">
+                    <td>
+                      <div class="item-info">
+                        <span class="order-id">{{ item.productName }}</span>
+                        <span class="item-qty" *ngIf="item.quantitySold > 1">x{{ item.quantitySold }}</span>
+                      </div>
+                      <div class="order-sub" *ngIf="item.orderId">{{ item.orderId | slice:4:12 }}</div>
+                    </td>
+                    <td>
+                      <div class="customer-info-cell">
+                        <span class="customer-name">{{ getCustomerDisplayName(item) }}</span>
+                        <div class="customer-details">
+                          <div class="detail-item" *ngIf="getCustomerContact(item)">
+                            <span class="material-icon">phone</span>
+                            <span>{{ getCustomerContact(item) }}</span>
+                          </div>
+                          <div class="detail-item" *ngIf="getCustomerAddress(item)">
+                            <span class="material-icon">location_on</span>
+                            <span>{{ getCustomerAddress(item) }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="delivery-date-cell" *ngIf="item.deliveryDate">
+                        <span class="material-icon">event</span>
+                        <span>{{ item.deliveryDate | date:'MMM d, y' }}</span>
+                        <span class="time-badge">{{ item.deliveryDate | date:'shortTime' }}</span>
+                      </div>
+                      <span *ngIf="!item.deliveryDate" class="text-muted">Not scheduled</span>
+                    </td>
+                    <td>
+                      <span class="status-badge" [ngClass]="item.reservationStatus === 'pending_confirmation' ? 'status-processing' : 'status-pending'">
+                        {{ item.reservationStatus === 'pending_confirmation' ? 'Unconfirmed' : 'Pending' }}
+                      </span>
+                    </td>
+                    <td class="text-right actions-cell">
+                      <button class="action-btn call" (click)="callCustomer(item)" title="Call Customer">
+                        <span class="material-icon">phone</span>
+                      </button>
+                      <button class="action-btn confirm" (click)="confirmReservation(item)" title="Confirm" *ngIf="item.reservationStatus === 'pending_confirmation'">
+                        <span class="material-icon">check_circle</span>
+                      </button>
+                      <button class="action-btn deliver" (click)="markAsDelivered(item)" title="Deliver" *ngIf="item.reservationStatus !== 'pending_confirmation'">
+                        <span class="material-icon">local_shipping</span>
+                      </button>
+                      <button class="action-btn cancel" (click)="cancelOrder(item)" title="Cancel">
+                        <span class="material-icon">cancel</span>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="delivery-grid" *ngIf="viewMode === 'grid'">
+              <div class="delivery-card" *ngFor="let item of pendingDeliveries">
+                <div class="card-header">
+                  <div class="card-title-row">
+                    <span class="card-item-name">{{ item.productName }}</span>
+                    <span class="item-qty" *ngIf="item.quantitySold > 1">x{{ item.quantitySold }}</span>
+                  </div>
+                  <span class="status-badge" [ngClass]="item.reservationStatus === 'pending_confirmation' ? 'status-processing' : 'status-pending'">
+                    {{ item.reservationStatus === 'pending_confirmation' ? 'Unconfirmed' : 'Pending' }}
+                  </span>
+                </div>
+                <div class="card-body">
+                  <div class="card-customer-info">
+                    <span class="customer-name">{{ getCustomerDisplayName(item) }}</span>
+                  </div>
+                  <div class="card-delivery-info">
+                    <div class="detail-item" *ngIf="item.deliveryDate">
+                      <span class="material-icon">event</span>
+                      <span>{{ item.deliveryDate | date:'MMM d, y' }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="card-actions">
+                  <button class="action-btn call" (click)="callCustomer(item)"><span class="material-icon">phone</span></button>
+                  <button class="action-btn confirm" (click)="confirmReservation(item)" *ngIf="item.reservationStatus === 'pending_confirmation'"><span class="material-icon">check_circle</span></button>
+                  <button class="action-btn deliver" (click)="markAsDelivered(item)" *ngIf="item.reservationStatus !== 'pending_confirmation'"><span class="material-icon">local_shipping</span></button>
+                  <button class="action-btn cancel" (click)="cancelOrder(item)"><span class="material-icon">cancel</span></button>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="alert-right">
-            <p class="alert-stock" [ngClass]="{ critical: item.critical, warning: !item.critical }">
-              {{ item.stockLeft }} Left
-            </p>
-            <p class="alert-reorder">Reorder: {{ item.reorderPoint }}</p>
+          <ng-template #noPending>
+            <div class="empty-widget-state">
+              <span class="material-icon">check_circle</span>
+              <p>No pending deliveries</p>
+            </div>
+          </ng-template>
+        </ng-container>
+
+        <!-- Recent Orders Widget -->
+        <ng-container *ngIf="widget.id === 'recentOrders'">
+          <div class="table-card recent-orders-card">
+            <div class="table-header">
+              <h3 class="table-title">Recent Orders</h3>
+              <button class="table-action-btn" (click)="navigateToPos()">View All</button>
+            </div>
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Order</th>
+                    <th>Product</th>
+                    <th>Customer</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th class="text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let order of recentOrders" class="table-row">
+                    <td class="order-id">{{ order.id }}</td>
+                    <td>
+                      <div class="product-cell">
+                        <span class="product-name">{{ order.productName }}</span>
+                        <span class="product-qty" *ngIf="order.quantity > 1">×{{ order.quantity }}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="customer-cell">
+                        <div class="customer-avatar">{{ order.customer.charAt(0) }}</div>
+                        <span>{{ order.customer }}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="date-cell">
+                        <span class="date-main">{{ order.timestamp | date:'MMM d' }}</span>
+                        <span class="date-time">{{ order.timestamp | date:'shortTime' }}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="status-badge" [ngClass]="getStatusClass(order.status)">
+                        {{ getStatusLabel(order.status) }}
+                      </span>
+                    </td>
+                    <td class="text-right amount">₱{{ order.amount | number : '1.2-2' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </ng-container>
+
+        <!-- Low Stock Alerts Widget -->
+        <ng-container *ngIf="widget.id === 'lowStock'">
+          <div class="table-card">
+            <div class="table-header">
+              <h3 class="table-title">Low Stock Alerts</h3>
+              <button class="table-action-btn">Reorder All</button>
+            </div>
+            <div class="alerts-list">
+              <div class="alert-item" *ngFor="let item of lowStockItems">
+                <div class="alert-left">
+                  <div class="alert-icon-container">
+                    <span class="material-icon">{{ item.icon }}</span>
+                  </div>
+                  <div class="alert-info">
+                    <p class="alert-name">{{ item.name }}</p>
+                    <p class="alert-sku">SKU: {{ item.sku }}</p>
+                  </div>
+                </div>
+                <div class="alert-right">
+                  <p class="alert-stock" [ngClass]="{ critical: item.critical, warning: !item.critical }">
+                    {{ item.stockLeft }} Left
+                  </p>
+                  <p class="alert-reorder">Reorder: {{ item.reorderPoint }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- Top Selling Products Widget -->
+        <ng-container *ngIf="widget.id === 'topProducts'">
+          <div class="widget-card">
+            <div class="widget-header">
+              <span class="material-icon widget-icon">trending_up</span>
+              <h3 class="widget-title">Top Selling Products</h3>
+            </div>
+            <div class="widget-body">
+              <div class="top-product" *ngFor="let product of topSellingProducts; let i = index">
+                <div class="product-rank">{{ i + 1 }}</div>
+                <div class="product-info">
+                  <span class="product-name">{{ product.name }}</span>
+                  <span class="product-stats">{{ product.unitsSold }} sold • {{ formatCurrencyValue(product.revenue) }}</span>
+                </div>
+                <div class="product-trend" [ngClass]="{
+                  'trend-up': product.trend === 'up',
+                  'trend-neutral': product.trend === 'neutral',
+                  'trend-down': product.trend === 'down'
+                }">
+                  <span class="material-icon">
+                    {{ product.trend === 'up' ? 'arrow_upward' : (product.trend === 'down' ? 'arrow_downward' : 'remove') }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- Top Customers Widget -->
+        <ng-container *ngIf="widget.id === 'topCustomers'">
+          <div class="widget-card">
+            <div class="widget-header">
+              <span class="material-icon widget-icon customers">people</span>
+              <h3 class="widget-title">Top Customers</h3>
+            </div>
+            <div class="widget-body">
+              <div class="top-customer" *ngFor="let customer of topCustomers; let i = index">
+                <div class="customer-rank">{{ i + 1 }}</div>
+                <div class="customer-avatar-circle">{{ customer.name.charAt(0) }}</div>
+                <div class="customer-info">
+                  <span class="customer-name">{{ customer.name }}</span>
+                  <span class="customer-stats">{{ customer.ordersCount }} orders • Last: {{ customer.lastOrderDate | date:'MMM d' }}</span>
+                </div>
+                <div class="customer-spent">{{ formatCurrencyValue(customer.totalSpent) }}</div>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+
       </div>
-    </div>
+    </ng-container>
   </div>
 </div>

@@ -924,6 +924,11 @@
   font-size: 16px;
 }
 
+.detail-row.payment-row {
+  color: #10b981;
+  font-weight: 500;
+}
+
 .order-actions {
   display: flex;
   gap: var(--space-xs);

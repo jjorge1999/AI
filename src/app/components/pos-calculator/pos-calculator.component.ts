@@ -540,6 +540,11 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
         productNames: sales.map((s) => s.productName).join(', '),
         deliveryNotes: first.deliveryNotes,
         quantityTotal: sales.reduce((sum, s) => sum + s.quantitySold, 0),
+        // Payment details from first sale (shared across group)
+        discount: first.discount,
+        discountType: first.discountType,
+        cashReceived: first.cashReceived,
+        change: first.change,
       });
     });
 
@@ -558,6 +563,11 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
         productNames: sale.productName,
         deliveryNotes: sale.deliveryNotes,
         quantityTotal: sale.quantitySold,
+        // Payment details
+        discount: sale.discount,
+        discountType: sale.discountType,
+        cashReceived: sale.cashReceived,
+        change: sale.change,
       });
     });
 

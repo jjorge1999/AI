@@ -286,6 +286,18 @@
             <span class="material-icon">event</span>
             <span>{{ group.deliveryDate | date:'medium' }}</span>
           </div>
+          <div class="detail-row" *ngIf="group.discount > 0">
+            <span class="material-icon">percent</span>
+            <span>Discount: {{ group.discountType === 'percent' ? group.discount + '%' : formatCurrency(group.discount) }}</span>
+          </div>
+          <div class="detail-row payment-row">
+            <span class="material-icon">payments</span>
+            <span>Cash: {{ formatCurrency(group.cashReceived) }}</span>
+          </div>
+          <div class="detail-row payment-row">
+            <span class="material-icon">change_circle</span>
+            <span>Change: {{ formatCurrency(group.change) }}</span>
+          </div>
           <div class="detail-row" *ngIf="group.deliveryNotes">
             <span class="material-icon">notes</span>
             <span>{{ group.deliveryNotes }}</span>
