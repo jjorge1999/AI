@@ -14,10 +14,13 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
+    const storeId = searchParams.get('storeId');
 
     let query: FirebaseFirestore.Query = db.collection(COLLECTION_NAME);
 
-    if (userId) {
+    if (storeId) {
+      query = query.where('storeId', '==', storeId);
+    } else if (userId) {
       query = query.where('userId', '==', userId);
     }
 

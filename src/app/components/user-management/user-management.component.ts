@@ -7,6 +7,8 @@ import { DialogService } from '../../services/dialog.service';
 import { SettingsService } from '../../services/settings.service';
 import { User } from '../../models/inventory.models';
 import { DeviceService } from '../../services/device.service';
+import { StoreService } from '../../services/store.service';
+import { Store } from '../../models/inventory.models';
 
 @Component({
   selector: 'app-user-management',
@@ -26,7 +28,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
   searchQuery = '';
   roleFilter = 'all';
   statusFilter = 'all';
-  roles = ['all', 'admin', 'editor', 'user'];
+  roles = ['all', 'super-admin', 'admin', 'editor', 'user'];
 
   // Modal state
   isModalOpen = false;
@@ -49,17 +51,26 @@ export class UserManagementComponent implements OnInit, OnDestroy {
   showAiSettings = false;
   isSavingToken = false;
 
+  // Stores for assignment
+  availableStores: Store[] = [];
+
   constructor(
     private userService: UserService,
     private dialogService: DialogService,
     private settingsService: SettingsService,
-    private deviceService: DeviceService
+    private deviceService: DeviceService,
+    private storeService: StoreService
   ) {}
 
   ngOnInit(): void {
     this.loadUsers();
     this.userService.loadUsers();
     this.checkGemmaStatus();
+
+    this.storeService.stores$.subscribe((stores) => {
+      this.availableStores = stores;
+    });
+    this.storeService.loadStores();
 
     this.subscriptions.push(
       this.settingsService.getSettings().subscribe((settings) => {
@@ -211,6 +222,8 @@ export class UserManagementComponent implements OnInit, OnDestroy {
         address: this.currentUser.address,
         gpsCoordinates: this.currentUser.gpsCoordinates,
         role: this.currentUser.role,
+        storeId: this.currentUser.storeId,
+        storeIds: this.currentUser.storeIds,
       };
 
       if (this.formPassword) {
@@ -227,6 +240,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
         password: this.formPassword,
         createdBy: currentUserId,
         userId: currentUserId,
+        storeId: this.currentUser.storeId,
       } as User;
 
       this.userService.addUser(newUser).subscribe(() => {
@@ -334,6 +348,8 @@ export class UserManagementComponent implements OnInit, OnDestroy {
 
   getRoleBadgeClass(role: string): string {
     switch (role) {
+      case 'super-admin':
+        return 'role-super-admin';
       case 'admin':
         return 'role-admin';
       case 'editor':

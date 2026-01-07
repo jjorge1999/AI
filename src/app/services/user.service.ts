@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, from, of } from 'rxjs';
+import { BehaviorSubject, Observable, from, of, tap } from 'rxjs';
 import { map, switchMap, take, catchError } from 'rxjs/operators';
 import { User } from '../models/inventory.models';
 import { environment } from '../../environments/environment';
+import { StoreService } from './store.service';
 
 @Injectable({
   providedIn: 'root',
@@ -13,16 +14,26 @@ export class UserService {
   private usersSubject = new BehaviorSubject<User[]>([]);
   public users$ = this.usersSubject.asObservable();
 
-  private loggedInSubject = new BehaviorSubject<boolean>(
+  private readonly loggedInSubject = new BehaviorSubject<boolean>(
     localStorage.getItem('jjm_logged_in') === 'true'
   );
   public isLoggedIn$ = this.loggedInSubject.asObservable();
 
-  setLoginState(isLoggedIn: boolean): void {
+  private currentUserSubject = new BehaviorSubject<User | null>(null);
+  public currentUser$ = this.currentUserSubject.asObservable();
+
+  setLoginState(isLoggedIn: boolean, user?: User): void {
     this.loggedInSubject.next(isLoggedIn);
+    if (user) {
+      this.currentUserSubject.next(user);
+      localStorage.setItem('jjm_user_id', user.id);
+      localStorage.setItem('jjm_user_role', user.role);
+    } else if (!isLoggedIn) {
+      this.currentUserSubject.next(null);
+    }
   }
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private storeService: StoreService) {
     // Removed automatic loading of all users on startup for security
   }
 
@@ -40,6 +51,7 @@ export class UserService {
   }
 
   public loadUsers(): void {
+    const currentUserId = localStorage.getItem('jjm_user_id');
     this.http.get<User[]>(`${this.apiUrl}/users`).subscribe({
       next: (users) => {
         const parsedUsers = users.map((user) => this.transformUser(user));
@@ -47,6 +59,10 @@ export class UserService {
           this.initializeDefaultAdmin().subscribe();
         } else {
           this.usersSubject.next(parsedUsers);
+          if (currentUserId) {
+            const current = parsedUsers.find((u) => u.id === currentUserId);
+            if (current) this.currentUserSubject.next(current);
+          }
         }
       },
       error: (err) => {
@@ -173,7 +189,11 @@ export class UserService {
           .pipe(
             map((user) => {
               if (!user) return null;
-              return this.transformUser(user);
+              const transformed = this.transformUser(user);
+              if (transformed.storeId) {
+                this.storeService.setActiveStore(transformed.storeId);
+              }
+              return transformed;
             }),
             // Catch 401 (Unauthorized) or other errors and return null
             // eslint-disable-next-line @typescript-eslint/no-unused-vars

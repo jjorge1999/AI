@@ -6,6 +6,7 @@ import { AdsService } from '../../services/ads.service';
 import { Ad, AdFormData } from '../../models/ad.model';
 import { DialogService } from '../../services/dialog.service';
 import { AiService } from '../../services/ai.service';
+import { StoreService } from '../../services/store.service';
 
 @Component({
   selector: 'app-ads-management',
@@ -44,15 +45,21 @@ export class AdsManagementComponent implements OnInit, OnDestroy {
   constructor(
     private adsService: AdsService,
     private dialogService: DialogService,
-    private aiService: AiService
+    private aiService: AiService,
+    private storeService: StoreService
   ) {}
 
   ngOnInit(): void {
     // Get current user ID
     this.userId = localStorage.getItem('jjm_user_id') || 'admin-1';
 
-    // Start listening to ads from Firestore
-    this.adsService.startListening();
+    // Listen to store changes to refresh ads
+    this.subscription.add(
+      this.storeService.activeStoreId$.subscribe((storeId) => {
+        this.adsService.stopListening();
+        this.adsService.startListening(undefined, storeId || undefined);
+      })
+    );
 
     // Subscribe to ads updates
     this.subscription.add(

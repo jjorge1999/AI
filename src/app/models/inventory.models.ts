@@ -7,6 +7,28 @@ export interface Product {
   imageUrl?: string;
   createdAt: Date;
   userId?: string;
+  storeId?: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  userId?: string;
+  storeId?: string;
+  createdAt: Date;
+}
+
+export interface Store {
+  id: string;
+  name: string;
+  address?: string;
+  phoneNumber?: string;
+  isActive?: boolean;
+  isSuperAdminOnly?: boolean;
+  logoUrl?: string;
+  description?: string;
+  createdAt: Date;
+  createdBy?: string;
 }
 
 export interface Sale {
@@ -30,6 +52,7 @@ export interface Sale {
   discount?: number;
   discountType?: 'amount' | 'percent';
   userId?: string;
+  storeId?: string;
   reservationStatus?: 'pending_confirmation' | 'confirmed';
   orderId?: string;
 }
@@ -42,6 +65,7 @@ export interface Customer {
   gpsCoordinates?: string;
   createdAt: Date;
   userId?: string;
+  storeId?: string;
   credits?: number; // Added for Color Game
 }
 
@@ -52,6 +76,7 @@ export interface Expense {
   notes?: string;
   timestamp: Date;
   userId?: string;
+  storeId?: string;
 }
 
 export interface ActivityLog {
@@ -63,6 +88,7 @@ export interface ActivityLog {
   details?: string;
   timestamp: Date;
   userId?: string;
+  storeId?: string;
 }
 
 export interface Message {
@@ -71,6 +97,7 @@ export interface Message {
   senderName: string;
   timestamp: Date;
   userId?: string;
+  storeId?: string;
   conversationId?: string;
   audioBase64?: string;
   isRead?: boolean;
@@ -94,11 +121,13 @@ export interface User {
   address?: string; // Added for chat/profile info
   gpsCoordinates?: string;
   password?: string; // Optional for display, required for auth
-  role: 'admin' | 'user';
+  role: 'super-admin' | 'admin' | 'user';
   createdAt: Date;
   createdBy?: string;
   userId?: string;
   hasSubscription?: boolean;
+  storeId?: string; // Current associated store
+  storeIds?: string[]; // Multiple stores for admins
 }
 
 export interface Reservation {
@@ -117,4 +146,5 @@ export interface Reservation {
   totalAmount: number;
   notes?: string;
   reservationDate: Date;
+  storeId?: string;
 }

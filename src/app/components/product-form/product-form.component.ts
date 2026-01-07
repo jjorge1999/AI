@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { InventoryService } from '../../services/inventory.service';
-import { Product } from '../../models/inventory.models';
+import { Product, Category } from '../../models/inventory.models';
 import { DialogService } from '../../services/dialog.service';
 
 interface ProductStats {
@@ -29,7 +29,11 @@ export class ProductFormComponent implements OnInit, OnDestroy {
   searchQuery = '';
   categoryFilter = '';
   stockFilter = '';
-  categories: string[] = [];
+  categories: Category[] = [];
+
+  // Category management
+  showCategoryModal = false;
+  newCategoryName = '';
 
   // Pagination
   currentPage = 1;
@@ -65,20 +69,22 @@ export class ProductFormComponent implements OnInit, OnDestroy {
       .getProducts()
       .subscribe((products) => {
         this.products = products;
-        this.extractCategories();
         this.calculateStats();
         this.applyFilters();
       });
+
+    this.subscription.add(
+      this.inventoryService.getCategories().subscribe((categories) => {
+        this.categories = categories;
+      })
+    );
   }
 
   ngOnDestroy(): void {
     this.subscription?.unsubscribe();
   }
 
-  private extractCategories(): void {
-    const cats = new Set(this.products.map((p) => p.category));
-    this.categories = Array.from(cats).sort();
-  }
+  // Removed static extractCategories in favor of dynamic categories$ from service
 
   private calculateStats(): void {
     this.stats.totalProducts = this.products.length;
@@ -325,6 +331,48 @@ export class ProductFormComponent implements OnInit, OnDestroy {
       this.product.price > 0 &&
       this.product.quantity >= 0
     );
+  }
+
+  // Category Management
+  openCategoryModal(): void {
+    this.showCategoryModal = true;
+  }
+
+  closeCategoryModal(): void {
+    this.showCategoryModal = false;
+    this.newCategoryName = '';
+  }
+
+  addCategory(): void {
+    if (this.newCategoryName.trim()) {
+      this.inventoryService.addCategory(this.newCategoryName.trim()).subscribe({
+        next: () => {
+          this.newCategoryName = '';
+        },
+        error: (err) => {
+          console.error('Error adding category:', err);
+          this.dialogService.error('Failed to add category');
+        },
+      });
+    }
+  }
+
+  deleteCategory(cat: Category): void {
+    this.dialogService
+      .confirm(
+        `Are you sure you want to delete category "${cat.name}"? products with this category will remain, but the category option will be removed.`,
+        'Delete Category'
+      )
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          this.inventoryService.deleteCategory(cat.id).subscribe({
+            error: (err) => {
+              console.error('Error deleting category:', err);
+              this.dialogService.error('Failed to delete category');
+            },
+          });
+        }
+      });
   }
 
   // Delete product

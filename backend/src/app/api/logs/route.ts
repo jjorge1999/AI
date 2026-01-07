@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { withCors, corsResponse } from '@/lib/cors';
+import { ActivityLog } from '@/lib/models';
 
 const COLLECTION_NAME = 'activityLogs';
 
@@ -15,40 +16,46 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const entityType = searchParams.get('entityType');
     const action = searchParams.get('action');
-    const limit = parseInt(searchParams.get('limit') || '100');
+    const limit = Number.parseInt(searchParams.get('limit') || '100');
 
     const userId = searchParams.get('userId');
+    const storeId = searchParams.get('storeId');
 
-    let query = db.collection(COLLECTION_NAME);
+    let query: FirebaseFirestore.Query = db.collection(COLLECTION_NAME);
 
-    if (userId) {
-      query = query.where('userId', '==', userId) as any;
+    if (storeId) {
+      query = query.where('storeId', '==', storeId);
+    } else if (userId) {
+      query = query.where('userId', '==', userId);
     }
 
     if (entityType) {
-      query = query.where('entityType', '==', entityType) as any;
+      query = query.where('entityType', '==', entityType);
     }
 
     if (action) {
-      query = query.where('action', '==', action) as any;
+      query = query.where('action', '==', action);
     }
 
-    query = query.limit(limit) as any;
+    query = query.limit(limit);
 
     const snapshot = await query.get();
-    const logs: any[] = snapshot.docs.map((doc) => ({
+    const logs = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
-    }));
+    })) as ActivityLog[];
 
     // Sort in memory to avoid composite index requirement
     logs.sort((a, b) => {
-      const dateA = a.timestamp?._seconds
-        ? new Date(a.timestamp._seconds * 1000)
-        : new Date(a.timestamp);
-      const dateB = b.timestamp?._seconds
-        ? new Date(b.timestamp._seconds * 1000)
-        : new Date(b.timestamp);
+      const tsA = a.timestamp as any;
+      const tsB = b.timestamp as any;
+
+      const dateA = tsA?._seconds
+        ? new Date(tsA._seconds * 1000)
+        : new Date(tsA as string | number | Date);
+      const dateB = tsB?._seconds
+        ? new Date(tsB._seconds * 1000)
+        : new Date(tsB as string | number | Date);
       return dateB.getTime() - dateA.getTime();
     });
 

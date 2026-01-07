@@ -85,8 +85,11 @@
           (change)="onFilterChange()"
         >
           <option value="">All Categories</option>
-          <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+          <option *ngFor="let cat of categories" [value]="cat.name">{{ cat.name }}</option>
         </select>
+        <button class="manage-cats-btn" (click)="openCategoryModal()" title="Manage Categories">
+          <span class="material-icon">settings</span>
+        </button>
         <select
           class="filter-select"
           [(ngModel)]="stockFilter"
@@ -281,13 +284,8 @@
           required
         >
           <option value="">-- Select Category --</option>
-          <option value="Lechon">Lechon</option>
-          <option value="Hollow blocks">Hollow blocks</option>
-          <option value="Sand and Gravel">Sand and Gravel</option>
-          <option value="Copra">Copra</option>
-          <option value="Electronics">Electronics</option>
-          <option value="Furniture">Furniture</option>
-          <option value="Others">Others</option>
+          <option *ngFor="let cat of categories" [value]="cat.name">{{ cat.name }}</option>
+          <option *ngIf="categories.length === 0" disabled>No categories found. Please add some first.</option>
         </select>
       </div>
 
@@ -331,5 +329,48 @@
         </button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Category Management Modal -->
+<div class="modal-overlay" *ngIf="showCategoryModal" (click)="closeCategoryModal()">
+  <div class="modal-content category-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3 class="modal-title">Manage Categories</h3>
+      <button class="modal-close" (click)="closeCategoryModal()">
+        <span class="material-icon">close</span>
+      </button>
+    </div>
+    
+    <div class="category-manager">
+      <div class="add-cat-form">
+        <input 
+          type="text" 
+          [(ngModel)]="newCategoryName" 
+          placeholder="New category name..." 
+          class="form-input"
+          (keyup.enter)="addCategory()"
+        />
+        <button class="btn-add-cat" (click)="addCategory()" [disabled]="!newCategoryName.trim()">
+          <span class="material-icon">add</span>
+        </button>
+      </div>
+
+      <div class="categories-list">
+        <div *ngFor="let cat of categories" class="category-item">
+          <span class="category-item-name">{{ cat.name }}</span>
+          <button class="btn-delete-cat" (click)="deleteCategory(cat)" title="Delete Category">
+            <span class="material-icon">delete</span>
+          </button>
+        </div>
+        <div *ngIf="categories.length === 0" class="empty-categories">
+          <p>No categories added yet.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-submit full-width" (click)="closeCategoryModal()">Done</button>
+    </div>
   </div>
 </div>

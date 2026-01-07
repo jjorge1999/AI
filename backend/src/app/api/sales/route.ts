@@ -14,11 +14,14 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
+    const storeId = searchParams.get('storeId');
 
     let query: FirebaseFirestore.Query = db.collection(COLLECTION_NAME);
 
-    if (userId) {
-      // Allow users to see their own sales AND public guest reservations
+    if (storeId) {
+      query = query.where('storeId', '==', storeId);
+    } else if (userId) {
+      // Fallback for backward compatibility if storeId is not provided
       query = query.where('userId', 'in', [userId, 'guest']);
     }
 

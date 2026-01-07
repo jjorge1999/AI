@@ -146,6 +146,11 @@
           <span class="material-icon">edit_note</span>
           <span class="action-label">Notes</span>
         </button>
+        <button class="action-btn" (click)="openReceiptPreview()">
+          <span class="material-icon">receipt_long</span>
+          <span class="action-label">Print View</span>
+          <span class="printer-status-dot" [class.connected]="(printerStatus$ | async) === 'connected'"></span>
+        </button>
         <button class="action-btn" (click)="togglePendingPanel()">
           <span class="material-icon">schedule</span>
           <span class="action-label">Pending</span>
@@ -305,6 +310,9 @@
         </div>
 
         <div class="order-actions">
+          <button class="order-action-btn print" (click)="reprintOrderReceipt(group)" title="Reprint Receipt">
+            <span class="material-icon">print</span>
+          </button>
           <button class="order-action-btn edit" (click)="openEditModal(group?.sales[0])">
             <span class="material-icon">edit</span>
           </button>
@@ -514,6 +522,166 @@
     <div class="modal-actions">
       <button class="btn-cancel" (click)="closeQuantityModal()">Cancel</button>
       <button class="btn-save" (click)="applyQuantity()">Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bluetooth Printer Modal -->
+<div class="modal-overlay" *ngIf="isPrintModalOpen" (click)="closePrintModal()">
+  <div class="modal-card printer-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h4>
+        <span class="material-icon">print</span>
+        Bluetooth Printer
+      </h4>
+      <button class="btn-close" (click)="closePrintModal()">
+        <span class="material-icon">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <!-- Connection Status -->
+      <div class="printer-status-card" [class.connected]="(printerStatus$ | async) === 'connected'" [class.connecting]="(printerStatus$ | async) === 'connecting'">
+        <div class="status-icon">
+          <span class="material-icon" *ngIf="(printerStatus$ | async) === 'connected'">bluetooth_connected</span>
+          <span class="material-icon" *ngIf="(printerStatus$ | async) === 'connecting'">bluetooth_searching</span>
+          <span class="material-icon" *ngIf="(printerStatus$ | async) === 'disconnected'">bluetooth_disabled</span>
+        </div>
+        <div class="status-info">
+          <p class="status-label" *ngIf="(printerStatus$ | async) === 'connected'">Connected</p>
+          <p class="status-label" *ngIf="(printerStatus$ | async) === 'connecting'">Connecting...</p>
+          <p class="status-label" *ngIf="(printerStatus$ | async) === 'disconnected'">Not Connected</p>
+          <p class="device-name" *ngIf="printerName$ | async">{{ printerName$ | async }}</p>
+        </div>
+      </div>
+
+      <!-- Connection Actions -->
+      <div class="printer-actions" *ngIf="(printerStatus$ | async) === 'disconnected'">
+        <button class="btn-connect" (click)="connectPrinter()">
+          <span class="material-icon">bluetooth</span>
+          Connect Printer
+        </button>
+        <p class="help-text">Make sure your Bluetooth printer is turned on and in pairing mode.</p>
+      </div>
+
+      <!-- Connected Actions -->
+      <div class="printer-actions" *ngIf="(printerStatus$ | async) === 'connected'">
+        <button class="btn-action" (click)="printTestPage()" [disabled]="isPrinting">
+          <span class="material-icon">receipt_long</span>
+          Print Test Page
+        </button>
+        <button class="btn-action" (click)="printReceipt()" [disabled]="isPrinting || !lastReceiptData">
+          <span class="material-icon">print</span>
+          Reprint Last Receipt
+        </button>
+        <button class="btn-disconnect" (click)="disconnectPrinter()">
+          <span class="material-icon">bluetooth_disabled</span>
+          Disconnect
+        </button>
+      </div>
+
+      <!-- Forget Printer Option -->
+      <div class="printer-footer" *ngIf="printerName$ | async">
+        <button class="btn-forget" (click)="forgetPrinter()">
+          <span class="material-icon">delete_outline</span>
+          Forget This Printer
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Receipt Preview Modal -->
+<div class="modal-overlay" *ngIf="isReceiptPreviewOpen" (click)="closeReceiptPreview()">
+  <div class="modal-card receipt-preview-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h4>
+        <span class="material-icon">receipt_long</span>
+        Receipt Preview
+      </h4>
+      <button class="btn-close" (click)="closeReceiptPreview()">
+        <span class="material-icon">close</span>
+      </button>
+    </div>
+    <div class="modal-body receipt-preview-body">
+      <div class="receipt-paper" *ngIf="lastReceiptData">
+        <!-- Store Header -->
+        <div class="receipt-header">
+          <h2 class="store-name">{{ lastReceiptData.storeName }}</h2>
+          <p class="store-address" *ngIf="lastReceiptData.storeAddress">{{ lastReceiptData.storeAddress }}</p>
+          <p class="store-phone" *ngIf="lastReceiptData.storePhone">Tel: {{ lastReceiptData.storePhone }}</p>
+        </div>
+
+        <div class="receipt-divider">================================</div>
+
+        <!-- Order Info -->
+        <div class="receipt-order-info">
+          <p><strong>Order:</strong> {{ lastReceiptData.orderId }}</p>
+          <p><strong>Date:</strong> {{ lastReceiptData.date | date:'short' }}</p>
+          <p *ngIf="lastReceiptData.customerName"><strong>Customer:</strong> {{ lastReceiptData.customerName }}</p>
+          <p *ngIf="lastReceiptData.deliveryDate"><strong>Delivery:</strong> {{ lastReceiptData.deliveryDate | date:'short' }}</p>
+        </div>
+
+        <div class="receipt-divider">--------------------------------</div>
+
+        <!-- Items -->
+        <div class="receipt-items">
+          <div class="receipt-item" *ngFor="let item of lastReceiptData.items">
+            <div class="item-name">{{ item.name }}</div>
+            <div class="item-detail">
+              <span>{{ item.quantity }} x {{ formatCurrency(item.price) }}</span>
+              <span>{{ formatCurrency(item.total) }}</span>
+            </div>
+            <div class="item-discount" *ngIf="item.discount && item.discount > 0">
+              <span *ngIf="item.discountType === 'percent'">Discount: {{ item.discount }}%</span>
+              <span *ngIf="item.discountType === 'amount'">Discount: -{{ formatCurrency(item.discount) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="receipt-divider">--------------------------------</div>
+
+        <!-- Totals -->
+        <div class="receipt-totals">
+          <div class="total-row" *ngIf="lastReceiptData.totalDiscount > 0">
+            <span>Total Discount</span>
+            <span>-{{ formatCurrency(lastReceiptData.totalDiscount) }}</span>
+          </div>
+          <div class="total-row grand-total">
+            <span>TOTAL</span>
+            <span>{{ formatCurrency(lastReceiptData.total) }}</span>
+          </div>
+          <div class="total-row">
+            <span>Cash</span>
+            <span>{{ formatCurrency(lastReceiptData.cashReceived) }}</span>
+          </div>
+          <div class="total-row">
+            <span>Change</span>
+            <span>{{ formatCurrency(lastReceiptData.change) }}</span>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="receipt-notes" *ngIf="lastReceiptData.notes">
+          <div class="receipt-divider">--------------------------------</div>
+          <p><strong>Notes:</strong> {{ lastReceiptData.notes }}</p>
+        </div>
+
+        <!-- Footer -->
+        <div class="receipt-divider">================================</div>
+        <div class="receipt-footer">
+          <p>Thank you for your purchase!</p>
+          <p>Please come again</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Actions -->
+    <div class="modal-actions receipt-actions">
+      <button class="btn-cancel" (click)="closeReceiptPreview()">Close</button>
+      <button class="btn-print" (click)="printFromPreview()" [disabled]="isPrinting">
+        <span class="material-icon">print</span>
+        {{ (printerStatus$ | async) === 'connected' ? 'Print Receipt' : 'Connect & Print' }}
+      </button>
     </div>
   </div>
 </div>

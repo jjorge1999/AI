@@ -12,9 +12,12 @@ import {
   Router,
   NavigationEnd,
 } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { UserService } from './services/user.service';
 import { InventoryService } from './services/inventory.service';
 import { ChatService } from './services/chat.service';
+import { StoreService } from './services/store.service';
+import { Store, User } from './models/inventory.models';
 import { DialogComponent } from './components/dialog/dialog.component';
 import { LoadingComponent } from './components/loading/loading.component';
 import { ChatComponent } from './components/chat/chat.component';
@@ -35,6 +38,7 @@ import { Sale } from './models/inventory.models';
     CommonModule,
     RouterOutlet,
     RouterModule,
+    FormsModule,
     DialogComponent,
     LoadingComponent,
     ChatComponent,
@@ -59,11 +63,19 @@ export class AppComponent implements OnInit, OnDestroy {
   showNotifications = false;
   showReservation = false;
   isVisionAid = false;
+  isLoginPage = false;
+  isReservationPage = false;
 
-  // Sidebar state
+  // Store state
+  stores: Store[] = [];
+  activeStoreId: string | null = null;
+  activeStoreName = 'Select Store';
+
   isSidebarCollapsed = false;
   isMobileSidebarOpen = false;
   userFullName = 'User';
+  currentUser: User | null = null;
+  allowedStores: Store[] = [];
 
   private routerSub: Subscription = new Subscription();
 
@@ -74,6 +86,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private notificationService: NotificationService,
     private dialogService: DialogService,
     private deviceService: DeviceService,
+    private storeService: StoreService,
     private router: Router,
     private ngZone: NgZone
   ) {
@@ -95,7 +108,30 @@ export class AppComponent implements OnInit, OnDestroy {
 
         // Check delivery reminders on login
         this.checkDeliveryReminders();
+
+        // Load stores
+        this.storeService.loadStores();
+        this.userService.loadUsers();
       }
+    });
+
+    this.userService.currentUser$.subscribe((user) => {
+      this.currentUser = user;
+      if (user?.role) {
+        this.userRole = user.role;
+      }
+      this.filterAllowedStores();
+    });
+
+    this.storeService.stores$.subscribe((stores) => {
+      this.stores = stores;
+      this.filterAllowedStores();
+      this.updateActiveStoreName();
+    });
+
+    this.storeService.activeStoreId$.subscribe((id) => {
+      this.activeStoreId = id;
+      this.updateActiveStoreName();
     });
 
     this.notificationService.notificationCount$.subscribe((count) => {
@@ -143,6 +179,8 @@ export class AppComponent implements OnInit, OnDestroy {
       .pipe(filter((event) => event instanceof NavigationEnd))
       .subscribe((event: any) => {
         const url = event.urlAfterRedirects;
+        this.isLoginPage = url.includes('/login');
+        this.isReservationPage = url.includes('/reservation');
         if (url.includes('/home')) this.activeTab = 'home';
         else if (url.includes('/add-product')) this.activeTab = 'add-product';
         else if (url.includes('/sell')) this.activeTab = 'sell';
@@ -154,6 +192,7 @@ export class AppComponent implements OnInit, OnDestroy {
         else if (url.includes('/users')) this.activeTab = 'users';
         else if (url.includes('/sales')) this.activeTab = 'sales';
         else if (url.includes('/ads')) this.activeTab = 'ads';
+        else if (url.includes('/stores')) this.activeTab = 'stores';
       });
   }
 
@@ -306,6 +345,86 @@ export class AppComponent implements OnInit, OnDestroy {
     return name.substring(0, 2).toUpperCase();
   }
 
+  // Store methods
+  onStoreChange(storeId: string): void {
+    if (!this.canSwitchToStore(storeId)) {
+      this.dialogService.error(
+        'Access Denied: You are not assigned to this store branch.',
+        'Permission Restricted'
+      );
+      return;
+    }
+    this.storeService.setActiveStore(storeId);
+    this.inventoryService.reloadData();
+    this.dialogService.success('Switched to ' + this.activeStoreName);
+  }
+
+  private filterAllowedStores(): void {
+    if (!this.currentUser) {
+      this.allowedStores = [];
+      return;
+    }
+
+    if (this.currentUser.role === 'super-admin') {
+      this.allowedStores = this.stores;
+    } else {
+      const authorizedIds = this.currentUser.storeIds || [];
+      const primaryId = this.currentUser.storeId;
+      this.allowedStores = this.stores.filter(
+        (s) =>
+          (authorizedIds.includes(s.id) || s.id === primaryId) &&
+          !s.isSuperAdminOnly
+      );
+    }
+
+    // ENFORCE STORE ISOLATION:
+    // If the active store is no longer allowed (or hasn't been set yet),
+    // reset it to the first authorized store.
+    if (this.allowedStores.length > 0) {
+      const isCurrentlyAllowed = this.allowedStores.some(
+        (s) => s.id === this.activeStoreId
+      );
+      if (!this.activeStoreId || !isCurrentlyAllowed) {
+        console.log(
+          'Enforcing store isolation: Switching to first authorized branch.'
+        );
+        // Don't use onStoreChange here as it has dialogs/reloads that might conflict with current observable cycle
+        const defaultStoreId = this.allowedStores[0].id;
+        this.storeService.setActiveStore(defaultStoreId);
+        // Important: reload data because activeStoreId has changed
+        this.inventoryService.reloadData();
+      }
+    } else if (this.currentUser.role !== 'super-admin') {
+      // If NOT a super-admin and has NO assigned stores, clear the active store
+      this.storeService.setActiveStore(null);
+      this.inventoryService.reloadData();
+    }
+
+    this.updateActiveStoreName();
+  }
+
+  canSwitchToStore(storeId: string): boolean {
+    if (!this.currentUser) return false;
+    if (this.currentUser.role === 'super-admin') return true;
+
+    const store = this.stores.find((s) => s.id === storeId);
+    if (store?.isSuperAdminOnly) return false;
+
+    const authorizedIds = this.currentUser.storeIds || [];
+    return (
+      authorizedIds.includes(storeId) || this.currentUser.storeId === storeId
+    );
+  }
+
+  private updateActiveStoreName(): void {
+    if (this.activeStoreId) {
+      const store = this.stores.find((s) => s.id === this.activeStoreId);
+      this.activeStoreName = store ? store.name : 'Select Store';
+    } else {
+      this.activeStoreName = 'Select Store';
+    }
+  }
+
   getPageTitle(): string {
     const titles: { [key: string]: string } = {
       home: 'Dashboard Overview',
@@ -319,6 +438,7 @@ export class AppComponent implements OnInit, OnDestroy {
       users: 'User Management',
       sales: 'Sales & Promotions',
       ads: 'Ad Inventory',
+      stores: 'Store Management',
     };
     return titles[this.activeTab] || 'Dashboard';
   }

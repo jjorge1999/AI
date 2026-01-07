@@ -68,6 +68,11 @@ export async function POST(request: Request) {
         pending: true,
         reservationStatus: 'pending_confirmation',
         userId: productUserId, // Use product owner's userId
+        storeId:
+          reservation.storeId ||
+          (await productsCollection.doc(item.productId).get()).data()
+            ?.storeId ||
+          null,
         orderId: orderId,
       };
 

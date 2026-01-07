@@ -7,6 +7,18 @@ export interface Product {
   minQuantity: number;
   imageUrl?: string;
   createdAt: Date | string; // Firestore returns Timestamp, need to handle
+  storeId?: string;
+}
+
+export interface Store {
+  id: string;
+  name: string;
+  address?: string;
+  phoneNumber?: string;
+  isActive?: boolean;
+  isSuperAdminOnly?: boolean;
+  createdAt: Date | string;
+  createdBy?: string;
 }
 
 export interface Sale {
@@ -25,6 +37,7 @@ export interface Sale {
   pending?: boolean;
   discount?: number;
   discountType?: 'amount' | 'percent';
+  storeId?: string;
 }
 
 export interface Expense {
@@ -33,6 +46,7 @@ export interface Expense {
   amount: number;
   category: string;
   timestamp: Date | string;
+  storeId?: string;
 }
 
 export interface Customer {
@@ -41,7 +55,9 @@ export interface Customer {
   email?: string;
   phone?: string;
   address?: string;
+  credits?: number;
   createdAt: Date | string;
+  storeId?: string;
 }
 
 export interface Message {
@@ -50,4 +66,28 @@ export interface Message {
   senderName: string;
   timestamp: Date | string;
   userId?: string;
+  storeId?: string;
+}
+
+export interface User {
+  id: string;
+  username: string;
+  fullName: string;
+  password?: string;
+  role: 'super-admin' | 'admin' | 'user';
+  createdAt: Date | string;
+  storeId?: string; // Current associated store
+  storeIds?: string[]; // Multiple stores for admins
+}
+
+export interface ActivityLog {
+  id: string;
+  userId?: string;
+  username?: string;
+  action: string;
+  entityType: string;
+  entityId?: string;
+  details?: string;
+  timestamp: Date | string | { _seconds: number; _nanoseconds: number };
+  storeId?: string;
 }

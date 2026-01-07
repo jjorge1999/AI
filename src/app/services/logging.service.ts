@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { ActivityLog } from '../models/inventory.models';
 import { environment } from '../../environments/environment';
+import { StoreService } from './store.service';
 
 @Injectable({
   providedIn: 'root',
@@ -12,7 +13,7 @@ export class LoggingService {
   private logsSubject = new BehaviorSubject<ActivityLog[]>([]);
   public logs$ = this.logsSubject.asObservable();
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private storeService: StoreService) {
     // Removed automatic fetch on instantiation
   }
 
@@ -22,16 +23,20 @@ export class LoggingService {
 
   private fetchLogs(): void {
     const userId = this.getCurrentUserId();
+    const storeId = this.storeService.getActiveStoreId();
 
-    // Security: Do not fetch for unauthenticated users
-    if (!userId || userId === 'guest') return;
+    // Security: Do not fetch for unauthenticated users or without store context
+    if (!userId || userId === 'guest' || !storeId) {
+      if (!storeId) this.logsSubject.next([]);
+      return;
+    }
 
-    this.http
-      .get<ActivityLog[]>(`${this.apiUrl}/logs?limit=200&userId=${userId}`)
-      .subscribe({
-        next: (logs) => this.logsSubject.next(logs),
-        error: (err) => console.error('Error fetching logs:', err),
-      });
+    const url = `${this.apiUrl}/logs?limit=200&userId=${userId}&storeId=${storeId}`;
+
+    this.http.get<ActivityLog[]>(url).subscribe({
+      next: (logs) => this.logsSubject.next(logs),
+      error: (err) => console.error('Error fetching logs:', err),
+    });
   }
 
   logActivity(
@@ -41,6 +46,12 @@ export class LoggingService {
     entityName: string,
     details?: string
   ): void {
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (!activeStoreId) {
+      console.warn('Logging skipped: No active store selected.');
+      return;
+    }
+
     const logData = {
       action,
       entityType,
@@ -48,6 +59,7 @@ export class LoggingService {
       entityName,
       details,
       userId: this.getCurrentUserId(),
+      storeId: activeStoreId,
     };
 
     console.log('Logging activity:', logData);

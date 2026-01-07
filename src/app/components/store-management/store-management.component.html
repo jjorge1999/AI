@@ -1,0 +1,230 @@
+<div class="store-mgmt-wrapper">
+  <!-- Header Section -->
+  <header class="mgmt-header">
+    <div class="header-content">
+      <div class="title-group">
+        <h1 class="premium-title">Store Management</h1>
+        <p class="subtitle">Manage and monitor all your physical branches from one place</p>
+      </div>
+      <div class="header-actions-top">
+        <button class="btn-migrate" (click)="onMigrateData()" title="Move unassigned data to current store" type="button">
+          <span class="material-icon" aria-hidden="true">settings_backup_restore</span>
+          <span>Migrate Data</span>
+        </button>
+        <button class="btn-create premium-shadow" (click)="openAddModal()" type="button">
+          <span class="material-icon" aria-hidden="true">add_business</span>
+          <span>Register New Store</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Search & Quick Filters -->
+    <div class="filter-bar glass">
+      <div class="search-input-group">
+        <span class="material-icon" aria-hidden="true">search</span>
+        <input 
+          type="text" 
+          [(ngModel)]="searchQuery" 
+          (ngModelChange)="applyFilter()" 
+          placeholder="Search by name, address or phone..."
+          aria-label="Search stores"
+        >
+      </div>
+      <div class="stats-overview">
+        <div class="stat-mini">
+          <span class="stat-label">Total Stores</span>
+          <span class="stat-value">{{ stores.length }}</span>
+        </div>
+        <div class="stat-mini">
+          <span class="stat-label">Active Branches</span>
+          <span class="stat-value">{{ stores.length }}</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Store Grid -->
+  <div class="stores-container">
+    <div class="store-grid" *ngIf="filteredStores.length > 0; else emptyState">
+      <div 
+        class="store-premium-card" 
+        *ngFor="let store of filteredStores"
+        [class.active-context]="getActiveStoreId() === store.id"
+        (click)="openEditModal(store)"
+        (keydown.enter)="openEditModal(store)"
+        tabindex="0"
+        role="button"
+      >
+        <span class="card-glow" aria-hidden="true"></span>
+        
+        <div class="card-header">
+          <div class="store-icon-wrapper">
+            <img [src]="store.logoUrl" *ngIf="store.logoUrl; else defaultIcon" class="store-logo-img" alt="{{ store.name }} logo">
+            <ng-template #defaultIcon>
+              <span class="material-icon" aria-hidden="true">storefront</span>
+            </ng-template>
+          </div>
+          <div class="header-info">
+            <h3>{{ store.name }}</h3>
+            <div class="header-badges">
+              <span class="active-badge" *ngIf="getActiveStoreId() === store.id">Active Context</span>
+              <span class="super-badge" *ngIf="store.isSuperAdminOnly">
+                <span class="material-icon">security</span>
+                Super Branch
+              </span>
+            </div>
+          </div>
+          <button *ngIf="!store.isSuperAdminOnly" class="btn-delete-subtle" (click)="onDeleteStore(store, $event); $event.stopPropagation()" title="Delete Store" type="button">
+            <span class="material-icon" aria-hidden="true">delete_outline</span>
+          </button>
+        </div>
+
+        <div class="card-body">
+          <div class="info-row">
+            <span class="material-icon" aria-hidden="true">location_on</span>
+            <span>{{ store.address || 'No address provided' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="material-icon" aria-hidden="true">phone</span>
+            <span>{{ store.phoneNumber || 'No phone set' }}</span>
+          </div>
+        </div>
+
+        <div class="card-footer">
+          <div class="store-stats">
+            <div class="mini-stat">
+              <span class="val">{{ storeStats[store.id]?.products || 0 }}</span>
+              <span class="label">Products</span>
+            </div>
+            <div class="mini-stat">
+              <span class="val">{{ storeStats[store.id]?.sales || 0 }}</span>
+              <span class="label">Sales</span>
+            </div>
+            <div class="mini-stat highlight">
+              <span class="val">{{ storeStats[store.id]?.admins || 0 }}</span>
+              <span class="label">Admin</span>
+            </div>
+            <div class="mini-stat">
+              <span class="val">{{ storeStats[store.id]?.staff || 0 }}</span>
+              <span class="label">Users</span>
+            </div>
+          </div>
+          <div class="switch-actions">
+            <button 
+              class="btn-switch" 
+              [class.disabled]="!canSwitchToStore(store.id)"
+              [disabled]="!canSwitchToStore(store.id)"
+              (click)="onSwitchStore(store.id); $event.stopPropagation()" 
+              type="button"
+              [title]="canSwitchToStore(store.id) ? 'Switch to this store' : 'You must be assigned to this store to switch'"
+            >
+              {{ canSwitchToStore(store.id) ? 'Switch Context' : 'Restricted' }}
+            </button>
+            <p class="restricted-text" *ngIf="!canSwitchToStore(store.id)">
+              Assignment required
+            </p>
+          </div>
+      </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <ng-template #emptyState>
+      <div class="empty-layout">
+        <div class="empty-illustration">
+          <img src="assets/store_empty.png" alt="No stores illustration" class="premium-shadow">
+        </div>
+        <h2>No stores found</h2>
+        <p *ngIf="searchQuery">Try adjusting your search query or clear filters.</p>
+        <p *ngIf="!searchQuery">Start by registering your first store branch.</p>
+        <button class="btn-primary" (click)="openAddModal()" type="button">Add Your First Store</button>
+      </div>
+    </ng-template>
+  </div>
+
+  <!-- Store Modal Overlay -->
+  <div class="modal-overlay" *ngIf="isModalOpen" (click)="closeModal()" (keydown.escape)="closeModal()" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card glass" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 id="modal-title">{{ isEditing ? 'Edit Store Details' : 'Register New Branch' }}</h2>
+        <button class="btn-close" (click)="closeModal()" aria-label="Close modal" type="button">
+          <span class="material-icon" aria-hidden="true">close</span>
+        </button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="input-field full">
+            <label for="logo-upload">Store Logo</label>
+            <div class="logo-upload-container">
+              <div class="logo-preview-box" *ngIf="logoPreview">
+                <img [src]="logoPreview" alt="Store logo preview">
+                <button class="btn-remove-logo" (click)="removeLogo(); $event.stopPropagation()" type="button" aria-label="Remove logo">
+                  <span class="material-icon">delete</span>
+                </button>
+                <input type="file" (change)="onLogoChange($event)" accept="image/*" class="logo-input" aria-label="Change store logo">
+              </div>
+              <div class="logo-placeholder" *ngIf="!logoPreview">
+                <span class="material-icon">add_photo_alternate</span>
+                <p>Upload Logo</p>
+                <input id="logo-upload" type="file" (change)="onLogoChange($event)" accept="image/*" class="logo-input" aria-label="Upload store logo">
+              </div>
+            </div>
+          </div>
+
+          <div class="input-field full">
+            <label for="reg-name">Store Name *</label>
+            <div class="input-wrapper">
+              <span class="material-icon" aria-hidden="true">badge</span>
+              <input id="reg-name" type="text" [(ngModel)]="storeForm.name" placeholder="e.g. Downtown Mall Branch">
+            </div>
+          </div>
+          
+          <div class="input-field half">
+            <label for="reg-phone">Phone Number</label>
+            <div class="input-wrapper">
+              <span class="material-icon" aria-hidden="true">phone</span>
+              <input id="reg-phone" type="text" [(ngModel)]="storeForm.phoneNumber" placeholder="+254 ...">
+            </div>
+          </div>
+
+          <div class="input-field half">
+            <label for="reg-status">Status</label>
+            <div class="toggle-wrapper" style="display: flex; align-items: center; gap: 10px; height: 100%;">
+              <span>Active</span>
+              <input id="reg-status" type="checkbox" [(ngModel)]="storeForm.isActive" style="width: 20px; height: 20px; cursor: pointer;">
+            </div>
+          </div>
+
+          <div class="input-field half">
+            <label for="reg-super">Super Admin Only</label>
+            <div class="toggle-wrapper" style="display: flex; align-items: center; gap: 10px; height: 100%;">
+              <span class="material-icon" style="color: #6366f1; font-size: 20px;">security</span>
+              <input id="reg-super" type="checkbox" [(ngModel)]="storeForm.isSuperAdminOnly" style="width: 20px; height: 20px; cursor: pointer;">
+            </div>
+          </div>
+
+          <div class="input-field full">
+            <label for="reg-address">Business Address</label>
+            <div class="input-wrapper">
+              <span class="material-icon" aria-hidden="true">place</span>
+              <input id="reg-address" type="text" [(ngModel)]="storeForm.address" placeholder="Physical location details">
+            </div>
+          </div>
+
+          <div class="input-field full">
+            <label for="reg-desc">Notes / Description</label>
+            <textarea id="reg-desc" [(ngModel)]="storeForm.description" rows="3" placeholder="Optional notes about this branch..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="closeModal()" type="button">Cancel</button>
+        <button class="btn-save premium-shadow" (click)="saveStore()" type="button">
+          {{ isEditing ? 'Update Records' : 'Save Branch' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

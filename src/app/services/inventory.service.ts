@@ -2,11 +2,12 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, tap, from, of, throwError } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
-import { Product, Sale, Expense } from '../models/inventory.models';
+import { Product, Sale, Expense, Category } from '../models/inventory.models';
 import { environment } from '../../environments/environment';
 import { LoggingService } from './logging.service';
 import { CustomerService } from './customer.service';
 import { FirebaseService } from './firebase.service';
+import { StoreService } from './store.service';
 import { FirebaseApp } from 'firebase/app';
 import {
   Firestore,
@@ -40,10 +41,12 @@ export class InventoryService {
   private productsSubject = new BehaviorSubject<Product[]>([]);
   private salesSubject = new BehaviorSubject<Sale[]>([]);
   private expensesSubject = new BehaviorSubject<Expense[]>([]);
+  private categoriesSubject = new BehaviorSubject<Category[]>([]);
 
   public products$ = this.productsSubject.asObservable();
   public sales$ = this.salesSubject.asObservable();
   public expenses$ = this.expensesSubject.asObservable();
+  public categories$ = this.categoriesSubject.asObservable();
 
   private app: FirebaseApp;
   private db: Firestore;
@@ -53,10 +56,11 @@ export class InventoryService {
   private pollingInterval: any = null;
 
   constructor(
-    private http: HttpClient,
-    private loggingService: LoggingService,
-    private customerService: CustomerService,
-    private firebaseService: FirebaseService
+    private readonly http: HttpClient,
+    private readonly loggingService: LoggingService,
+    private readonly customerService: CustomerService,
+    private readonly firebaseService: FirebaseService,
+    private readonly storeService: StoreService
   ) {
     this.app = this.firebaseService.app;
     this.db = this.firebaseService.db;
@@ -139,8 +143,23 @@ export class InventoryService {
   }
 
   private setupFirestoreListeners(firestoreId: string, legacyId: string): void {
+    this.storeService.activeStoreId$.subscribe((activeStoreId) => {
+      // Re-setup all listeners when store changes
+      this.doSetupFirestoreListeners(firestoreId, legacyId, activeStoreId);
+    });
+  }
+
+  private doSetupFirestoreListeners(
+    firestoreId: string,
+    legacyId: string,
+    activeStoreId: string | null
+  ): void {
+    // Stop previous listeners first to avoid memory leaks/multiple streams
+    this.unsubscribes.forEach((unsub) => unsub());
+    this.unsubscribes = [];
+
     console.log(
-      `Starting Firestore Listeners. FirestoreID: ${firestoreId}, LegacyID: ${legacyId}`
+      `Starting Firestore Listeners. FirestoreID: ${firestoreId}, LegacyID: ${legacyId}, StoreID: ${activeStoreId}`
     );
 
     // Products
@@ -158,11 +177,19 @@ export class InventoryService {
         limit(100)
       );
     } else {
-      // Seller Mode: Query by userId
+      // Seller Mode: Query by userId AND storeId
       productsQuery = query(
         collection(this.db, 'products'),
         where('userId', '==', legacyId)
       );
+
+      if (activeStoreId) {
+        productsQuery = query(
+          collection(this.db, 'products'),
+          where('userId', '==', legacyId),
+          where('storeId', '==', activeStoreId)
+        );
+      }
     }
 
     this.unsubscribes.push(
@@ -180,6 +207,7 @@ export class InventoryService {
           this.productsSubject.next(products);
           if (!isCustomer && products.length === 0) {
             this.migrateProducts(legacyId, firestoreId);
+            this.migrateChat(legacyId, firestoreId);
           }
         },
         (err) => {
@@ -209,11 +237,19 @@ export class InventoryService {
         limit(100)
       );
     } else {
-      // Seller Mode: Query by userId
+      // Seller Mode: Query by userId AND storeId
       salesQuery = query(
         collection(this.db, 'sales'),
         where('userId', '==', legacyId)
       );
+
+      if (activeStoreId) {
+        salesQuery = query(
+          collection(this.db, 'sales'),
+          where('userId', '==', legacyId),
+          where('storeId', '==', activeStoreId)
+        );
+      }
     }
 
     this.unsubscribes.push(
@@ -235,10 +271,18 @@ export class InventoryService {
     );
 
     // Expenses
-    const expensesQuery = query(
+    let expensesQuery = query(
       collection(this.db, 'expenses'),
       where('userId', '==', firestoreId)
     );
+
+    if (activeStoreId) {
+      expensesQuery = query(
+        collection(this.db, 'expenses'),
+        where('userId', '==', firestoreId),
+        where('storeId', '==', activeStoreId)
+      );
+    }
     this.unsubscribes.push(
       onSnapshot(
         expensesQuery,
@@ -257,6 +301,38 @@ export class InventoryService {
           }
         },
         (err) => console.error('Expenses Listener Error:', err)
+      )
+    );
+
+    // Categories
+    let categoriesQuery = query(
+      collection(this.db, 'categories'),
+      where('userId', '==', legacyId)
+    );
+
+    if (activeStoreId) {
+      categoriesQuery = query(
+        collection(this.db, 'categories'),
+        where('userId', '==', legacyId),
+        where('storeId', '==', activeStoreId)
+      );
+    }
+
+    this.unsubscribes.push(
+      onSnapshot(
+        categoriesQuery,
+        (snapshot) => {
+          console.log('Categories Snapshot:', snapshot.docs.length);
+          const categories = snapshot.docs.map(
+            (doc) =>
+              ({
+                id: doc.id,
+                ...(doc.data() as any),
+              } as Category)
+          );
+          this.categoriesSubject.next(categories);
+        },
+        (err) => console.error('Categories Listener Error:', err)
       )
     );
   }
@@ -279,6 +355,7 @@ export class InventoryService {
   }
 
   private migrateProducts(legacyId: string, firestoreId: string): void {
+    const storeId = this.storeService.getActiveStoreId();
     this.http
       .get<Product[]>(`${this.apiUrl}/products?userId=${legacyId}`)
       .subscribe((products) => {
@@ -287,6 +364,7 @@ export class InventoryService {
             await setDoc(doc(this.db, 'products', p.id), {
               ...p,
               userId: firestoreId,
+              storeId: p.storeId || storeId || null,
             });
           } catch (e) {
             console.error('Error migrating product:', e);
@@ -295,7 +373,28 @@ export class InventoryService {
       });
   }
 
+  private migrateChat(legacyId: string, firestoreId: string): void {
+    const storeId = this.storeService.getActiveStoreId();
+    this.http
+      .get<any[]>(`${this.apiUrl}/messages?userId=${legacyId}`)
+      .subscribe((msgs) => {
+        msgs.forEach(async (m) => {
+          try {
+            await setDoc(doc(this.db, 'messages', m.id), {
+              ...m,
+              userId: firestoreId,
+              storeId: m.storeId || storeId || null,
+              timestamp: this.parseDate(m.timestamp),
+            });
+          } catch (e) {
+            console.error('Error migrating message:', e);
+          }
+        });
+      });
+  }
+
   private migrateSales(legacyId: string, firestoreId: string): void {
+    const storeId = this.storeService.getActiveStoreId();
     this.http
       .get<any[]>(`${this.apiUrl}/sales?userId=${legacyId}`)
       .subscribe((sales) => {
@@ -309,6 +408,7 @@ export class InventoryService {
                 ? this.parseDate(s.deliveryDate)
                 : null,
               userId: firestoreId,
+              storeId: s.storeId || storeId || null,
             };
             await setDoc(doc(this.db, 'sales', s.id), data);
           } catch (e) {
@@ -319,6 +419,7 @@ export class InventoryService {
   }
 
   private migrateExpenses(legacyId: string, firestoreId: string): void {
+    const storeId = this.storeService.getActiveStoreId();
     this.http
       .get<Expense[]>(`${this.apiUrl}/expenses?userId=${legacyId}`)
       .subscribe((expenses) => {
@@ -328,6 +429,7 @@ export class InventoryService {
               ...e,
               timestamp: this.parseDate(e.timestamp),
               userId: firestoreId,
+              storeId: e.storeId || storeId || null,
             };
             await setDoc(doc(this.db, 'expenses', e.id), data);
           } catch (err) {
@@ -354,15 +456,21 @@ export class InventoryService {
   }
 
   private fetchProducts(): void {
-    const userId = this.getCurrentUser();
+    const activeStoreId = this.storeService.getActiveStoreId();
 
-    // Note: Guard removed to allow public access to products (for Reservation).
-    // This is safe because it is not called automatically in constructor.
-
-    let url = `${this.apiUrl}/products`;
-    if (userId && userId !== 'guest') {
-      url += `?userId=${userId}`;
+    if (!activeStoreId) {
+      this.productsSubject.next([]);
+      return;
     }
+
+    const userId = this.getCurrentUser();
+    let url = `${this.apiUrl}/products`;
+    const params = new URLSearchParams();
+    if (userId && userId !== 'guest') params.append('userId', userId);
+    params.append('storeId', activeStoreId);
+
+    const queryString = params.toString();
+    url += `?${queryString}`;
 
     this.http.get<Product[]>(url).subscribe({
       next: (products) => this.productsSubject.next(products),
@@ -372,9 +480,16 @@ export class InventoryService {
 
   private fetchSales(): void {
     const userId = this.getCurrentUser();
-    if (!userId || userId === 'guest') return;
+    const activeStoreId = this.storeService.getActiveStoreId();
 
-    this.http.get<Sale[]>(`${this.apiUrl}/sales?userId=${userId}`).subscribe({
+    if (!userId || userId === 'guest' || !activeStoreId) {
+      if (!activeStoreId) this.salesSubject.next([]);
+      return;
+    }
+
+    const url = `${this.apiUrl}/sales?userId=${userId}&storeId=${activeStoreId}`;
+
+    this.http.get<Sale[]>(url).subscribe({
       next: (sales) => {
         const parsedSales = sales.map((sale) => this.transformSale(sale));
         this.salesSubject.next(parsedSales);
@@ -385,14 +500,19 @@ export class InventoryService {
 
   private fetchExpenses(): void {
     const userId = this.getCurrentUser();
-    if (!userId || userId === 'guest') return;
+    const activeStoreId = this.storeService.getActiveStoreId();
 
-    this.http
-      .get<Expense[]>(`${this.apiUrl}/expenses?userId=${userId}`)
-      .subscribe({
-        next: (expenses) => this.expensesSubject.next(expenses),
-        error: (err) => console.error('Error fetching expenses:', err),
-      });
+    if (!userId || userId === 'guest' || !activeStoreId) {
+      if (!activeStoreId) this.expensesSubject.next([]);
+      return;
+    }
+
+    const url = `${this.apiUrl}/expenses?userId=${userId}&storeId=${activeStoreId}`;
+
+    this.http.get<Expense[]>(url).subscribe({
+      next: (expenses) => this.expensesSubject.next(expenses),
+      error: (err) => console.error('Error fetching expenses:', err),
+    });
   }
 
   getProducts(): Observable<Product[]> {
@@ -407,10 +527,63 @@ export class InventoryService {
     return this.expenses$;
   }
 
+  getCategories(): Observable<Category[]> {
+    return this.categories$;
+  }
+
+  addCategory(name: string): Observable<Category> {
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (!activeStoreId) {
+      return throwError(
+        () => new Error('Store selection required for this transaction.')
+      );
+    }
+
+    const baseData = {
+      name,
+      createdAt: new Date(),
+      storeId: activeStoreId,
+      userId: this.getCurrentUser(),
+    };
+
+    return from(addDoc(collection(this.db, 'categories'), baseData)).pipe(
+      map((docRef) => ({ id: docRef.id, ...baseData } as Category)),
+      tap((newCategory) => {
+        const current = this.categoriesSubject.value;
+        this.categoriesSubject.next([...current, newCategory]);
+      }),
+      catchError((err) => {
+        console.error('Error adding category:', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  deleteCategory(categoryId: string): Observable<void> {
+    return from(deleteDoc(doc(this.db, 'categories', categoryId))).pipe(
+      tap(() => {
+        const current = this.categoriesSubject.value;
+        this.categoriesSubject.next(current.filter((c) => c.id !== categoryId));
+      }),
+      catchError((err) => {
+        console.error('Error deleting category:', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
   addExpense(expense: Omit<Expense, 'id' | 'timestamp'>): Observable<Expense> {
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (!activeStoreId) {
+      return throwError(
+        () => new Error('Store selection required for this transaction.')
+      );
+    }
+
     const baseData = {
       ...expense,
       timestamp: new Date(),
+      storeId: activeStoreId,
     };
 
     const firestoreData = { ...baseData, userId: this.getFirestoreUserId() };
@@ -448,6 +621,13 @@ export class InventoryService {
   }
 
   deleteExpense(expenseId: string): Observable<void> {
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (!activeStoreId) {
+      return throwError(
+        () => new Error('Store selection required for this transaction.')
+      );
+    }
+
     return from(deleteDoc(doc(this.db, 'expenses', expenseId))).pipe(
       catchError((e) => {
         console.warn('Firestore delete failed (proceeding with Legacy):', e);
@@ -475,9 +655,17 @@ export class InventoryService {
   }
 
   addProduct(product: Omit<Product, 'id' | 'createdAt'>): Observable<Product> {
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (!activeStoreId) {
+      return throwError(
+        () => new Error('Store selection required for this transaction.')
+      );
+    }
+
     const baseData = {
       ...product,
       createdAt: new Date(),
+      storeId: activeStoreId,
     };
 
     const firestoreData = { ...baseData, userId: this.getFirestoreUserId() };
@@ -512,6 +700,13 @@ export class InventoryService {
   }
 
   deleteProduct(productId: string): Observable<void> {
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (!activeStoreId) {
+      return throwError(
+        () => new Error('Store selection required for this transaction.')
+      );
+    }
+
     const products = this.productsSubject.value;
     const product = products.find((p) => p.id === productId);
 
@@ -583,7 +778,14 @@ export class InventoryService {
       return throwError(() => new Error('Insufficient cash'));
     }
 
-    const baseData = {
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (!activeStoreId) {
+      return throwError(
+        () => new Error('Store selection required for this transaction.')
+      );
+    }
+
+    const baseData: Record<string, any> = {
       productId: product.id,
       productName: product.name,
       category: product.category,
@@ -592,15 +794,18 @@ export class InventoryService {
       total,
       cashReceived,
       change,
-      deliveryDate,
-      deliveryNotes,
-      customerId,
       pending: true,
       discount,
       discountType,
-      orderId,
       timestamp: new Date(),
+      storeId: activeStoreId,
     };
+
+    // Only add optional fields if they have values (Firebase doesn't accept undefined)
+    if (deliveryDate) baseData['deliveryDate'] = deliveryDate;
+    if (deliveryNotes) baseData['deliveryNotes'] = deliveryNotes;
+    if (customerId) baseData['customerId'] = customerId;
+    if (orderId) baseData['orderId'] = orderId;
 
     const firestoreData = { ...baseData, userId: this.getFirestoreUserId() };
 
@@ -706,24 +911,35 @@ export class InventoryService {
   }
 
   updateSale(sale: Sale): void {
-    this.http.put<Sale>(`${this.apiUrl}/sales/${sale.id}`, sale).subscribe({
-      next: (updatedSale) => {
-        const currentSales = this.salesSubject.value;
-        const updatedSales = currentSales.map((s) =>
-          s.id === sale.id ? this.transformSale(updatedSale) : s
-        );
-        this.salesSubject.next(updatedSales);
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (!activeStoreId) {
+      console.error('Store selection required to update sale.');
+      return;
+    }
 
-        this.loggingService.logActivity(
-          'update',
-          'sale',
-          sale.id,
-          sale.productName,
-          'Updated delivery details'
-        );
-      },
-      error: (err) => console.error('Error updating sale:', err),
-    });
+    this.http
+      .put<Sale>(`${this.apiUrl}/sales/${sale.id}`, {
+        ...sale,
+        storeId: activeStoreId,
+      })
+      .subscribe({
+        next: (updatedSale) => {
+          const currentSales = this.salesSubject.value;
+          const updatedSales = currentSales.map((s) =>
+            s.id === sale.id ? this.transformSale(updatedSale) : s
+          );
+          this.salesSubject.next(updatedSales);
+
+          this.loggingService.logActivity(
+            'update',
+            'sale',
+            sale.id,
+            sale.productName,
+            'Updated delivery details'
+          );
+        },
+        error: (err) => console.error('Error updating sale:', err),
+      });
   }
 
   confirmReservation(sale: Sale): void {
@@ -833,7 +1049,18 @@ export class InventoryService {
   }
 
   updateProduct(product: Product): Observable<Product> {
-    const firestoreData = { ...product, userId: this.getFirestoreUserId() };
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (!activeStoreId) {
+      return throwError(
+        () => new Error('Store selection required for this transaction.')
+      );
+    }
+
+    const firestoreData = {
+      ...product,
+      storeId: activeStoreId,
+      userId: this.getFirestoreUserId(),
+    };
 
     return from(
       setDoc(doc(this.db, 'products', product.id), firestoreData, {

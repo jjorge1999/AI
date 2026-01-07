@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, from, of } from 'rxjs';
+import { BehaviorSubject, Observable, from, of, throwError } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 import { FirebaseService } from './firebase.service';
 import { FirebaseApp } from 'firebase/app';
@@ -17,15 +17,19 @@ import {
   updateDoc,
   writeBatch,
   setDoc,
+  Unsubscribe,
+  where,
 } from 'firebase/firestore';
-import { environment } from '../../environments/environment';
 import { Message } from '../models/inventory.models';
+import { StoreService } from './store.service';
+
 export interface UserStatus {
   id: string;
   name: string;
   lastSeen: Date;
   role?: string;
   isOnline?: boolean;
+  storeId?: string;
 }
 
 @Injectable({
@@ -43,18 +47,46 @@ export class ChatService {
   private logoutSubject = new BehaviorSubject<void>(undefined);
   public logout$ = this.logoutSubject.asObservable();
 
-  constructor(private firebaseService: FirebaseService) {
+  private msgUnsubscribe: Unsubscribe | null = null;
+  private statusUnsubscribe: Unsubscribe | null = null;
+
+  constructor(
+    private readonly firebaseService: FirebaseService,
+    private readonly storeService: StoreService
+  ) {
     this.app = this.firebaseService.app;
     this.db = this.firebaseService.db;
+
+    // Auto-refresh when store changes
+    this.storeService.activeStoreId$.subscribe(() => {
+      this.resetListeners();
+    });
+  }
+
+  private resetListeners(): void {
+    if (this.msgUnsubscribe) {
+      this.msgUnsubscribe();
+      this.msgUnsubscribe = null;
+    }
+    if (this.statusUnsubscribe) {
+      this.statusUnsubscribe();
+      this.statusUnsubscribe = null;
+    }
     this.listenForMessages();
     this.listenForStatus();
   }
 
   private listenForStatus(): void {
-    const statusRef = collection(this.db, 'status');
-    const q = query(statusRef); // Get all statuses
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (!activeStoreId) {
+      this.onlineUsersSubject.next([]);
+      return;
+    }
 
-    onSnapshot(
+    const statusRef = collection(this.db, 'status');
+    const q = query(statusRef, where('storeId', '==', activeStoreId));
+
+    this.statusUnsubscribe = onSnapshot(
       q,
       (snapshot) => {
         const now = new Date();
@@ -69,6 +101,7 @@ export class ChatService {
             role: data['role'],
             lastSeen: lastSeen,
             isOnline: isOnline,
+            storeId: data['storeId'],
           } as UserStatus;
         });
         this.onlineUsersSubject.next(statuses);
@@ -83,10 +116,21 @@ export class ChatService {
   }
 
   private listenForMessages(): void {
-    const messagesRef = collection(this.db, 'messages');
-    const q = query(messagesRef, orderBy('timestamp', 'asc'), limit(100));
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (!activeStoreId) {
+      this.messagesSubject.next([]);
+      return;
+    }
 
-    onSnapshot(
+    const messagesRef = collection(this.db, 'messages');
+    const q = query(
+      messagesRef,
+      where('storeId', '==', activeStoreId),
+      orderBy('timestamp', 'asc'),
+      limit(100)
+    );
+
+    this.msgUnsubscribe = onSnapshot(
       q,
       (snapshot) => {
         const messages = snapshot.docs.map((doc) => {
@@ -100,6 +144,7 @@ export class ChatService {
             conversationId: data['conversationId'],
             audioBase64: data['audioBase64'],
             isRead: data['isRead'] || false,
+            storeId: data['storeId'],
           } as Message;
         });
         this.messagesSubject.next(messages);
@@ -117,6 +162,14 @@ export class ChatService {
   ): Observable<void> {
     const messagesRef = collection(this.db, 'messages');
     const userId = localStorage.getItem('jjm_user_id') || null;
+    const storeId = this.storeService.getActiveStoreId();
+
+    if (!storeId) {
+      return throwError(
+        () => new Error('Store selection required for this transaction.')
+      );
+    }
+
     return from(
       addDoc(messagesRef, {
         text,
@@ -125,6 +178,7 @@ export class ChatService {
         timestamp: new Date(),
         userId,
         isRead: false,
+        storeId: storeId,
       })
     ).pipe(
       map(() => void 0),
@@ -142,6 +196,14 @@ export class ChatService {
   ): Observable<void> {
     const messagesRef = collection(this.db, 'messages');
     const userId = localStorage.getItem('jjm_user_id') || null;
+    const storeId = this.storeService.getActiveStoreId();
+
+    if (!storeId) {
+      return throwError(
+        () => new Error('Store selection required for this transaction.')
+      );
+    }
+
     return from(
       addDoc(messagesRef, {
         text: '🎤 Voice Message',
@@ -151,6 +213,7 @@ export class ChatService {
         timestamp: new Date(),
         userId,
         isRead: false,
+        storeId: storeId,
       })
     ).pipe(
       map(() => void 0),
@@ -201,12 +264,16 @@ export class ChatService {
     role: string = 'user'
   ): Observable<void> {
     const statusRef = doc(this.db, 'status', id);
+    const storeId = this.storeService.getActiveStoreId();
+    if (!storeId) return of(void 0);
+
     return from(
       setDoc(
         statusRef,
         {
           name,
           role,
+          storeId: storeId,
           lastSeen: new Date(),
           state: 'online',
         },

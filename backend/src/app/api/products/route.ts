@@ -14,11 +14,16 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
+    const storeId = searchParams.get('storeId');
 
     let query: FirebaseFirestore.Query = db.collection(COLLECTION_NAME);
 
     if (userId) {
       query = query.where('userId', '==', userId);
+    }
+
+    if (storeId) {
+      query = query.where('storeId', '==', storeId);
     }
 
     const snapshot = await query.get();

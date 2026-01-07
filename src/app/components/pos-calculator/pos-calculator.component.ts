@@ -12,6 +12,8 @@ import { Router } from '@angular/router';
 import { CustomerService } from '../../services/customer.service';
 import { Product, Customer, Sale } from '../../models/inventory.models';
 import { DialogService } from '../../services/dialog.service';
+import { PrintService, ReceiptData } from '../../services/print.service';
+import { StoreService } from '../../services/store.service';
 import { Subscription, forkJoin } from 'rxjs';
 
 interface CartItem {
@@ -114,6 +116,15 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
   private audioCtx: any = null;
   private audioUnlocked = false;
 
+  // Bluetooth Printer State
+  printerStatus$ = this.printService.connectionStatus$;
+  printerName$ = this.printService.deviceName$;
+  isPrintModalOpen = false;
+  isPrinting = false;
+  lastReceiptData: ReceiptData | null = null;
+  isReceiptPreviewOpen = false;
+  activeStore: any = null;
+
   // Cash Formatting
   cashDisplayValue: string = '';
 
@@ -153,6 +164,8 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     private inventoryService: InventoryService,
     private customerService: CustomerService,
     private dialogService: DialogService,
+    private printService: PrintService,
+    private storeService: StoreService,
     private router: Router
   ) {
     const today = new Date();
@@ -177,11 +190,11 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
       this.inventoryService.getProducts().subscribe((products) => {
         this.allProducts = products;
         this.products = products.filter((p) => p.quantity > 0);
-        // Extract categories
-        const cats = new Set(products.map((p) => p.category));
-        this.categories = Array.from(cats)
-          .filter((c) => c)
-          .sort();
+      })
+    );
+    this.subscriptions.add(
+      this.inventoryService.getCategories().subscribe((categories) => {
+        this.categories = categories.map((c) => c.name).sort();
       })
     );
     this.subscriptions.add(
@@ -196,6 +209,16 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
         // Only start if not already started? or re-check. Logic is fine here.
         if (!this.checkInterval) {
           this.startAlarmChecks();
+        }
+      })
+    );
+
+    // Load active store details for receipt
+    this.subscriptions.add(
+      this.storeService.stores$.subscribe((stores) => {
+        const activeStoreId = this.storeService.getActiveStoreId();
+        if (activeStoreId) {
+          this.activeStore = stores.find((s) => s.id === activeStoreId);
         }
       })
     );
@@ -650,22 +673,24 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     const orderId =
       'ORD-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
 
+    // Build receipt data before clearing cart
+    const cartSnapshot = [...this.cart];
+    const cashSnapshot = this.cashReceived;
+    const totalSnapshot = this.total;
+    const customerName = this.selectedCustomer?.name;
+    let deliveryDateObj: Date | undefined;
+    if (this.deliveryDate) {
+      if (this.deliveryTime) {
+        deliveryDateObj = new Date(`${this.deliveryDate}T${this.deliveryTime}`);
+      } else {
+        deliveryDateObj = new Date(this.deliveryDate);
+      }
+    }
+
     const saleObservables = this.cart.map((item, index) => {
-      // Assign the total change to the FIRST item transaction
       let itemCashReceived = item.total;
       if (index === 0) {
         itemCashReceived += totalChange;
-      }
-
-      let deliveryDateObj: Date | undefined;
-      if (this.deliveryDate) {
-        if (this.deliveryTime) {
-          deliveryDateObj = new Date(
-            `${this.deliveryDate}T${this.deliveryTime}`
-          );
-        } else {
-          deliveryDateObj = new Date(this.deliveryDate);
-        }
       }
 
       return this.inventoryService.recordSale(
@@ -683,19 +708,257 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
 
     forkJoin(saleObservables).subscribe({
       next: () => {
+        // Prepare receipt data for printing with store details
+        this.lastReceiptData = {
+          storeName: this.activeStore?.name || 'JJM Inventory',
+          storeAddress: this.activeStore?.address || '',
+          storePhone: this.activeStore?.phoneNumber || '',
+          orderId: orderId,
+          date: new Date(),
+          items: cartSnapshot.map((item) => ({
+            name: item.product.name,
+            quantity: item.quantity,
+            price: item.product.price,
+            discount: item.discount,
+            discountType: item.discountType,
+            total: item.total,
+          })),
+          subtotal: totalSnapshot,
+          totalDiscount: cartSnapshot.reduce((sum, item) => {
+            if (item.discountType === 'percent') {
+              return (
+                sum + (item.product.price * item.quantity * item.discount) / 100
+              );
+            }
+            return sum + item.discount;
+          }, 0),
+          total: totalSnapshot,
+          cashReceived: cashSnapshot,
+          change: totalChange,
+          customerName: customerName,
+          deliveryDate: deliveryDateObj,
+          notes: this.deliveryNotes,
+        };
+
+        // Show receipt preview instead of auto-print
+        this.isReceiptPreviewOpen = true;
+
         // Clear Cart
         this.cart = [];
         this.cashReceived = 0;
+        this.cashDisplayValue = '';
         this.deliveryDate = this.minDate;
         this.deliveryTime = '';
         this.deliveryNotes = '';
         this.selectedCustomerId = '';
         this.errorMessage = '';
+
+        this.dialogService.success(
+          'Sale completed successfully!',
+          'Checkout Complete'
+        );
       },
       error: (error) => {
         this.errorMessage = error.message || 'Error processing sales';
       },
     });
+  }
+
+  // Bluetooth Printer Methods
+  async connectPrinter(): Promise<void> {
+    try {
+      await this.printService.connectPrinter();
+      this.dialogService.success(
+        'Printer connected successfully!',
+        'Bluetooth Printer'
+      );
+    } catch (error: any) {
+      this.dialogService.error(
+        error.message || 'Failed to connect to printer',
+        'Connection Error'
+      );
+    }
+  }
+
+  disconnectPrinter(): void {
+    this.printService.disconnectPrinter();
+  }
+
+  forgetPrinter(): void {
+    this.printService.forgetPrinter();
+  }
+
+  async printReceipt(): Promise<void> {
+    if (!this.lastReceiptData) {
+      this.dialogService.warning('No receipt data available', 'Print Error');
+      return;
+    }
+
+    if (!this.printService.isConnected()) {
+      this.dialogService.warning(
+        'Printer not connected. Please connect a Bluetooth printer first.',
+        'Printer Not Connected'
+      );
+      return;
+    }
+
+    this.isPrinting = true;
+    try {
+      await this.printService.printReceipt(this.lastReceiptData);
+      this.dialogService.success(
+        'Receipt printed successfully!',
+        'Print Complete'
+      );
+    } catch (error: any) {
+      this.dialogService.error(
+        error.message || 'Failed to print receipt',
+        'Print Error'
+      );
+    } finally {
+      this.isPrinting = false;
+    }
+  }
+
+  async printTestPage(): Promise<void> {
+    if (!this.printService.isConnected()) {
+      this.dialogService.warning('Printer not connected', 'Print Error');
+      return;
+    }
+
+    this.isPrinting = true;
+    try {
+      await this.printService.printTestPage();
+      this.dialogService.success('Test page printed!', 'Print Complete');
+    } catch (error: any) {
+      this.dialogService.error(
+        error.message || 'Failed to print test page',
+        'Print Error'
+      );
+    } finally {
+      this.isPrinting = false;
+    }
+  }
+
+  openPrintModal(): void {
+    this.isPrintModalOpen = true;
+  }
+
+  closePrintModal(): void {
+    this.isPrintModalOpen = false;
+  }
+
+  // Receipt Preview Modal Methods
+  closeReceiptPreview(): void {
+    this.isReceiptPreviewOpen = false;
+  }
+
+  openReceiptPreview(): void {
+    // Generate preview from current cart if available
+    if (this.cart.length > 0) {
+      const customerName = this.selectedCustomer?.name;
+      let deliveryDateObj: Date | undefined;
+      if (this.deliveryDate) {
+        if (this.deliveryTime) {
+          deliveryDateObj = new Date(
+            `${this.deliveryDate}T${this.deliveryTime}`
+          );
+        } else {
+          deliveryDateObj = new Date(this.deliveryDate);
+        }
+      }
+
+      // Build preview receipt data from current cart
+      this.lastReceiptData = {
+        storeName: this.activeStore?.name || 'JJM Inventory',
+        storeAddress: this.activeStore?.address || '',
+        storePhone: this.activeStore?.phoneNumber || '',
+        orderId: '(Preview)',
+        date: new Date(),
+        items: this.cart.map((item) => ({
+          name: item.product.name,
+          quantity: item.quantity,
+          price: item.product.price,
+          discount: item.discount,
+          discountType: item.discountType,
+          total: item.total,
+        })),
+        subtotal: this.total,
+        totalDiscount: this.cart.reduce((sum, item) => {
+          if (item.discountType === 'percent') {
+            return (
+              sum + (item.product.price * item.quantity * item.discount) / 100
+            );
+          }
+          return sum + item.discount;
+        }, 0),
+        total: this.total,
+        cashReceived: this.cashReceived || 0,
+        change: Math.max(0, (this.cashReceived || 0) - this.total),
+        customerName: customerName,
+        deliveryDate: deliveryDateObj,
+        notes: this.deliveryNotes,
+      };
+      this.isReceiptPreviewOpen = true;
+    } else if (this.lastReceiptData) {
+      // Show last completed receipt if cart is empty
+      this.isReceiptPreviewOpen = true;
+    } else {
+      this.dialogService.info(
+        'Add items to cart to preview the receipt.',
+        'Cart Empty'
+      );
+    }
+  }
+
+  async printFromPreview(): Promise<void> {
+    if (!this.printService.isConnected()) {
+      // Close preview and open printer modal to connect
+      this.isReceiptPreviewOpen = false;
+      this.isPrintModalOpen = true;
+      this.dialogService.warning(
+        'Please connect a Bluetooth printer first.',
+        'Printer Not Connected'
+      );
+      return;
+    }
+
+    await this.printReceipt();
+    this.isReceiptPreviewOpen = false;
+  }
+
+  // Reprint receipt for a pending delivery order
+  reprintOrderReceipt(group: any): void {
+    if (!group || !group.sales || group.sales.length === 0) {
+      this.dialogService.warning('No order data available', 'Reprint Error');
+      return;
+    }
+
+    // Build receipt data from the grouped order
+    this.lastReceiptData = {
+      storeName: this.activeStore?.name || 'JJM Inventory',
+      storeAddress: this.activeStore?.address || '',
+      storePhone: this.activeStore?.phoneNumber || '',
+      orderId: group.orderId || group.sales[0]?.id || 'N/A',
+      date: group.timestamp || new Date(),
+      items: group.sales.map((sale: any) => ({
+        name: sale.productName,
+        quantity: sale.quantitySold,
+        price: sale.price,
+        discount: sale.discount || 0,
+        discountType: sale.discountType || 'amount',
+        total: sale.total,
+      })),
+      subtotal: group.total,
+      totalDiscount: group.discount || 0,
+      total: group.total,
+      cashReceived: group.cashReceived || 0,
+      change: group.change || 0,
+      customerName: group.customer?.name,
+      deliveryDate: group.deliveryDate,
+      notes: group.deliveryNotes,
+    };
+
+    this.isReceiptPreviewOpen = true;
   }
 
   markAsDelivered(saleId: string): void {

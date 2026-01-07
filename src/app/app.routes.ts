@@ -13,13 +13,26 @@ const authGuard = () => {
   return true;
 };
 
-// Admin guard function
+// Admin guard function (allows admin or super-admin)
 const adminGuard = () => {
   const router = inject(Router);
   const isLoggedIn = localStorage.getItem('jjm_logged_in') === 'true';
   const role = localStorage.getItem('jjm_role');
 
-  if (!isLoggedIn || role !== 'admin') {
+  if (!isLoggedIn || (role !== 'admin' && role !== 'super-admin')) {
+    router.navigate(['/']);
+    return false;
+  }
+  return true;
+};
+
+// Super Admin guard function (strictly super-admin)
+const superAdminGuard = () => {
+  const router = inject(Router);
+  const isLoggedIn = localStorage.getItem('jjm_logged_in') === 'true';
+  const role = localStorage.getItem('jjm_role');
+
+  if (!isLoggedIn || role !== 'super-admin') {
     router.navigate(['/']);
     return false;
   }
@@ -145,11 +158,18 @@ export const routes: Routes = [
       },
       {
         path: 'ads',
-        canActivate: [adminGuard],
         loadComponent: () =>
           import('./components/ads-management/ads-management.component').then(
             (m) => m.AdsManagementComponent
           ),
+      },
+      {
+        path: 'stores',
+        canActivate: [superAdminGuard],
+        loadComponent: () =>
+          import(
+            './components/store-management/store-management.component'
+          ).then((m) => m.StoreManagementComponent),
       },
     ],
   },

@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import { Customer } from '../models/inventory.models';
 import { environment } from '../../environments/environment';
+import { StoreService } from './store.service';
 
 @Injectable({
   providedIn: 'root',
@@ -13,7 +14,7 @@ export class CustomerService {
   private customersSubject = new BehaviorSubject<Customer[]>([]);
   public customers$ = this.customersSubject.asObservable();
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private storeService: StoreService) {
     // Manual loading only
   }
 
@@ -35,18 +36,20 @@ export class CustomerService {
 
   private fetchCustomers(): void {
     const userId = this.getCurrentUser();
+    const storeId = this.storeService.getActiveStoreId();
 
-    // Security: Do not fetch customers for unauthenticated users
-    if (!userId || userId === 'guest') {
+    // Security: Do not fetch customers for unauthenticated users or without store context
+    if (!userId || userId === 'guest' || !storeId) {
+      if (!storeId) this.customersSubject.next([]);
       return;
     }
 
-    this.http
-      .get<Customer[]>(`${this.apiUrl}/customers?userId=${userId}`)
-      .subscribe({
-        next: (customers) => this.customersSubject.next(customers),
-        error: (err) => console.error('Error fetching customers:', err),
-      });
+    const url = `${this.apiUrl}/customers?userId=${userId}&storeId=${storeId}`;
+
+    this.http.get<Customer[]>(url).subscribe({
+      next: (customers) => this.customersSubject.next(customers),
+      error: (err) => console.error('Error fetching customers:', err),
+    });
   }
 
   getCustomers(): Observable<Customer[]> {
@@ -58,9 +61,14 @@ export class CustomerService {
    * Uses server-side filtering to prevent exposing the entire database.
    */
   getCustomerByName(name: string): Observable<Customer[]> {
+    const storeId = this.storeService.getActiveStoreId();
+    if (!storeId) return of([]);
+
     return this.http
       .get<Customer[]>(
-        `${this.apiUrl}/customers?name=${encodeURIComponent(name)}`
+        `${this.apiUrl}/customers?name=${encodeURIComponent(
+          name
+        )}&storeId=${storeId}`
       )
       .pipe(
         map((customers) =>
@@ -76,11 +84,25 @@ export class CustomerService {
       );
   }
 
+  getCustomerByPhone(phone: string): Observable<Customer[]> {
+    return this.http.get<Customer[]>(
+      `${this.apiUrl}/customers?phoneNumber=${encodeURIComponent(phone)}`
+    );
+  }
+
   addCustomer(
     customer: Omit<Customer, 'id' | 'createdAt'>
   ): Observable<Customer> {
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (!activeStoreId) {
+      return throwError(
+        () => new Error('Store selection required for this transaction.')
+      );
+    }
+
     const customerWithUser = {
       userId: this.getCurrentUser(),
+      storeId: activeStoreId,
       ...customer,
     };
     return this.http

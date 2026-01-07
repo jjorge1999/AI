@@ -1,29 +1,4 @@
 /* ========================================
-   JJM Inventory - Sidebar Layout Styles
-   ======================================== */
-
-/* Material Icons */
-.material-icon {
-  font-family: 'Material Symbols Outlined', sans-serif;
-  font-weight: normal;
-  font-style: normal;
-  font-size: 24px;
-  display: inline-block;
-  line-height: 1;
-  text-transform: none;
-  letter-spacing: normal;
-  word-wrap: normal;
-  white-space: nowrap;
-  direction: ltr;
-  -webkit-font-smoothing: antialiased;
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-}
-
-.material-icon.fill {
-  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-}
-
-/* ========================================
    Main App Layout
    ======================================== */
 .app-layout {
@@ -1105,4 +1080,55 @@ body.dark-theme .notification-dot {
   border-color: var(--color-primary);
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
+}
+
+/* Store Switcher Styles */
+.store-switcher {
+  margin-left: var(--space-lg);
+  display: flex;
+  align-items: center;
+}
+
+.active-store-selector {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  background: var(--color-bg);
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  transition: all 0.2s;
+  cursor: default;
+}
+
+.active-store-selector .material-icon {
+  font-size: 18px;
+  color: var(--color-primary);
+}
+
+.store-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+  padding-right: 4px;
+  cursor: default;
+}
+
+.store-select option {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+@media (max-width: 768px) {
+  .store-switcher {
+    margin-left: var(--space-sm);
+  }
+  
+  .active-store-selector {
+    padding: 4px 8px;
+  }
+  
+  .store-select {
+    max-width: 100px;
+  }
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { withCors, corsResponse } from '@/lib/cors';
+import { Customer } from '@/lib/models';
 
 const COLLECTION_NAME = 'customers';
 
@@ -15,46 +16,45 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     const name = searchParams.get('name');
+    const storeId = searchParams.get('storeId');
+    const phoneNumber = searchParams.get('phoneNumber');
 
     let query: FirebaseFirestore.Query = db.collection(COLLECTION_NAME);
 
+    // Filter by phone number if provided (exact match)
+    if (phoneNumber) {
+      query = query.where('phoneNumber', '==', phoneNumber);
+    }
+
     // If 'name' is provided, we assume this is a public verification request
-    // We should mask sensitive data and return only matches
     if (name) {
-      // Fetch all to filter by name (Firestore partial search limitation)
-      // Note: Ideally we'd use a search service, but for limited dataset this is fine.
       const snapshot = await db.collection(COLLECTION_NAME).get();
       const allCustomers = snapshot.docs.map((doc) => ({
+        ...(doc.data() as Customer),
         id: doc.id,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ...(doc.data() as any),
       }));
 
-      const filtered = allCustomers.filter(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (c: any) => c.name && c.name.toLowerCase().includes(name.toLowerCase())
+      const filtered = allCustomers.filter((c: Customer) =>
+        c.name?.toLowerCase().includes(name.toLowerCase())
       );
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const masked = filtered.map((c: any) => ({
+      const masked = filtered.map((c: Customer) => ({
         id: c.id,
         name: c.name,
-        // Sensitive Data Masked but useful for verification
-        phoneNumber: c.phoneNumber
-          ? c.phoneNumber.replace(/\D/g, '').slice(-8)
-          : '***',
+        phoneNumber: c.phone ? c.phone.replaceAll(/\D/g, '').slice(-8) : '***',
         deliveryAddress: '***',
         gpsCoordinates: '***',
         userId: '***',
-        // Public/Required Data
-        credits: c.credits, // Allow undefined to detect new game users
+        credits: c.credits, // Allow credits if present
         createdAt: c.createdAt,
       }));
 
       return withCors(NextResponse.json(masked), origin);
     }
 
-    if (userId) {
+    if (storeId) {
+      query = query.where('storeId', '==', storeId);
+    } else if (userId) {
       query = query.where('userId', '==', userId);
     }
 

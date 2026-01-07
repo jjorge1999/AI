@@ -17,6 +17,7 @@ export interface Ad {
   targetUrl?: string; // URL the ad should link to
   impressions?: number; // Number of times shown
   clicks?: number; // Number of clicks
+  storeId?: string; // Associated store ID
 }
 
 export interface AdFormData {
@@ -28,4 +29,5 @@ export interface AdFormData {
   aspectRatio: string;
   description?: string;
   targetUrl?: string;
+  storeId?: string;
 }

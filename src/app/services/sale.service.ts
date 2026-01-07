@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, from, of } from 'rxjs';
+import { BehaviorSubject, Observable, from } from 'rxjs';
 import { map, catchError, tap } from 'rxjs/operators';
 import {
   Firestore,
@@ -11,24 +11,24 @@ import {
   updateDoc,
   deleteDoc,
   doc,
-  setDoc,
   Unsubscribe,
-  getDocs,
+  where,
 } from 'firebase/firestore';
 import { FirebaseService } from './firebase.service';
 import { SaleEvent } from '../models/sale.model';
+import { StoreService } from './store.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class SaleService {
-  private db: Firestore;
-  private salesSubject = new BehaviorSubject<SaleEvent[]>([]);
+  private readonly db: Firestore;
+  private readonly salesSubject = new BehaviorSubject<SaleEvent[]>([]);
   public sales$ = this.salesSubject.asObservable();
   private unsubscribe: Unsubscribe | null = null;
 
   // Default sales to seed if none exist
-  private defaultSales: Omit<SaleEvent, 'id'>[] = [
+  private readonly defaultSales: Omit<SaleEvent, 'id'>[] = [
     {
       name: 'New Year Sale',
       month: 1,
@@ -180,18 +180,38 @@ export class SaleService {
     },
   ];
 
-  constructor(private firebaseService: FirebaseService) {
+  constructor(
+    private readonly firebaseService: FirebaseService,
+    private readonly storeService: StoreService
+  ) {
     this.db = this.firebaseService.db;
+
+    // Auto-refresh when store changes
+    this.storeService.activeStoreId$.subscribe(() => {
+      this.stopListening();
+      this.startListening();
+    });
   }
 
   /**
    * Start listening to sales from Firestore
    */
   startListening(): void {
-    if (this.unsubscribe) return; // Already listening
+    if (this.unsubscribe) {
+      this.unsubscribe();
+      this.unsubscribe = null;
+    }
 
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (!activeStoreId) {
+      this.salesSubject.next([]);
+      return;
+    }
+
+    // Only listen to sales for the selected store
     const salesQuery = query(
       collection(this.db, 'sales_events'),
+      where('storeId', '==', activeStoreId),
       orderBy('month', 'asc')
     );
 
@@ -239,13 +259,16 @@ export class SaleService {
     return this.sales$;
   }
 
+  getCurrentSalesValue(): SaleEvent[] {
+    return this.salesSubject.value;
+  }
+
   /**
    * Get currently active sale based on date
    */
   getCurrentSale(): SaleEvent | null {
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
-    const currentDay = now.getDate();
     const sales = this.salesSubject.value;
 
     for (const sale of sales) {
@@ -278,6 +301,7 @@ export class SaleService {
       ...sale,
       createdAt: new Date(),
       updatedAt: new Date(),
+      storeId: this.storeService.getActiveStoreId() || undefined,
     };
 
     return from(addDoc(collection(this.db, 'sales_events'), saleData)).pipe(
@@ -332,10 +356,14 @@ export class SaleService {
    * Seed default sales to Firestore
    */
   private async seedDefaultSales(): Promise<void> {
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (!activeStoreId) return; // Only seed if in a store context
+
     for (const sale of this.defaultSales) {
       try {
         await addDoc(collection(this.db, 'sales_events'), {
           ...sale,
+          storeId: activeStoreId,
           createdAt: new Date(),
           updatedAt: new Date(),
         });

@@ -13,11 +13,21 @@ export async function OPTIONS(request: Request) {
 export async function GET(request: Request) {
   const origin = request.headers.get('origin');
   try {
-    const snapshot = await db
-      .collection(COLLECTION_NAME)
-      .orderBy('timestamp', 'asc')
-      .limit(100) // Get last 100 messages
-      .get();
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+    const storeId = searchParams.get('storeId');
+
+    let query: admin.firestore.Query = db.collection(COLLECTION_NAME);
+
+    if (userId) {
+      query = query.where('userId', '==', userId);
+    }
+
+    if (storeId) {
+      query = query.where('storeId', '==', storeId);
+    }
+
+    const snapshot = await query.orderBy('timestamp', 'asc').limit(100).get();
 
     const messages = snapshot.docs.map((doc) => {
       const data = doc.data();
@@ -49,6 +59,7 @@ export async function POST(request: Request) {
       senderName: body.senderName,
       timestamp: new Date(),
       userId: body.userId || null,
+      storeId: body.storeId || null,
     });
 
     const newMessage = {
@@ -71,20 +82,31 @@ export async function POST(request: Request) {
 
     // Send FCM Notifications
     try {
+      const storeId = body.storeId;
       const usersSnapshot = await db.collection('users').get();
       const tokens: string[] = [];
+
       usersSnapshot.forEach((doc) => {
         const userData = doc.data();
-        if (
-          userData.id !== body.userId &&
-          userData.fcmTokens &&
-          Array.isArray(userData.fcmTokens)
-        ) {
-          tokens.push(...userData.fcmTokens);
+
+        // Don't notify the sender
+        if (userData.id === body.userId) return;
+
+        // Permission check: Notify if super-admin, or if the storeId matches
+        const isSuperAdmin = userData.role === 'super-admin';
+        const isAssignedToStore =
+          userData.storeId === storeId ||
+          (Array.isArray(userData.storeIds) &&
+            userData.storeIds.includes(storeId));
+
+        if (isSuperAdmin || isAssignedToStore || !storeId) {
+          if (userData.fcmTokens && Array.isArray(userData.fcmTokens)) {
+            tokens.push(...userData.fcmTokens);
+          }
         }
       });
 
-      // Also check fcm_tokens collection for standalone tokens
+      // Also check fcm_tokens collection for standalone tokens (optionally filter by store if linked)
       const extraTokensSnapshot = await db
         .collection('fcm_tokens')
         .where('userId', '!=', body.userId || '')

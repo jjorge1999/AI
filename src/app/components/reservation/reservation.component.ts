@@ -19,6 +19,8 @@ import { SaleEvent } from '../../models/sale.model';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { AdsSliderComponent } from '../ads-slider/ads-slider.component';
+import { StoreService } from '../../services/store.service';
+import { Store } from '../../models/inventory.models';
 
 interface OrderItem {
   product: Product;
@@ -72,6 +74,11 @@ export class ReservationComponent implements OnInit, OnDestroy {
   selectedProduct: Product | null = null;
   selectedQuantity: number = 1;
 
+  // Multi-store support
+  selectedStoreId: string | null = null;
+  selectedStore: Store | null = null;
+  stores$ = this.storeService.stores$;
+
   isSubmitting = false;
   successMessage = '';
 
@@ -88,6 +95,7 @@ export class ReservationComponent implements OnInit, OnDestroy {
     private customerService: CustomerService,
     private dialogService: DialogService,
     private saleService: SaleService,
+    private readonly storeService: StoreService,
     private router: Router
   ) {}
 
@@ -116,15 +124,19 @@ export class ReservationComponent implements OnInit, OnDestroy {
     }
 
     this.generateCalendar();
-    this.loadProducts();
+
+    // Clear any previously selected store for the reservation session
+    // to force branch selection first as per user requirement.
+    this.selectedStoreId = null;
+    this.selectedStore = null;
+
+    this.storeService.loadStores();
 
     // Start listening to sales from Firestore and check for active sales
     this.saleService.startListening();
     this.subscriptions.add(
       this.saleService.getSales().subscribe((sales) => {
-        if (sales.length > 0) {
-          this.checkCurrentSale();
-        }
+        this.checkCurrentSale(sales);
       })
     );
 
@@ -175,12 +187,42 @@ export class ReservationComponent implements OnInit, OnDestroy {
     window.dispatchEvent(new CustomEvent('openChatBubble'));
   }
 
+  selectStore(store: Store): void {
+    if (!store.id) return;
+    this.selectedStoreId = store.id;
+    this.selectedStore = store;
+    this.storeService.setActiveStore(store.id);
+    this.loadProducts();
+
+    // Reset any existing items as they might be from another store
+    this.orderItems = [];
+
+    // Restart sale listening for the new store
+    this.saleService.stopListening();
+    this.saleService.startListening();
+  }
+
+  changeStore(): void {
+    this.selectedStoreId = null;
+    this.selectedStore = null;
+    this.storeService.setActiveStore(null);
+    this.products = [];
+    this.orderItems = [];
+    this.saleService.stopListening();
+  }
+
   loadProducts() {
-    // Load only products from admin-1 for the reservation page
-    this.inventoryService.loadProductsForUser('admin-1');
+    if (!this.selectedStoreId) return;
+
+    // Load products for the selected store
+    this.inventoryService.loadProductsForUser('admin-1'); // Keep base user for public page
     this.subscriptions.add(
       this.inventoryService.getProducts().subscribe((products) => {
-        this.products = products.filter((p) => p.quantity > 0);
+        // Filter by both quantity and storeId
+        this.products = products.filter(
+          (p) =>
+            p.quantity > 0 && (p.storeId === this.selectedStoreId || !p.storeId)
+        );
       })
     );
   }
@@ -188,10 +230,10 @@ export class ReservationComponent implements OnInit, OnDestroy {
   /**
    * Check if there's an active special event sale (from Firestore)
    */
-  private checkCurrentSale(): void {
+  private checkCurrentSale(salesList?: SaleEvent[]): void {
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
-    const sales = this.saleService['salesSubject'].value;
+    const sales = salesList || this.saleService.getCurrentSalesValue();
 
     for (const sale of sales) {
       if (!sale.isActive) continue;
@@ -694,14 +736,15 @@ export class ReservationComponent implements OnInit, OnDestroy {
         this.notes
       }`;
 
-      // 1. Check if customer already exists by phone number
+      // 1. Check if customer already exists by phone number (server-side check)
       const customers = await firstValueFrom(
-        this.customerService.getCustomers().pipe(take(1))
+        this.customerService
+          .getCustomerByPhone(this.customerContact)
+          .pipe(take(1))
       );
 
-      const existingCustomer = customers.find(
-        (c) => c.phoneNumber === this.customerContact
-      );
+      const existingCustomer =
+        customers && customers.length > 0 ? customers[0] : null;
 
       // Only create customer if they don't exist
       if (!existingCustomer) {
@@ -735,6 +778,7 @@ export class ReservationComponent implements OnInit, OnDestroy {
           })),
           totalAmount: this.totalAmount,
           notes: fullNotes,
+          storeId: this.selectedStoreId || undefined,
         })
       );
 

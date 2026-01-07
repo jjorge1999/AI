@@ -7,7 +7,7 @@ import { DialogService } from '../../services/dialog.service';
 import { AiService } from '../../services/ai.service'; // Added
 import { SaleEvent } from '../../models/sale.model';
 import { Product } from '../../models/inventory.models';
-import { Subscription, combineLatest } from 'rxjs';
+import { Subscription, combineLatest, firstValueFrom } from 'rxjs';
 import { DeviceService } from '../../services/device.service';
 
 @Component({
@@ -21,7 +21,7 @@ export class SalesManagementComponent implements OnInit, OnDestroy {
   sales: SaleEvent[] = [];
   products: Product[] = [];
   discountedProducts: any[] = [];
-  private subscriptions = new Subscription();
+  private readonly subscriptions = new Subscription();
   viewMode: 'table' | 'grid' = 'table';
 
   // Stats
@@ -56,11 +56,11 @@ export class SalesManagementComponent implements OnInit, OnDestroy {
   ];
 
   constructor(
-    private saleService: SaleService,
-    private inventoryService: InventoryService,
-    private dialogService: DialogService,
-    private aiService: AiService,
-    private deviceService: DeviceService
+    private readonly saleService: SaleService,
+    private readonly inventoryService: InventoryService,
+    private readonly dialogService: DialogService,
+    private readonly aiService: AiService,
+    private readonly deviceService: DeviceService
   ) {}
 
   isGeneratingAi = false;
@@ -285,7 +285,7 @@ export class SalesManagementComponent implements OnInit, OnDestroy {
   private getProductSeed(productId: string): number {
     let hash = 0;
     for (let i = 0; i < productId.length; i++) {
-      hash = (hash << 5) - hash + productId.charCodeAt(i);
+      hash = (hash << 5) - hash + (productId.codePointAt(i) || 0);
       hash = hash & hash; // Convert to 32bit integer
     }
     return Math.abs(hash);
@@ -460,15 +460,15 @@ export class SalesManagementComponent implements OnInit, OnDestroy {
         discount: mainDiscount,
         saleType: derivedType,
         isActive: this.currentSale.isActive ?? true,
-        bannerTitle: this.currentSale.bannerTitle,
-        bannerMessage: this.currentSale.bannerMessage,
-        bannerIcon: this.currentSale.bannerIcon,
-        holidayKeywords: this.currentSale.holidayKeywords,
-        excludeKeywords: this.currentSale.excludeKeywords,
-        isActualSale: this.currentSale.isActualSale,
-        actualDiscount: this.currentSale.actualDiscount,
-        isPsychologicalSale: this.currentSale.isPsychologicalSale,
-        psychologicalDiscount: this.currentSale.psychologicalDiscount,
+        bannerTitle: this.currentSale.bannerTitle || '',
+        bannerMessage: this.currentSale.bannerMessage || '',
+        bannerIcon: this.currentSale.bannerIcon || '',
+        holidayKeywords: this.currentSale.holidayKeywords || [],
+        excludeKeywords: this.currentSale.excludeKeywords || [],
+        isActualSale: this.currentSale.isActualSale ?? false,
+        actualDiscount: this.currentSale.actualDiscount || 0,
+        isPsychologicalSale: this.currentSale.isPsychologicalSale ?? false,
+        psychologicalDiscount: this.currentSale.psychologicalDiscount || 0,
       };
       this.saleService.addSale(newSale).subscribe({
         next: () => {
@@ -487,15 +487,19 @@ export class SalesManagementComponent implements OnInit, OnDestroy {
   // Toggle sale active status
   toggleActive(sale: SaleEvent): void {
     if (!sale.id) return;
-    this.saleService.toggleSaleActive(sale.id, !sale.isActive).subscribe();
+    this.saleService
+      .updateSale(sale.id, { isActive: !sale.isActive })
+      .subscribe();
   }
 
   // Delete sale
   async deleteSale(sale: SaleEvent): Promise<void> {
     if (!sale.id) return;
-    const confirmed = await this.dialogService.confirm(
-      'Delete Sale',
-      `Are you sure you want to delete "${sale.name}"?`
+    const confirmed = await firstValueFrom(
+      this.dialogService.confirm(
+        'Delete Sale',
+        `Are you sure you want to delete "${sale.name}"?`
+      )
     );
     if (confirmed) {
       this.saleService.deleteSale(sale.id).subscribe();
@@ -542,9 +546,9 @@ export class SalesManagementComponent implements OnInit, OnDestroy {
   getSaleLabel(sale: SaleEvent): string {
     if (sale.isActualSale && sale.isPsychologicalSale) return 'Hybrid Deal';
     if (sale.isActualSale) return 'Actual Deal';
-    if (sale.isPsychologicalSale) return 'Psychological';
+    if (sale.isPsychologicalSale) return 'Preview Sale';
     // Legacy fallback
-    return sale.saleType === 'actual' ? 'Actual Deal' : 'Psychological';
+    return sale.saleType === 'actual' ? 'Actual Deal' : 'Preview Sale';
   }
 
   getSaleClass(sale: SaleEvent): string {

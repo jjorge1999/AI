@@ -4,6 +4,7 @@ import { BehaviorSubject, Observable, from, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { Ad, AdFormData } from '../models/ad.model';
 import { FirebaseService } from './firebase.service';
+import { StoreService } from './store.service';
 import {
   Firestore,
   collection,
@@ -30,27 +31,34 @@ import imageCompression from 'browser-image-compression';
   providedIn: 'root',
 })
 export class AdsService {
-  private adsSubject = new BehaviorSubject<Ad[]>([]);
+  private readonly adsSubject = new BehaviorSubject<Ad[]>([]);
   public ads$ = this.adsSubject.asObservable();
 
   private unsubscribe: Unsubscribe | null = null;
-  private db: Firestore;
+  private readonly db: Firestore;
 
-  constructor(private firebaseService: FirebaseService) {
+  constructor(
+    private readonly firebaseService: FirebaseService,
+    private readonly storeService: StoreService
+  ) {
     this.db = this.firebaseService.db;
   }
 
   /** Start listening to the "ads" collection (real‑time) */
-  startListening(userId?: string): void {
-    const adsCollection = collection(this.db, 'ads');
-    let q = query(adsCollection, orderBy('uploadDate', 'desc'));
-    if (userId) {
-      q = query(
-        adsCollection,
-        where('createdBy', '==', userId),
-        orderBy('uploadDate', 'desc')
-      );
+  startListening(userId?: string, storeId?: string): void {
+    const activeStoreId = storeId || this.storeService.getActiveStoreId();
+    if (!activeStoreId) {
+      this.adsSubject.next([]);
+      return;
     }
+
+    const adsCollection = collection(this.db, 'ads');
+    const q = query(
+      adsCollection,
+      where('storeId', '==', activeStoreId),
+      orderBy('uploadDate', 'desc')
+    );
+
     this.unsubscribe = onSnapshot(q, (snapshot) => {
       const ads: Ad[] = snapshot.docs.map((docSnap) => {
         const data = docSnap.data();
@@ -326,6 +334,7 @@ export class AdsService {
         targetUrl: adData.targetUrl || '',
         uploadDate: Timestamp.now(),
         createdBy: userId,
+        storeId: adData.storeId || this.storeService.getActiveStoreId() || '',
         views: 0,
         impressions: 0,
         clicks: 0,

@@ -5,6 +5,9 @@ import {
   AfterViewInit,
   ViewChild,
   ElementRef,
+  Input,
+  OnChanges,
+  SimpleChanges,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AdsService } from '../../services/ads.service';
@@ -18,8 +21,11 @@ import { Subscription } from 'rxjs';
   templateUrl: './ads-slider.component.html',
   styleUrl: './ads-slider.component.css',
 })
-export class AdsSliderComponent implements OnInit, OnDestroy, AfterViewInit {
+export class AdsSliderComponent
+  implements OnInit, OnDestroy, AfterViewInit, OnChanges
+{
   @ViewChild('videoPlayer') videoPlayer!: ElementRef<HTMLVideoElement>;
+  @Input() storeId: string | null = null;
 
   activeAds: Ad[] = [];
   currentAdIndex = 0;
@@ -29,20 +35,28 @@ export class AdsSliderComponent implements OnInit, OnDestroy, AfterViewInit {
   autoPlayInterval: any;
 
   // Track ads that failed to load
-  private failedAdIds = new Set<string>();
+  private readonly failedAdIds = new Set<string>();
 
-  private subscription = new Subscription();
+  private readonly subscription = new Subscription();
 
   // Configuration
   readonly IMAGE_DURATION = 5000; // 5 seconds for images
   readonly TRANSITION_DURATION = 500; // 0.5 seconds transition
 
-  constructor(private adsService: AdsService) {}
+  constructor(private readonly adsService: AdsService) {}
 
   ngOnInit(): void {
     // Begin listening for real‑time ad updates
-    this.adsService.startListening();
+    this.adsService.startListening(undefined, this.storeId || undefined);
     this.loadActiveAds();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['storeId'] && !changes['storeId'].firstChange) {
+      this.adsService.stopListening();
+      this.adsService.startListening(undefined, this.storeId || undefined);
+      // loadActiveAds is already subscribed to ads$, so it will update automatically
+    }
   }
 
   ngAfterViewInit(): void {

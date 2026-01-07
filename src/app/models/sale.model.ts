@@ -18,6 +18,8 @@ export interface SaleEvent {
   actualDiscount?: number;
   isPsychologicalSale?: boolean;
   psychologicalDiscount?: number;
+  userId?: string;
+  storeId?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

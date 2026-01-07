@@ -10,26 +10,105 @@
             <h2 class="text-gray-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">JJM Inventory</h2>
         </div>
         <div class="flex flex-1 justify-end gap-8">
-            <div (click)="goBack()" class="flex items-center gap-2 group cursor-pointer text-gray-500 dark:text-[#92a9c9] hover:text-blue-600 dark:hover:text-white transition-colors">
+            <button (click)="goBack()" class="flex items-center gap-2 group cursor-pointer text-gray-500 dark:text-[#92a9c9] hover:text-blue-600 dark:hover:text-white transition-colors bg-transparent border-none p-0">
                 <span class="material-symbols-outlined text-xl">arrow_back</span>
                 <span class="text-sm font-medium leading-normal">Back to Login</span>
-            </div>
+            </button>
         </div>
     </header>
 
     <div class="layout-container flex h-full grow flex-col">
-        <div class="flex flex-1 justify-center py-5 px-4 lg:px-8">
+        <!-- Store Selection Screen (Only if no store selected) -->
+        <div *ngIf="!selectedStoreId" class="flex flex-1 flex-col items-center justify-center py-12 px-6 lg:py-20 animate-fadeIn">
+            <div class="max-w-[800px] w-full flex flex-col items-center text-center gap-8">
+                <div class="flex flex-col gap-3">
+                    <h1 class="text-4xl md:text-5xl font-black text-gray-900 dark:text-white tracking-tight">Welcome to JJM Inventory</h1>
+                    <p class="text-lg text-gray-500 dark:text-[#92a9c9]">Please select a branch to view products and make a reservation.</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full mt-4">
+                    <button *ngFor="let store of (stores$ | async)" 
+                         (click)="selectStore(store)"
+                         type="button"
+                         [attr.aria-label]="'Select ' + store.name"
+                         class="group relative flex flex-col gap-5 p-8 bg-white dark:bg-[#1a2432] rounded-3xl border-2 border-transparent hover:border-blue-600 dark:hover:border-[#1269e2] shadow-sm hover:shadow-2xl transition-all duration-500 cursor-pointer overflow-hidden text-left focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        
+                        <!-- Glow effect on hover -->
+                        <div class="absolute -right-12 -top-12 w-32 h-32 bg-blue-600/5 rounded-full blur-3xl group-hover:bg-blue-600/15 transition-all duration-700"></div>
+                        
+                        <div class="flex items-start gap-5">
+                            <div class="w-20 h-20 rounded-2xl bg-blue-50 dark:bg-[#233348] text-blue-600 dark:text-[#1269e2] flex items-center justify-center shrink-0 group-hover:scale-105 transition-all duration-500 overflow-hidden shadow-inner border border-blue-100 dark:border-blue-900/30">
+                                <img *ngIf="store.logoUrl" [src]="store.logoUrl" class="w-full h-full object-cover" [alt]="store.name + ' logo'">
+                                <span *ngIf="!store.logoUrl" class="material-symbols-outlined text-4xl">storefront</span>
+                            </div>
+                            <div class="flex flex-col items-start text-left min-w-0">
+                                <h3 class="text-2xl font-black text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-[#1269e2] transition-colors line-clamp-1">{{ store.name }}</h3>
+                                <div class="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 mt-1">
+                                    <span class="material-symbols-outlined text-sm">location_on</span>
+                                    <p class="text-sm font-bold truncate">{{ store.address || 'Local Branch' }}</p>
+                                </div>
+                                <p *ngIf="store.description" class="text-xs text-gray-500 dark:text-[#92a9c9] mt-3 line-clamp-2 leading-relaxed italic">
+                                    "{{ store.description }}"
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 mt-2">
+                            <div class="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 dark:bg-[#233348]/50 border border-gray-100 dark:border-gray-800 transition-colors group-hover:bg-blue-50/50 dark:group-hover:bg-blue-900/10">
+                                <span class="material-symbols-outlined text-blue-600/70 text-base">schedule</span>
+                                <span class="text-[10px] font-bold text-gray-600 dark:text-[#92a9c9] uppercase tracking-wider">Fast Service</span>
+                            </div>
+                            <div class="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 dark:bg-[#233348]/50 border border-gray-100 dark:border-gray-800 transition-colors group-hover:bg-blue-50/50 dark:group-hover:bg-blue-900/10">
+                                <span class="material-symbols-outlined text-blue-600/70 text-base">local_shipping</span>
+                                <span class="text-[10px] font-bold text-gray-600 dark:text-[#92a9c9] uppercase tracking-wider">Reliable Delivery</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-2 w-full h-12 bg-gray-100 dark:bg-[#233348] group-hover:bg-blue-600 dark:group-hover:bg-[#1269e2] text-gray-900 dark:text-white group-hover:text-white rounded-xl flex items-center justify-center font-black text-sm uppercase tracking-widest transition-all duration-300 shadow-sm group-hover:shadow-lg">
+                            Enter Branch
+                        </div>
+                    </button>
+                </div>
+
+                <div *ngIf="(stores$ | async)?.length === 0" class="flex flex-col items-center gap-4 py-12">
+                    <span class="material-symbols-outlined text-6xl text-gray-300">location_off</span>
+                    <p class="text-gray-500">No branches currently available.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Reservation Form (If store selected) -->
+        <div *ngIf="selectedStoreId" class="flex flex-1 justify-center py-5 px-4 lg:px-8 animate-fadeIn">
             <div class="layout-content-container flex flex-col max-w-[1200px] flex-1 w-full">
+
+
                 <div class="flex flex-col lg:flex-row gap-8">
                     <!-- Left Column: Form Steps -->
                     <div class="flex-1 flex flex-col gap-8 min-w-0">
+                        <!-- Branch Info Bar (Compact) -->
+                        <div class="flex items-center justify-between p-3 bg-blue-50/30 dark:bg-[#233348]/20 rounded-xl border border-blue-100/50 dark:border-blue-900/10">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                                    <span class="material-symbols-outlined text-base">location_on</span>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest leading-none mb-0.5">Order Location</span>
+                                    <span class="text-sm font-bold text-gray-900 dark:text-white">{{ selectedStore?.name }}</span>
+                                </div>
+                            </div>
+                            <button (click)="changeStore()" class="text-xs font-bold text-blue-600 dark:text-[#1269e2] hover:text-blue-700 underline flex items-center gap-1 transition-colors">
+                                <span class="material-symbols-outlined text-sm">swap_horiz</span>
+                                Change
+                            </button>
+                        </div>
+
                         <!-- Page Heading -->
                         <div class="flex flex-col gap-2">
                             <h1 class="text-gray-900 dark:text-white text-3xl md:text-4xl font-black leading-tight tracking-[-0.033em]">New Reservation</h1>
                             <p class="text-gray-500 dark:text-[#92a9c9] text-base font-normal leading-normal">Select items and schedule your pickup in 3 simple steps.</p>
                         </div>
                         
-                        <!-- Progress Bar -->
+                        <!-- Progress Bar (Step Indicator) -->
                         <div class="flex flex-col gap-3">
                             <div class="flex gap-6 justify-between items-center">
                                 <p class="text-gray-900 dark:text-white text-base font-medium leading-normal">Current Progress</p>
@@ -41,10 +120,12 @@
                         </div>
 
                         <!-- Sale Banner (Interactive & Mobile Responsive) - Only show when there's an active sale -->
-                        <div 
+                        <button 
                              *ngIf="currentSale"
                              (click)="scrollToFeaturedDeals()"
-                             class="relative overflow-hidden rounded-xl bg-gradient-to-r from-red-500 via-pink-500 to-orange-500 p-4 sm:p-5 shadow-lg animate-pulse-subtle cursor-pointer group hover:shadow-2xl hover:scale-[1.005] sm:hover:scale-[1.01] transition-all duration-300 ring-offset-2 hover:ring-2 ring-red-400 dark:ring-offset-[#101822]">
+                             type="button"
+                             aria-label="View featured deals"
+                             class="relative overflow-hidden rounded-xl bg-gradient-to-r from-red-500 via-pink-500 to-orange-500 p-4 sm:p-5 shadow-lg animate-pulse-subtle cursor-pointer group hover:shadow-2xl hover:scale-[1.005] sm:hover:scale-[1.01] transition-all duration-300 ring-offset-2 hover:ring-2 ring-red-400 dark:ring-offset-[#101822] w-full text-left focus:outline-none">
                             <!-- Background Shimmer -->
                             <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer opacity-50 group-hover:opacity-100 transition-opacity"></div>
                             
@@ -103,10 +184,10 @@
                                     View Deals <span class="material-symbols-outlined text-[10px]">arrow_downward</span>
                                 </span>
                             </div>
-                        </div>
+                        </button>
 
                         <!-- Ads Slider -->
-                        <app-ads-slider></app-ads-slider>
+                        <app-ads-slider [storeId]="selectedStoreId"></app-ads-slider>
 
                         <!-- Featured Deals Table -->
                         <div *ngIf="currentSale && discountedProducts.length > 0" id="featured-deals" class="flex flex-col gap-4 animate-fadeIn scroll-mt-24">
