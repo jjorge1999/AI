@@ -236,6 +236,7 @@ export class LandingComponent implements OnInit, OnDestroy {
 
   viewMode: 'table' | 'grid' = 'table';
   today = new Date();
+  isMobile = false;
 
   private subscriptions: Subscription[] = [];
   private products: Product[] = [];
@@ -300,14 +301,43 @@ export class LandingComponent implements OnInit, OnDestroy {
     // Auto-switch to grid view on mobile
     this.subscriptions.push(
       this.deviceService.isMobile$.subscribe((isMobile) => {
+        this.isMobile = isMobile;
         if (isMobile) {
           this.viewMode = 'grid';
-        } else {
-          // Optional: switch back to table on desktop if desired
-          // this.viewMode = 'table';
+          // If no custom layout is saved, we could auto-apply a mobile-friendly order here
+          this.applyMobileOptimizedLayout();
         }
       })
     );
+  }
+
+  /**
+   * Automatically re-orders widgets for the best mobile experience if the user
+   * hasn't explicitly customized their layout yet.
+   */
+  private applyMobileOptimizedLayout(): void {
+    const saved = localStorage.getItem('jjm_widget_layout');
+    if (!saved && this.isMobile) {
+      // Prioritize actionable and summary data for mobile
+      const priority = [
+        'quickActions',
+        'todaySummary',
+        'pendingDeliveries',
+        'lowStock',
+      ];
+
+      this.widgets.forEach((w) => {
+        const pIndex = priority.indexOf(w.id);
+        if (pIndex !== -1) {
+          w.order = pIndex;
+        } else {
+          w.order = pIndex + 10; // Push others down
+        }
+      });
+      this.widgets.sort((a, b) => a.order - b.order);
+      // Re-normalize orders
+      this.widgets.forEach((w, i) => (w.order = i));
+    }
   }
 
   ngOnDestroy(): void {
@@ -378,7 +408,7 @@ export class LandingComponent implements OnInit, OnDestroy {
     }
 
     if (phone) {
-      window.location.href = `tel:${phone}`;
+      globalThis.location.href = `tel:${phone}`;
     } else {
       this.dialogService.warning('No phone number available', 'Cannot Call');
     }

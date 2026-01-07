@@ -299,11 +299,22 @@
                 <div class="card-body">
                   <div class="card-customer-info">
                     <span class="customer-name">{{ getCustomerDisplayName(item) }}</span>
+                    <div class="customer-details">
+                      <div class="detail-item" *ngIf="getCustomerContact(item)">
+                        <span class="material-icon">phone</span>
+                        <span>{{ getCustomerContact(item) }}</span>
+                      </div>
+                      <div class="detail-item" *ngIf="getCustomerAddress(item)">
+                        <span class="material-icon">location_on</span>
+                        <span>{{ getCustomerAddress(item) }}</span>
+                      </div>
+                    </div>
                   </div>
                   <div class="card-delivery-info">
                     <div class="detail-item" *ngIf="item.deliveryDate">
-                      <span class="material-icon">event</span>
-                      <span>{{ item.deliveryDate | date:'MMM d, y' }}</span>
+                        <span class="material-icon">event</span>
+                        <span>{{ item.deliveryDate | date:'MMM d, y' }}</span>
+                        <span class="time-badge">{{ item.deliveryDate | date:'shortTime' }}</span>
                     </div>
                   </div>
                 </div>

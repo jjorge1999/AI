@@ -1109,9 +1109,45 @@
     display: none;
   }
   
-  .recent-orders-card .data-table th:nth-child(4),
-  .recent-orders-card .data-table td:nth-child(4) {
+  /* Ensure Pending Delivery details are ALWAYS visible on mobile */
+  .pending-section .customer-details {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  .pending-section .detail-item {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+  }
+
+  /* Force grid view for Pendings on small screens to show everything */
+  .pending-section .table-container {
     display: none;
+  }
+  
+  .pending-section .delivery-grid {
+    display: grid !important;
+    grid-template-columns: 1fr;
+  }
+
+  .delivery-card {
+    padding: var(--space-md);
+    border-left: 4px solid var(--widget-teal);
+  }
+
+  .card-customer-info {
+    margin-bottom: var(--space-sm);
+  }
+
+  .card-delivery-info {
+    background: var(--color-bg);
+    padding: var(--space-sm);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-md);
   }
 }
 
@@ -1234,14 +1270,7 @@
   color: var(--widget-primary);
 }
 
-.summary-stat.warning {
-  background: rgba(245, 158, 11, 0.08);
-  border-color: var(--widget-warning);
-}
 
-.summary-stat.warning .stat-value {
-  color: var(--widget-warning);
-}
 
 .stat-value {
   font-size: 1.5rem;
@@ -1340,20 +1369,7 @@
   color: var(--color-text-muted);
 }
 
-.top-product:first-child .product-rank {
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
-  color: white;
-}
 
-.top-product:nth-child(2) .product-rank {
-  background: linear-gradient(135deg, #94a3b8, #64748b);
-  color: white;
-}
-
-.top-product:nth-child(3) .product-rank {
-  background: linear-gradient(135deg, #ea580c, #c2410c);
-  color: white;
-}
 
 .top-product .product-info {
   flex: 1;
@@ -1389,20 +1405,7 @@
   font-size: 16px;
 }
 
-.product-trend.trend-up {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-}
 
-.product-trend.trend-neutral {
-  background: rgba(148, 163, 184, 0.1);
-  color: #94a3b8;
-}
-
-.product-trend.trend-down {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
 
 /* Top Customers */
 .top-customer {
@@ -1439,13 +1442,7 @@
   font-weight: 600;
 }
 
-.top-customer:first-child .customer-avatar-circle {
-  background: linear-gradient(135deg, #f97316, #fb923c);
-}
 
-.top-customer:nth-child(2) .customer-avatar-circle {
-  background: linear-gradient(135deg, #3b82f6, #60a5fa);
-}
 
 .top-customer .customer-info {
   flex: 1;
@@ -1468,11 +1465,7 @@
   color: var(--color-text-muted);
 }
 
-.customer-spent {
-  font-weight: 700;
-  color: #10b981;
-  font-size: 0.875rem;
-}
+
 
 /* Mobile adjustments for widgets */
 @media (max-width: 640px) {
@@ -2009,16 +2002,19 @@
 .top-product:first-child .product-rank {
   background: linear-gradient(135deg, #fbbf24, #f59e0b);
   color: white;
+  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
 }
 
 .top-product:nth-child(2) .product-rank {
   background: linear-gradient(135deg, #94a3b8, #64748b);
   color: white;
+  box-shadow: 0 2px 4px rgba(100, 116, 139, 0.3);
 }
 
 .top-product:nth-child(3) .product-rank {
   background: linear-gradient(135deg, var(--widget-orange), #ea580c);
   color: white;
+  box-shadow: 0 2px 4px rgba(234, 88, 12, 0.3);
 }
 
 /* Customer avatars with gradient accents */
@@ -2037,6 +2033,8 @@
 /* Customer spent amount */
 .customer-spent {
   color: var(--widget-success);
+  font-weight: 600;
+  font-size: 0.875rem;
 }
 
 /* Trend colors */
@@ -2055,6 +2053,10 @@
 }
 
 /* Action button colors using palette */
+.action-btn:hover {
+  transform: translateY(-1px);
+}
+
 .action-btn.call:hover {
   background: rgba(59, 130, 246, 0.1);
   color: var(--widget-info);
@@ -2124,4 +2126,135 @@
 /* Chart legend colors */
 .chart-line-animate {
   stroke: var(--widget-primary);
+}
+/* ========================================
+   Mobile Responsive Adjustments
+   ======================================== */
+
+/* General Mobile Spacing */
+@media (max-width: 768px) {
+  .dashboard-container {
+    gap: var(--space-md);
+    padding: var(--space-sm);
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header-right {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: var(--space-xs);
+  }
+
+  /* Widgets Grid Collapse */
+  .widgets-container {
+    grid-template-columns: 1fr !important;
+    gap: var(--space-md);
+  }
+
+  /* Reset all sizes to full on mobile and auto-sort vertically */
+  .widget-wrapper {
+    grid-column: span 1 !important;
+    margin-bottom: var(--space-sm);
+  }
+
+  /* Larger touch targets for mobile editing */
+  .drag-handle {
+    width: 44px;
+    height: 44px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: var(--radius-md);
+  }
+
+  .widget-control-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .widget-controls {
+    top: -10px;
+    right: -5px;
+    opacity: 1 !important; /* Always visible on mobile edit mode */
+    padding: var(--space-xs);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-md);
+  }
+
+  /* Today's Summary Mobile - Auto Fit */
+  .summary-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--space-sm);
+  }
+
+  .summary-stat {
+    min-width: unset;
+    padding: var(--space-sm);
+    flex: none;
+  }
+
+  .summary-stat.highlight {
+    grid-column: 1 / -1; /* Always full width on mobile summary */
+  }
+
+  .stat-value {
+    font-size: 1.15rem;
+  }
+
+  /* Quick Actions Mobile - Flow wrap */
+  .quick-actions-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-xs);
+    overflow-x: hidden;
+    padding: var(--space-xs);
+  }
+
+  .quick-action-btn {
+    flex-direction: column;
+    padding: var(--space-sm) var(--space-xs);
+    min-width: unset;
+    text-align: center;
+  }
+
+  .quick-action-btn .material-icon {
+    margin-bottom: 4px;
+  }
+
+  .action-label {
+    font-size: 0.7rem;
+    white-space: normal;
+  }
+
+  /* Fix tables for narrow phones */
+  .data-table th, .data-table td {
+    padding: var(--space-sm) var(--space-xs);
+    font-size: 0.75rem;
+  }
+
+  .order-id {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .quick-actions-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .dashboard-header {
+    gap: var(--space-sm);
+  }
+
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-stats {
+    grid-template-columns: 1fr;
+  }
 }
