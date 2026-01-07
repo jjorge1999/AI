@@ -41,12 +41,14 @@ export class StoreManagementComponent implements OnInit, OnDestroy {
 
   // Stats mapping
   storeStats: {
-    [key: string]: {
-      products: number;
-      sales: number;
-      admins: number;
-      staff: number;
-    };
+    [key: string]:
+      | {
+          products: number;
+          sales: number;
+          admins: number;
+          staff: number;
+        }
+      | undefined;
   } = {};
 
   currentUser: User | null = null;
