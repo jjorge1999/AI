@@ -22,10 +22,13 @@ export class StoreManagementComponent implements OnInit, OnDestroy {
   stores: Store[] = [];
   filteredStores: Store[] = [];
   searchQuery = '';
+  pendingRenewals: Store[] = [];
+  canApproveRenewals = false; // Restricted to Super Admin of Super Branch
 
   isModalOpen = false;
   isEditing = false;
   editingStoreId: string | null = null;
+  proofPreview: string | null = null; // For modal
 
   storeForm: any = {
     name: '',
@@ -35,6 +38,8 @@ export class StoreManagementComponent implements OnInit, OnDestroy {
     isActive: true,
     isSuperAdminOnly: false,
     logoUrl: '',
+    subscriptionPlan: 'Free',
+    subscriptionExpiryDate: '',
   };
 
   logoPreview: string | null = null;
@@ -72,7 +77,14 @@ export class StoreManagementComponent implements OnInit, OnDestroy {
         this.userService.currentUser$,
       ]).subscribe(([stores, products, sales, users, currentUser]) => {
         this.stores = stores;
+        this.pendingRenewals = stores.filter((s) => !!s.pendingSubscription);
+
         this.currentUser = currentUser;
+
+        // Check Permissions: Only Super Admin under a Super Branch can approve renewals
+        const userStore = stores.find((s) => s.id === currentUser?.storeId);
+        this.canApproveRenewals =
+          currentUser?.role === 'super-admin' && !!userStore?.isSuperAdminOnly;
 
         // Calculate stats for each store
         this.storeStats = {};
@@ -97,6 +109,130 @@ export class StoreManagementComponent implements OnInit, OnDestroy {
     this.storeService.loadStores();
     this.inventoryService.reloadData();
     this.userService.loadUsers();
+  }
+
+  viewProof(store: Store): void {
+    if (store.pendingSubscription?.proofUrl) {
+      // Simple open in new tab or modal
+      // Using modal approach since I can't easily add another modal HTML here without replace_content
+      // Just opening in new window for now or using a quick dialog approach
+      const win = window.open();
+      if (win) {
+        win.document.write(
+          `<img src="${store.pendingSubscription.proofUrl}" style="max-width:100%"/>`
+        );
+      }
+    }
+  }
+
+  approveRenewal(store: Store): void {
+    if (!store.pendingSubscription) return;
+
+    this.dialogService
+      .confirm(
+        `Approve ${store.pendingSubscription.plan} for ${store.name}?`,
+        'Approve Renewal'
+      )
+      .subscribe((confirmed) => {
+        if (confirmed && store.pendingSubscription) {
+          const newPlan = store.pendingSubscription.plan;
+          const today = new Date();
+
+          // Plan Logic (0=Free, 1=Starter, 2=Pro)
+          const planLevels: { [key: string]: number } = {
+            Free: 0,
+            Starter: 1,
+            Pro: 2,
+            Enterprise: 3,
+          };
+          const currentLevel =
+            planLevels[store.subscriptionPlan || 'Free'] || 0;
+          const newLevel = planLevels[newPlan] || 0;
+
+          let expiryDate: Date;
+
+          if (newLevel < currentLevel) {
+            // Downgrade: Reset expiry to start fresh from today
+            expiryDate = new Date();
+          } else {
+            // Upgrade or Renew: Extend existing date
+            expiryDate = store.subscriptionExpiryDate
+              ? new Date(store.subscriptionExpiryDate)
+              : new Date();
+            if (expiryDate < today) expiryDate = new Date();
+          }
+
+          // specific logic: Add 30 days
+          expiryDate.setDate(expiryDate.getDate() + 30);
+
+          // Credit Logic
+          const currentCredits = store.credits || {
+            ai: 0,
+            aiResponse: 0,
+            transactions: 0,
+            callMinutes: 0,
+            lastResetDate: new Date(),
+          };
+
+          let newTransactions = currentCredits.transactions || 0;
+          let newAi = currentCredits.ai || 0;
+          let newAiResponse = currentCredits.aiResponse || 0;
+
+          // Apply Plan Limits/Credits
+          if (newPlan === 'Starter') {
+            // Starter: +2000 transactions (Additive), Reset AI (1000)
+            newTransactions += 2000;
+            newAi = 1000;
+            newAiResponse = 1000;
+          } else if (newPlan === 'Pro') {
+            // Pro: Effectively Unlimited (High cap)
+            newTransactions = 100000;
+            newAi = 5000;
+            newAiResponse = 5000;
+          } else if (newPlan === 'Free') {
+            newTransactions = 50;
+            newAi = 10;
+            newAiResponse = 10;
+          }
+
+          // Update logic
+          this.storeService
+            .updateStore(store.id, {
+              subscriptionPlan: newPlan,
+              subscriptionExpiryDate: expiryDate.toISOString().split('T')[0],
+              credits: {
+                ...currentCredits,
+                transactions: newTransactions,
+                ai: newAi,
+                aiResponse: newAiResponse,
+                lastResetDate: new Date(),
+              },
+              pendingSubscription: null,
+            })
+            .subscribe(() => {
+              this.dialogService.success('Subscription Approved and Updated.');
+              // Force reload if not auto-triggered (Safeguard)
+              this.storeService.loadStores();
+            });
+        }
+      });
+  }
+
+  rejectRenewal(store: Store): void {
+    this.dialogService
+      .confirm('Reject this request?', 'Reject Renewal')
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          this.storeService
+            .updateStore(store.id, {
+              pendingSubscription: null,
+            })
+            .subscribe(() => {
+              this.dialogService.info('Request Rejected.');
+              this.storeService.loadStores();
+            });
+        }
+      });
   }
 
   ngOnDestroy(): void {
@@ -128,6 +264,7 @@ export class StoreManagementComponent implements OnInit, OnDestroy {
       isActive: true,
       isSuperAdminOnly: false,
       logoUrl: '',
+      subscriptionPlan: 'Free',
     };
     this.logoPreview = null;
     this.isModalOpen = true;
@@ -143,6 +280,21 @@ export class StoreManagementComponent implements OnInit, OnDestroy {
 
   closeModal(): void {
     this.isModalOpen = false;
+  }
+
+  renewSubscription(): void {
+    const today = new Date();
+    // Add 30 days (Month Renewal)
+    const nextMonth = new Date(today);
+    nextMonth.setDate(today.getDate() + 30);
+
+    // Format to YYYY-MM-DD for input[type="date"]
+    this.storeForm.subscriptionExpiryDate = nextMonth
+      .toISOString()
+      .split('T')[0];
+    this.dialogService.success(
+      'Subscription Expiry set to ' + this.storeForm.subscriptionExpiryDate
+    );
   }
 
   saveStore(): void {

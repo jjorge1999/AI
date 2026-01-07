@@ -1,0 +1,151 @@
+<div class="pricing-page">
+  <!-- Back Navigation -->
+  <button class="btn-back" (click)="goBack()">
+    <span class="material-icon">arrow_back</span>
+    Back to Dashboard
+  </button>
+
+  <!-- Hero Section -->
+  <header class="pricing-header">
+    <div class="badge-pill">Upgrade your business</div>
+    <h1 class="gradient-text">Choose the Perfect Plan</h1>
+    <p class="subtitle">
+      Unlock the full potential of your store with our premium tools.
+      <br />Scale up as you grow.
+    </p>
+  </header>
+
+  <!-- Pricing Grid -->
+  <div class="pricing-grid">
+    <div
+      class="pricing-card"
+      *ngFor="let plan of pricingTiers"
+      [class.highlighted]="plan.highlight || getButtonLabel(plan) === 'Renew Plan'"
+      [class.current-plan-highlight]="getButtonLabel(plan) === 'Renew Plan'"
+      [class.card-blue]="plan.color === 'blue'"
+      [class.card-purple]="plan.color === 'purple'"
+      [class.card-orange]="plan.color === 'orange'"
+    >
+      <div class="card-glow"></div>
+      
+      <div class="popular-tag" *ngIf="plan.highlight && getButtonLabel(plan) !== 'Renew Plan'">Most Popular</div>
+      <div class="popular-tag current-tag" *ngIf="getButtonLabel(plan) === 'Renew Plan'" style="background: linear-gradient(135deg, #10b981, #059669);">Current Plan</div>
+
+      <div class="card-content">
+        <h3 class="plan-name">{{ plan.name }}</h3>
+        <div class="plan-price">
+          <span class="currency" *ngIf="plan.price !== 'Free'"></span>
+          <span class="amount">{{ plan.price }}</span>
+          <span class="period" *ngIf="plan.period">{{ plan.period }}</span>
+        </div>
+        <p class="plan-desc">{{ plan.description }}</p>
+
+        <div class="divider"></div>
+
+        <ul class="features-list">
+          <li *ngFor="let feature of plan.features">
+            <span class="material-icon check-icon">check_circle</span>
+            {{ feature }}
+          </li>
+        </ul>
+
+        <button
+          class="cta-button"
+          (click)="selectPlan(plan)"
+          [class.btn-primary]="plan.highlight"
+          [class.btn-outline]="!plan.highlight"
+        >
+          {{ getButtonLabel(plan) }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trust Section -->
+  <div class="trust-footer">
+    <div class="trust-item">
+      <span class="material-icon">verified_user</span>
+      <span>Secure Payments</span>
+    </div>
+    <div class="trust-item">
+      <span class="material-icon">support_agent</span>
+      <span>Priority Support</span>
+    </div>
+    <div class="trust-item">
+      <span class="material-icon">update</span>
+      <span>Free Updates</span>
+    </div>
+  </div>
+
+  <!-- CHECKOUT MODAL -->
+  <div class="modal-overlay" *ngIf="showPaymentModal" (click)="closePaymentModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ isPublicRequest ? 'Subscribe' : 'Confirm Renewal' }}</h2>
+        <p class="subtitle">{{ isPublicRequest ? 'Scan QR and email us proof' : 'Upload payment proof to proceed' }}</p>
+      </div>
+
+      <div class="modal-body">
+        <!-- Left: QR & Instructions -->
+        <div class="payment-left">
+          <strong style="display: block; font-size: 0.95rem; margin-bottom: 0.5rem;">Scan via InstaPay / Gcash</strong>
+          <img src="assets/payment-qr.png" alt="QR" style="max-width: 120px; border-radius: 8px; border: 2px solid #e2e8f0;">
+          <p style="margin: 0.5rem 0 0; font-size: 0.9rem; color: #334155;">
+            Amount: <strong style="color: #3b82f6;">{{ selectedPlanForRenewal?.price }}</strong>
+          </p>
+          <p style="margin: 0; font-size: 0.8rem; color: #64748b;" *ngIf="!isPublicRequest">Take screenshot & upload</p>
+        </div>
+
+        <!-- Right: Upload Area -->
+        <div class="payment-right">
+          <!-- Public Instruction Header -->
+          <div *ngIf="isPublicRequest" style="margin-bottom: 0.5rem; text-align: center;">
+             <p style="margin: 0; font-weight: 600; color: var(--primary-color);">Step 2: Upload Screenshot</p>
+             <p style="margin: 0; font-size: 0.8rem; color: #64748b;">Verify your payment before emailing</p>
+          </div>
+
+          <!-- Upload Area (For All Users) -->
+          <div class="upload-area" (click)="!isVerifying && fileInput.click()" style="padding: 1rem; min-height: 160px; display: flex; flex-direction: column; justify-content: center;">
+            <input 
+              #fileInput 
+              type="file" 
+              class="hidden-input" 
+              (change)="onFileSelected($event)" 
+              accept="image/*"
+              [disabled]="isVerifying"
+            >
+            
+            <!-- Default State -->
+            <div *ngIf="!isVerifying && !paymentProofPreview" class="upload-placeholder">
+              <span class="material-icon">cloud_upload</span>
+              <p>Click to Upload Proof</p>
+            </div>
+
+            <!-- Verifying State -->
+            <div *ngIf="isVerifying" class="upload-placeholder">
+              <span class="material-icon spin" style="color: var(--secondary-color, #3b82f6);">sync</span>
+              <p style="margin-top: 0.5rem; color: var(--color-text, #334155);">{{ verificationStatus }}</p>
+            </div>
+
+            <!-- Valid Preview -->
+            <div class="preview-container" *ngIf="!isVerifying && paymentProofPreview" style="margin-top:0; max-height: 140px;">
+              <img [src]="paymentProofPreview" alt="Verified Receipt" style="height: 100%; object-fit: contain; border-radius: 8px;">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-outline" (click)="closePaymentModal()">Cancel</button>
+        <button 
+          class="btn-confirm-renew" 
+          (click)="confirmPayment()" 
+          [disabled]="!paymentProofPreview"
+          [style.opacity]="!paymentProofPreview ? 0.5 : 1"
+        >
+          {{ isPublicRequest ? 'Send Proof via Email' : 'Confirm & Renew' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

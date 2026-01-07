@@ -224,6 +224,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
         role: this.currentUser.role,
         storeId: this.currentUser.storeId,
         storeIds: this.currentUser.storeIds,
+        accessExpiryDate: this.currentUser.accessExpiryDate,
       };
 
       if (this.formPassword) {

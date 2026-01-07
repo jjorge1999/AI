@@ -43,6 +43,50 @@
     </div>
   </header>
 
+
+  <!-- Pending Renewals Alert (Redesigned) -->
+  <div class="pending-section" *ngIf="canApproveRenewals && pendingRenewals.length > 0">
+    <div class="pending-header">
+      <h2><span class="pulse-dot"></span> Pending Approvals ({{pendingRenewals.length}})</h2>
+    </div>
+
+    <div class="pending-list">
+      <div class="pending-item" *ngFor="let s of pendingRenewals">
+        <div class="pi-content">
+          <div class="pi-top">
+            <span class="pi-store">{{ s.name }}</span>
+            <span class="badge-plan">{{ s.pendingSubscription?.plan }}</span>
+          </div>
+          <div class="pi-meta">
+            <span class="meta-date">
+              <span class="material-icon">calendar_today</span>
+              {{ s.pendingSubscription?.requestDate | date:'mediumDate' }}
+            </span>
+            <span class="meta-ref" *ngIf="s.pendingSubscription?.referenceNumber">
+              <span class="material-icon">receipt_long</span>
+              Ref: {{ s.pendingSubscription?.referenceNumber }}
+            </span>
+          </div>
+        </div>
+
+        <div class="pi-actions">
+          <button class="btn-view-proof" (click)="viewProof(s)" title="View Proof">
+            <span class="material-icon">visibility</span>
+            <span>Proof</span>
+          </button>
+          <div class="action-divider"></div>
+          <button class="btn-action-reject" (click)="rejectRenewal(s)" title="Reject">
+            <span class="material-icon">close</span>
+          </button>
+          <button class="btn-action-approve" (click)="approveRenewal(s)" title="Approve">
+            <span class="material-icon">check</span>
+            <span>Approve</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Store Grid -->
   <div class="stores-container">
     <div class="store-grid" *ngIf="filteredStores.length > 0; else emptyState">
@@ -201,6 +245,39 @@
             <div class="toggle-wrapper" style="display: flex; align-items: center; gap: 10px; height: 100%;">
               <span class="material-icon" style="color: #6366f1; font-size: 20px;">security</span>
               <input id="reg-super" type="checkbox" [(ngModel)]="storeForm.isSuperAdminOnly" style="width: 20px; height: 20px; cursor: pointer;">
+            </div>
+          </div>
+
+          <div class="input-field full">
+            <label for="reg-plan">Subscription Plan</label>
+            <div class="input-wrapper">
+              <span class="material-icon" aria-hidden="true">card_membership</span>
+              <select id="reg-plan" [(ngModel)]="storeForm.subscriptionPlan" style="background: transparent; border: none; color: inherit; width: 100%; outline: none; padding: 0.5rem;">
+                <option value="Free" style="color:#333">Free Tier (₱0)</option>
+                <option value="Starter" style="color:#333">Starter Estimate (₱999)</option>
+                <option value="Pro" style="color:#333">Pro Revenue (₱1,499)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="input-field full">
+            <label for="reg-expiry">Subscription Expiry</label>
+            <div class="input-wrapper" style="display: flex; gap: 8px; align-items: center;">
+              <span class="material-icon" aria-hidden="true" style="margin-right: 8px;">event</span>
+              <input 
+                id="reg-expiry" 
+                type="date" 
+                [(ngModel)]="storeForm.subscriptionExpiryDate" 
+                style="flex:1; border: none; outline: none; background: transparent; color: inherit; font-family: inherit;"
+              >
+              <button 
+                class="btn-secondary" 
+                (click)="renewSubscription()" 
+                type="button" 
+                style="padding: 0.4rem 0.8rem; font-size: 0.75rem; white-space: nowrap; margin-left: auto; border-radius: 6px;"
+              >
+                Renew (+30 Days)
+              </button>
             </div>
           </div>
 

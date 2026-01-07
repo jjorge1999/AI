@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { map, tap } from 'rxjs/operators';
+import { tap } from 'rxjs/operators';
 import { Store } from '../models/inventory.models';
 import { environment } from '../../environments/environment';
 
@@ -9,16 +9,21 @@ import { environment } from '../../environments/environment';
   providedIn: 'root',
 })
 export class StoreService {
-  private apiUrl = environment.apiUrl;
-  private storesSubject = new BehaviorSubject<Store[]>([]);
+  private readonly apiUrl = environment.apiUrl;
+  private readonly storesSubject = new BehaviorSubject<Store[]>([]);
   public stores$ = this.storesSubject.asObservable();
 
-  private activeStoreIdSubject = new BehaviorSubject<string | null>(
+  private readonly activeStoreIdSubject = new BehaviorSubject<string | null>(
     localStorage.getItem('jjm_active_store_id')
   );
   public activeStoreId$ = this.activeStoreIdSubject.asObservable();
 
-  constructor(private http: HttpClient) {}
+  constructor(private readonly http: HttpClient) {}
+
+  reset(): void {
+    this.storesSubject.next([]);
+    this.activeStoreIdSubject.next(null);
+  }
 
   loadStores(): void {
     this.http.get<Store[]>(`${this.apiUrl}/stores`).subscribe({
@@ -87,5 +92,140 @@ export class StoreService {
 
   getActiveStoreId(): string | null {
     return this.activeStoreIdSubject.value;
+  }
+
+  hasAiResponseCredits(storeId: string): boolean {
+    const store = this.storesSubject.value.find((s) => s.id === storeId);
+    if (!store) return false;
+
+    // Pro / Enterprise = Unlimited
+    const plan = store.subscriptionPlan || 'Free';
+    if (plan === 'Pro' || plan.includes('Pro') || plan.includes('Enterprise')) {
+      return true;
+    }
+
+    // Starter = Limited (Check credits)
+    if (plan === 'Starter' || plan.includes('Starter')) {
+      // Default to 0 if undefined. (Initialization logic should handle setting this to 1000)
+      // Note: If newly created without credits, it might block. We can leniently allow unless explicitly 0 if we assume fresh accounts have it.
+      // But adhering to strict credit field is safer.
+      const credits = store.credits?.aiResponse ?? 0;
+      return credits > 0;
+    }
+
+    // Free = No Access
+    return false;
+  }
+
+  deductAiResponseCredit(storeId: string): void {
+    const store = this.storesSubject.value.find((s) => s.id === storeId);
+    if (!store) return;
+
+    const plan = store.subscriptionPlan || 'Free';
+    // Only deduct for Starter
+    if (plan === 'Starter' || plan.includes('Starter')) {
+      const current = store.credits?.aiResponse ?? 0;
+      if (current > 0) {
+        const newCredits = {
+          ...(store.credits || {
+            ai: 0,
+            callMinutes: 0,
+            lastResetDate: new Date(),
+          }),
+          aiResponse: current - 1,
+        };
+        // Update without waiting
+        this.updateStore(storeId, { credits: newCredits }).subscribe();
+      }
+    }
+  }
+
+  hasTransactionCredits(storeId: string): boolean {
+    const store = this.storesSubject.value.find((s) => s.id === storeId);
+    if (!store) return false;
+
+    const plan = store.subscriptionPlan || 'Free';
+    // Pro / Enterprise = Unlimited
+    if (plan === 'Pro' || plan.includes('Pro') || plan.includes('Enterprise')) {
+      return true;
+    }
+
+    // others = Check Credits
+    return (store.credits?.transactions ?? 0) > 0;
+  }
+
+  deductTransactionCredit(storeId: string): void {
+    const store = this.storesSubject.value.find((s) => s.id === storeId);
+    if (!store) return;
+
+    const plan = store.subscriptionPlan || 'Free';
+    // Only deduct if NOT Pro/Enterprise
+    if (plan === 'Pro' || plan.includes('Pro') || plan.includes('Enterprise')) {
+      return;
+    }
+
+    const current = store.credits?.transactions ?? 0;
+    if (current > 0) {
+      const newCredits = {
+        ...(store.credits || {
+          ai: 0,
+          callMinutes: 0,
+          lastResetDate: new Date(),
+        }),
+        transactions: current - 1,
+      };
+      this.updateStore(storeId, { credits: newCredits }).subscribe();
+    }
+  }
+
+  hasAiCredits(storeId: string): boolean {
+    const store = this.storesSubject.value.find((s) => s.id === storeId);
+    if (!store) return false;
+
+    const plan = store.subscriptionPlan || 'Free';
+    // Pro / Enterprise = Unlimited
+    if (plan === 'Pro' || plan.includes('Pro') || plan.includes('Enterprise')) {
+      return true;
+    }
+
+    // Starter = Check Credits
+    if (plan === 'Starter' || plan.includes('Starter')) {
+      return (store.credits?.ai ?? 0) > 0;
+    }
+
+    return false;
+  }
+
+  deductAiCredit(storeId: string): void {
+    const store = this.storesSubject.value.find((s) => s.id === storeId);
+    if (!store) return;
+
+    const plan = store.subscriptionPlan || 'Free';
+    // Only deduct for Starter
+    if (plan === 'Starter' || plan.includes('Starter')) {
+      const current = store.credits?.ai ?? 0;
+      if (current > 0) {
+        const newCredits = {
+          ...(store.credits || {
+            ai: 0,
+            callMinutes: 0,
+            lastResetDate: new Date(),
+          }),
+          ai: current - 1,
+        };
+        this.updateStore(storeId, { credits: newCredits }).subscribe();
+      }
+    }
+  }
+
+  hasVoiceCallAccess(storeId: string): boolean {
+    const store = this.storesSubject.value.find((s) => s.id === storeId);
+    if (!store) return false;
+
+    const plan = store.subscriptionPlan || 'Free';
+    // Only Pro / Enterprise allowed
+    return (
+      plan === 'Pro' || plan.includes('Pro') || plan.includes('Enterprise')
+    );
   }
 }

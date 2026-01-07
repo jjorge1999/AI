@@ -170,7 +170,10 @@ export class AiService {
     'meta-llama/Llama-3.2-3B-Instruct', // Fallback 1 - Llama
     'mistralai/Mistral-7B-Instruct-v0.3', // Fallback 2 - Mistral
     'Qwen/Qwen2.5-1.5B-Instruct', // Fallback 3 - Qwen (smaller)
+    'Qwen/Qwen2.5-VL-7B-Instruct', // Fallback 4 - Qwen Vision-Language
   ];
+
+  private readonly VISION_MODEL = 'Qwen/Qwen2.5-VL-7B-Instruct';
 
   private currentModelIndex = 0;
 
@@ -396,6 +399,56 @@ export class AiService {
         if (modelIndex + 1 < this.AI_MODELS.length) {
           return this.tryChatWithFallback(messages, hfToken, modelIndex + 1);
         }
+        return of(null);
+      })
+    );
+  }
+  /**
+   * Analyze an image using a Vision model
+   */
+  analyzeImage(base64Image: string, prompt: string): Observable<string | null> {
+    const hfToken = this.getHfToken();
+    if (!hfToken) return of(null);
+
+    return from(
+      fetch(this.HF_API_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${hfToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: this.VISION_MODEL,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: base64Image,
+                  },
+                },
+              ],
+            },
+          ],
+          max_tokens: 100,
+        }),
+      })
+    ).pipe(
+      switchMap(async (response) => {
+        if (!response.ok) return null;
+        return response.json();
+      }),
+      map((data: any) => {
+        if (data?.choices?.length > 0) {
+          return data.choices[0].message?.content || null;
+        }
+        return null;
+      }),
+      catchError((e) => {
+        console.error('AI Service: Image analysis failed', e);
         return of(null);
       })
     );

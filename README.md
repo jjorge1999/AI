@@ -1,5 +1,7 @@
 # JJM Inventory
 
+**📚 Non-Technical User? [Click here to view the User Guide](./USER_MANUAL.md)**
+
 A comprehensive Inventory Management and Point of Sale (POS) system built with a modern web stack. This application integrates inventory tracking, sales processing, real-time chat, and activity logging into a unified platform.
 
 ## 🚀 Features
@@ -9,11 +11,19 @@ A comprehensive Inventory Management and Point of Sale (POS) system built with a
   - Integrated sales calculator.
   - **Pending Deliveries**: Manage scheduled deliveries, track overdue items, and handle stock deduction upon delivery confirmation.
   - **Reservations**: Create and manage product reservations for customers.
-- **Financial Tracking**: Record sales, expenses, and view profit/loss reports.
+- **Financial Tracking**:
+  - **Sales & Profit**: Record sales and view profit/loss reports.
+  - **Expenses**: Log detailed store expenses for accurate net profit calculation.
 - **Activity Logging**: Comprehensive audit log tracking all secure user actions (CREATE, UPDATE, DELETE).
 - **Communication Hub**:
   - **Chat**: Integrated customer support chat with real-time messaging.
   - **Calls**: WebRTC-based audio calls for direct communication.
+- **Public / Kiosk Features**:
+  - **Color Game**: A public-facing loyalty game for customers (`/play`) offering daily bonuses.
+  - **Self-Service Reservations**: Public portal (`/reservation`) for customers to browse items and book pickups.
+- **Marketing Tools**:
+  - **Ads Manager**: Upload and manage promotional banners.
+  - **AI Integration**: Automatically generate ad captions using AI.
 - **User Management**: Admin tools for managing app users and customers.
 - **Mobile Ready**: Optimized for mobile browsers and Android deployment via Capacitor.
 

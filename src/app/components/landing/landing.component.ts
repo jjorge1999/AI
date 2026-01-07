@@ -85,6 +85,7 @@ interface QuickAction {
   icon: string;
   route: string;
   color: string;
+  specialClass?: string;
 }
 
 @Component({
@@ -147,6 +148,13 @@ export class LandingComponent implements OnInit, OnDestroy {
       icon: 'receipt_long',
       route: '/expenses',
       color: '#ef4444',
+    },
+    {
+      label: 'Renew / Upgrade',
+      icon: 'stars',
+      route: '/pricing',
+      color: '#eab308',
+      specialClass: 'btn-upgrade-glow',
     },
   ];
 

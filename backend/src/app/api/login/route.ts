@@ -50,6 +50,30 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check Account Expiration
+    if (user.role !== 'super-admin' && user.accessExpiryDate) {
+      const now = new Date();
+      let expiryDate = new Date(user.accessExpiryDate);
+
+      // Handle Firebase Timestamp
+      if ((user.accessExpiryDate as any)._seconds) {
+        expiryDate = new Date((user.accessExpiryDate as any)._seconds * 1000);
+      }
+
+      // Set expiry to end of day to be generous
+      expiryDate.setHours(23, 59, 59, 999);
+
+      if (now > expiryDate) {
+        return withCors(
+          NextResponse.json(
+            { error: `Account expired on ${expiryDate.toLocaleDateString()}` },
+            { status: 403 }
+          ),
+          origin
+        );
+      }
+    }
+
     // Return User WITHOUT password (Secure)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...safeUser } = user;

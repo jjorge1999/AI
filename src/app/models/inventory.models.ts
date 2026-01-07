@@ -29,6 +29,21 @@ export interface Store {
   description?: string;
   createdAt: Date;
   createdBy?: string;
+  subscriptionPlan?: 'Free' | 'Starter' | 'Pro' | 'Enterprise' | 'EarlyAdopter';
+  subscriptionExpiryDate?: Date | string;
+  credits?: {
+    ai: number;
+    aiResponse?: number;
+    transactions?: number;
+    callMinutes: number;
+    lastResetDate: Date;
+  };
+  pendingSubscription?: {
+    plan: 'Free' | 'Starter' | 'Pro' | 'Enterprise';
+    proofUrl: string; // Base64 or URL
+    requestDate: Date;
+    referenceNumber?: string;
+  } | null;
 }
 
 export interface Sale {
@@ -128,6 +143,7 @@ export interface User {
   hasSubscription?: boolean;
   storeId?: string; // Current associated store
   storeIds?: string[]; // Multiple stores for admins
+  accessExpiryDate?: Date; // Account expiration date
 }
 
 export interface Reservation {

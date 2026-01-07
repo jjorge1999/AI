@@ -32,6 +32,7 @@ import {
   User,
 } from '../../models/inventory.models';
 import { InventoryService } from '../../services/inventory.service';
+import { StoreService } from '../../services/store.service';
 import { Subscription, take, firstValueFrom } from 'rxjs';
 import { Unsubscribe } from 'firebase/firestore';
 
@@ -119,7 +120,8 @@ export class ChatComponent
     private aiService: AiService,
     private inventoryService: InventoryService,
     private dialogService: DialogService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private storeService: StoreService
   ) {
     // Request notification permission immediately
     this.requestNotificationPermission();
@@ -1068,6 +1070,14 @@ Thank you for your reservation! A staff member will contact you to confirm.`;
 
   // AI Auto-responder for customer product inquiries - Uses Gemma AI
   private async handleCustomerInquiry(messageText: string): Promise<void> {
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (
+      activeStoreId &&
+      !this.storeService.hasAiResponseCredits(activeStoreId)
+    ) {
+      console.log('AI Auto-responder suppressed: Limit Reached');
+      return;
+    }
     // Keywords that indicate a product inquiry (English, Filipino, Cebuano)
     const productKeywords = [
       // English
@@ -1169,6 +1179,8 @@ Thank you for your reservation! A staff member will contact you to confirm.`;
               'Support AI',
               this.senderName
             );
+            if (activeStoreId)
+              this.storeService.deductAiResponseCredit(activeStoreId);
           }
           return;
         }
@@ -1290,6 +1302,8 @@ Reply in the same language they used. Be positive: mention restocking soon, offe
           'Support AI',
           this.senderName
         );
+        if (activeStoreId)
+          this.storeService.deductAiResponseCredit(activeStoreId);
         console.log('AI Auto-responder: Response sent');
       });
   }
@@ -1393,6 +1407,9 @@ Reply naturally in the same language they used. Be warm and helpful. If they're 
             .sendMessage(gemmaResponse, 'Support AI', this.senderName)
             .subscribe(() => {
               console.log('AI Auto-responder: General response sent');
+              const activeStoreId = this.storeService.getActiveStoreId();
+              if (activeStoreId)
+                this.storeService.deductAiResponseCredit(activeStoreId);
             });
         }
       });
@@ -1819,6 +1836,18 @@ Reply naturally in the same language they used. Be warm and helpful. If they're 
     if (event) {
       event.preventDefault(); // Prevent default behavior for touch/mouse
       event.stopPropagation();
+    }
+
+    // Pro Feature Check (Voice Messages)
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (activeStoreId && !this.storeService.hasVoiceCallAccess(activeStoreId)) {
+      this.dialogService
+        .warning(
+          'Voice Messages are available on Pro Revenue Plan only.',
+          'Upgrade Required'
+        )
+        .subscribe();
+      return;
     }
 
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {

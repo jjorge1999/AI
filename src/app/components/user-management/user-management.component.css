@@ -799,6 +799,15 @@
   gap: var(--space-xs);
 }
 
+.form-row {
+  display: flex;
+  gap: var(--space-md);
+}
+
+.half-width {
+  flex: 1;
+}
+
 .form-group label {
   font-size: 0.875rem;
   font-weight: 500;
@@ -910,6 +919,21 @@
 
 :host-context(body.dark-theme) .view-controls {
   background: #101922;
+}
+
+/* Dark Mode Form Elements */
+:host-context(body.dark-theme) .form-group input,
+:host-context(body.dark-theme) .form-group select {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f1f5f9;
+  color-scheme: dark;
+}
+
+:host-context(body.dark-theme) input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.8;
+  cursor: pointer;
 }
 
 /* Store Assignment Grid */

@@ -187,7 +187,10 @@
         <div class="store-switcher" *ngIf="stores.length > 0">
           <div class="active-store-selector" [class.collapsed]="isSidebarCollapsed">
             <span class="material-icon">storefront</span>
-            <span class="store-label" [title]="activeStoreName">{{ activeStoreName }}</span>
+            <span class="store-label" [title]="activeStoreName">
+              {{ activeStoreName }}
+              <span class="plan-pill" *ngIf="activeStorePlan" style="font-size: 0.7em; background: var(--primary-color, #6366f1); padding: 2px 6px; border-radius: 4px; margin-left: 8px; vertical-align: middle;">{{ activeStorePlan }}</span>
+            </span>
           </div>
         </div>
       </div>

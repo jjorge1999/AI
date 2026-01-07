@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -43,10 +44,11 @@ export class AdsManagementComponent implements OnInit, OnDestroy {
   };
 
   constructor(
-    private adsService: AdsService,
-    private dialogService: DialogService,
-    private aiService: AiService,
-    private storeService: StoreService
+    private readonly adsService: AdsService,
+    private readonly dialogService: DialogService,
+    private readonly aiService: AiService,
+    private readonly storeService: StoreService,
+    private readonly router: Router
   ) {}
 
   ngOnInit(): void {
@@ -58,6 +60,20 @@ export class AdsManagementComponent implements OnInit, OnDestroy {
       this.storeService.activeStoreId$.subscribe((storeId) => {
         this.adsService.stopListening();
         this.adsService.startListening(undefined, storeId || undefined);
+
+        // Access Control: Block Free Tier
+        if (storeId) {
+          this.storeService.getStoreById(storeId).subscribe((store) => {
+            const plan = store?.subscriptionPlan || 'Free';
+            if (plan === 'Free') {
+              this.dialogService.error(
+                'Ad Management is not available on Free Tier.',
+                'Upgrade Required'
+              );
+              this.router.navigate(['/home']);
+            }
+          });
+        }
       })
     );
 
@@ -448,6 +464,16 @@ export class AdsManagementComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Check AI Credits
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (activeStoreId && !this.storeService.hasAiCredits(activeStoreId)) {
+      this.dialogService.warning(
+        'You have used your AI Ad allocation (1,000 Credits). Upgrade to Pro for Unlimited.',
+        'Limit Reached'
+      );
+      return;
+    }
+
     this.isGeneratingCaption = true;
 
     // Construct a rich prompt for marketing expert AI
@@ -488,6 +514,10 @@ Do not include markdown formatting, code blocks, or explanations. Just the JSON 
 
             if (data.description) {
               this.uploadForm.description = data.description;
+              // Deduct Credit (Starter)
+              if (activeStoreId) {
+                this.storeService.deductAiCredit(activeStoreId);
+              }
             }
           } catch (e) {
             console.error('Failed to parse AI response', e);

@@ -1,6 +1,14 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap, from, of, throwError } from 'rxjs';
+import {
+  BehaviorSubject,
+  Observable,
+  tap,
+  from,
+  of,
+  throwError,
+  take,
+} from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 import { Product, Sale, Expense, Category } from '../models/inventory.models';
 import { environment } from '../../environments/environment';
@@ -662,39 +670,73 @@ export class InventoryService {
       );
     }
 
-    const baseData = {
-      ...product,
-      createdAt: new Date(),
-      storeId: activeStoreId,
-    };
+    return this.storeService.stores$.pipe(
+      take(1),
+      switchMap((stores) => {
+        const store = stores.find((s) => s.id === activeStoreId);
+        // Free Plan Check
+        const plan = store?.subscriptionPlan || 'Free';
+        const currentCount = this.productsSubject.value.length;
+        let limit = Infinity;
 
-    const firestoreData = { ...baseData, userId: this.getFirestoreUserId() };
+        if (plan === 'Free') {
+          limit = 10;
+        } else if (plan === 'Starter' || (plan as string).includes('Starter')) {
+          limit = 2000;
+        }
 
-    return from(addDoc(collection(this.db, 'products'), firestoreData)).pipe(
-      map((docRef) => docRef.id),
-      catchError((e) => {
-        console.warn('Firestore write failed:', e);
-        return of(undefined);
-      }),
-      switchMap((firestoreId) => {
-        const legacyData = { ...baseData, userId: this.getCurrentUser() };
-        if (firestoreId) Object.assign(legacyData, { id: firestoreId });
-        return this.http.post<Product>(`${this.apiUrl}/products`, legacyData);
-      }),
-      tap({
-        next: (newProduct) => {
-          const current = this.productsSubject.value;
-          if (!current.find((p) => p.id === newProduct.id)) {
-            this.productsSubject.next([...current, newProduct]);
-          }
-          this.loggingService.logActivity(
-            'create',
-            'product',
-            newProduct.id,
-            newProduct.name
+        if (currentCount >= limit) {
+          return throwError(
+            () =>
+              new Error(
+                `Product Limit Reached for ${plan} plan (${limit}). Upgrade to store more.`
+              )
           );
-        },
-        error: (err) => console.error('Error adding product:', err),
+        }
+
+        const baseData = {
+          ...product,
+          createdAt: new Date(),
+          storeId: activeStoreId,
+        };
+
+        const firestoreData = {
+          ...baseData,
+          userId: this.getFirestoreUserId(),
+        };
+
+        return from(
+          addDoc(collection(this.db, 'products'), firestoreData)
+        ).pipe(
+          map((docRef) => docRef.id),
+          catchError((e) => {
+            console.warn('Firestore write failed:', e);
+            return of(undefined);
+          }),
+          switchMap((firestoreId) => {
+            const legacyData = { ...baseData, userId: this.getCurrentUser() };
+            if (firestoreId) Object.assign(legacyData, { id: firestoreId });
+            return this.http.post<Product>(
+              `${this.apiUrl}/products`,
+              legacyData
+            );
+          }),
+          tap({
+            next: (newProduct) => {
+              const current = this.productsSubject.value;
+              if (!current.find((p) => p.id === newProduct.id)) {
+                this.productsSubject.next([...current, newProduct]);
+              }
+              this.loggingService.logActivity(
+                'create',
+                'product',
+                newProduct.id,
+                newProduct.name
+              );
+            },
+            error: (err) => console.error('Error adding product:', err),
+          })
+        );
       })
     );
   }
@@ -785,61 +827,85 @@ export class InventoryService {
       );
     }
 
-    const baseData: Record<string, any> = {
-      productId: product.id,
-      productName: product.name,
-      category: product.category,
-      price: product.price,
-      quantitySold,
-      total,
-      cashReceived,
-      change,
-      pending: true,
-      discount,
-      discountType,
-      timestamp: new Date(),
-      storeId: activeStoreId,
-    };
+    return this.storeService.stores$.pipe(
+      take(1),
+      switchMap((stores) => {
+        const store = stores.find((s) => s.id === activeStoreId);
 
-    // Only add optional fields if they have values (Firebase doesn't accept undefined)
-    if (deliveryDate) baseData['deliveryDate'] = deliveryDate;
-    if (deliveryNotes) baseData['deliveryNotes'] = deliveryNotes;
-    if (customerId) baseData['customerId'] = customerId;
-    if (orderId) baseData['orderId'] = orderId;
-
-    const firestoreData = { ...baseData, userId: this.getFirestoreUserId() };
-
-    return from(addDoc(collection(this.db, 'sales'), firestoreData)).pipe(
-      map((docRef) => docRef.id),
-      catchError((e) => {
-        console.warn('Firestore Sale Write Failed:', e);
-        return of(undefined);
-      }),
-      switchMap((firestoreId) => {
-        const legacyData = { ...baseData, userId: this.getCurrentUser() };
-        if (firestoreId) Object.assign(legacyData, { id: firestoreId });
-        return this.http.post<Sale>(`${this.apiUrl}/sales`, legacyData);
-      }),
-      tap({
-        next: (newSale) => {
-          // Update local sales state
-          const currentSales = this.salesSubject.value;
-          if (!currentSales.find((s) => s.id === newSale.id)) {
-            this.salesSubject.next([
-              ...currentSales,
-              this.transformSale(newSale),
-            ]);
-          }
-
-          this.loggingService.logActivity(
-            'create',
-            'sale',
-            newSale.id,
-            product.name,
-            `Sold ${quantitySold} units (Pending Delivery)`
+        // Transaction Limit Check
+        // Check Transaction Limits (Credit Based)
+        if (!this.storeService.hasTransactionCredits(activeStoreId)) {
+          return throwError(
+            () =>
+              new Error(
+                'Transaction Limit Reached. Please Upgrade to Pro or Top Up.'
+              )
           );
-        },
-        error: (err) => console.error('Error recording sale:', err),
+        }
+
+        const baseData: Record<string, any> = {
+          productId: product.id,
+          productName: product.name,
+          category: product.category,
+          price: product.price,
+          quantitySold,
+          total,
+          cashReceived,
+          change,
+          pending: true,
+          discount,
+          discountType,
+          timestamp: new Date(),
+          storeId: activeStoreId,
+        };
+
+        // Only add optional fields if they have values (Firebase doesn't accept undefined)
+        if (deliveryDate) baseData['deliveryDate'] = deliveryDate;
+        if (deliveryNotes) baseData['deliveryNotes'] = deliveryNotes;
+        if (customerId) baseData['customerId'] = customerId;
+        if (orderId) baseData['orderId'] = orderId;
+
+        const firestoreData = {
+          ...baseData,
+          userId: this.getFirestoreUserId(),
+        };
+
+        return from(addDoc(collection(this.db, 'sales'), firestoreData)).pipe(
+          map((docRef) => docRef.id),
+          catchError((e) => {
+            console.warn('Firestore Sale Write Failed:', e);
+            return of(undefined);
+          }),
+          switchMap((firestoreId) => {
+            const legacyData = { ...baseData, userId: this.getCurrentUser() };
+            if (firestoreId) Object.assign(legacyData, { id: firestoreId });
+            return this.http.post<Sale>(`${this.apiUrl}/sales`, legacyData);
+          }),
+          tap({
+            next: (newSale) => {
+              // Deduct Credit on Success
+              this.storeService.deductTransactionCredit(activeStoreId);
+
+              // Update local sales state
+              const currentSales = this.salesSubject.value;
+              if (!currentSales.find((s) => s.id === newSale.id)) {
+                this.salesSubject.next([
+                  ...currentSales,
+                  this.transformSale(newSale),
+                ]);
+              }
+
+              this.loggingService.logActivity(
+                'create',
+                'sale',
+                newSale.id,
+                product.name,
+                `Sold ${quantitySold} units (Pending Delivery)`
+              );
+            },
+            error: (err) => console.error('Error recording sale:', err),
+          })
+        );
       })
     );
   }

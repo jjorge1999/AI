@@ -104,7 +104,7 @@
         <!-- Quick Actions Widget -->
         <ng-container *ngIf="widget.id === 'quickActions'">
           <div class="quick-actions-bar">
-            <button *ngFor="let action of quickActions" class="quick-action-btn" (click)="navigateTo(action.route)" [style.--action-color]="action.color">
+            <button *ngFor="let action of quickActions" class="quick-action-btn" [ngClass]="action.specialClass" (click)="navigateTo(action.route)" [style.--action-color]="action.color">
               <span class="material-icon">{{ action.icon }}</span>
               <span class="action-label">{{ action.label }}</span>
             </button>

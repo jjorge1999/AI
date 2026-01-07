@@ -70,6 +70,7 @@ export class AppComponent implements OnInit, OnDestroy {
   stores: Store[] = [];
   activeStoreId: string | null = null;
   activeStoreName = 'Select Store';
+  activeStorePlan = '';
 
   isSidebarCollapsed = false;
   isMobileSidebarOpen = false;
@@ -272,20 +273,19 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   logout(): void {
+    // 1. Trigger Service Cleanups
     this.chatService.triggerLogout();
-    localStorage.removeItem('jjm_logged_in');
-    localStorage.removeItem('jjm_username');
-    localStorage.removeItem('jjm_user_id');
-    localStorage.removeItem('jjm_role');
-    localStorage.removeItem('jjm_fullname');
-    localStorage.removeItem('chatCustomerInfo');
-    localStorage.removeItem('chatUserName');
+    this.storeService.reset();
 
-    // Update service state
+    // 2. Clear Persistence
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // 3. Update Auth State
     this.userService.setLoginState(false);
     this.isLoggedIn = false;
 
-    // Navigate to login
+    // 4. Navigate
     this.router.navigate(['/login']);
   }
 
@@ -420,8 +420,10 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.activeStoreId) {
       const store = this.stores.find((s) => s.id === this.activeStoreId);
       this.activeStoreName = store ? store.name : 'Select Store';
+      this.activeStorePlan = store ? store.subscriptionPlan || 'Free' : '';
     } else {
       this.activeStoreName = 'Select Store';
+      this.activeStorePlan = '';
     }
   }
 

@@ -17,7 +17,7 @@ import { SaleService } from '../../services/sale.service';
 import { Product } from '../../models/inventory.models';
 import { SaleEvent } from '../../models/sale.model';
 import { Subscription, firstValueFrom } from 'rxjs';
-import { take } from 'rxjs/operators';
+import { take, map } from 'rxjs/operators';
 import { AdsSliderComponent } from '../ads-slider/ads-slider.component';
 import { StoreService } from '../../services/store.service';
 import { Store } from '../../models/inventory.models';
@@ -77,7 +77,14 @@ export class ReservationComponent implements OnInit, OnDestroy {
   // Multi-store support
   selectedStoreId: string | null = null;
   selectedStore: Store | null = null;
-  stores$ = this.storeService.stores$;
+  stores$ = this.storeService.stores$.pipe(
+    map((stores) =>
+      stores.filter((s) => {
+        const plan = s.subscriptionPlan || 'Free';
+        return plan !== 'Free';
+      })
+    )
+  );
 
   isSubmitting = false;
   successMessage = '';

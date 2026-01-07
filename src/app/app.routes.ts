@@ -77,6 +77,13 @@ export const routes: Routes = [
 
   // Protected routes (require login)
   {
+    path: 'pricing',
+    loadComponent: () =>
+      import(
+        './components/subscription-pricing/subscription-pricing.component'
+      ).then((m) => m.SubscriptionPricingComponent),
+  },
+  {
     path: '',
     canActivate: [authGuard],
     children: [
