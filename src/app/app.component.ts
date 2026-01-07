@@ -128,20 +128,9 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isVisionAid = savedVision === 'true';
     this.applyVisionAid();
 
-    // Load sidebar preference
+    // Load sidebar preference - respects user preference on all devices
     const savedCollapsed = localStorage.getItem('jjm_sidebar_collapsed');
     this.isSidebarCollapsed = savedCollapsed === 'true';
-
-    // Auto-collapse sidebar on mobile, expand on desktop
-    this.deviceService.isMobile$.subscribe((isMobile) => {
-      if (isMobile) {
-        this.isSidebarCollapsed = true;
-      } else {
-        // On desktop, restore user preference or default to expanded
-        const preference = localStorage.getItem('jjm_sidebar_collapsed');
-        this.isSidebarCollapsed = preference === 'true';
-      }
-    });
 
     // Expose service for migration
     (window as any).inventoryService = this.inventoryService;
