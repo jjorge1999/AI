@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { FirebaseService } from './firebase.service';
+import { StoreService } from './store.service';
 import {
   getMessaging,
   getToken,
@@ -7,7 +8,7 @@ import {
   Messaging,
 } from 'firebase/messaging';
 import { environment } from '../../environments/environment';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, Subscription } from 'rxjs';
 import {
   doc,
   updateDoc,
@@ -27,6 +28,7 @@ export interface AdminNotification {
   timestamp: Date;
   type: 'message' | 'reservation' | 'delivery' | 'system' | 'reminder';
   read: boolean;
+  storeId?: string; // Store-specific notifications
 }
 
 @Injectable({
@@ -44,15 +46,54 @@ export class NotificationService {
   public notifications$ = this.notificationsSubject.asObservable();
 
   private db: Firestore;
+  private activeStoreId: string | null = null;
+  private storeSubscription: Subscription | null = null;
+  private hasInitialized = false;
 
-  constructor(private firebaseService: FirebaseService) {
+  constructor(
+    private firebaseService: FirebaseService,
+    private storeService: StoreService
+  ) {
     this.db = this.firebaseService.db;
     this.messaging = getMessaging(this.firebaseService.app);
-    this.loadPersistedNotifications();
+
+    // Migrate old notifications to clear the non-store-specific key
+    this.migrateOldNotifications();
+
+    // Subscribe to active store changes
+    this.storeSubscription = this.storeService.activeStoreId$.subscribe(
+      (storeId) => {
+        const storeChanged = storeId !== this.activeStoreId;
+        this.activeStoreId = storeId;
+
+        // Always load on first subscription or when store changes
+        if (!this.hasInitialized || storeChanged) {
+          this.hasInitialized = true;
+          this.loadPersistedNotifications();
+        }
+      }
+    );
+  }
+
+  private migrateOldNotifications(): void {
+    // Clear old non-store-specific notifications to prevent cross-store leakage
+    const oldKey = 'jjm_admin_notifications';
+    if (localStorage.getItem(oldKey)) {
+      localStorage.removeItem(oldKey);
+      console.log(
+        'NotificationService: Cleared old non-store-specific notifications'
+      );
+    }
+  }
+
+  private getStorageKey(): string {
+    return this.activeStoreId
+      ? `jjm_admin_notifications_${this.activeStoreId}`
+      : 'jjm_admin_notifications';
   }
 
   private loadPersistedNotifications() {
-    const saved = localStorage.getItem('jjm_admin_notifications');
+    const saved = localStorage.getItem(this.getStorageKey());
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -68,13 +109,18 @@ export class NotificationService {
         this.notificationCountSubject.next(unreadCount);
       } catch (e) {
         console.error('Failed to load persisted notifications', e);
+        this.notificationsSubject.next([]);
+        this.notificationCountSubject.next(0);
       }
+    } else {
+      this.notificationsSubject.next([]);
+      this.notificationCountSubject.next(0);
     }
   }
 
   private persistNotifications() {
     localStorage.setItem(
-      'jjm_admin_notifications',
+      this.getStorageKey(),
       JSON.stringify(this.notificationsSubject.value)
     );
   }
@@ -141,10 +187,14 @@ export class NotificationService {
     onMessage(this.messaging, (payload: any) => {
       console.log('Message received in foreground: ', payload);
 
+      // Extract storeId from payload data if available
+      const storeId = payload.data?.storeId;
+
       this.pushNotification(
         payload.notification?.title || 'New Notification',
         payload.notification?.body || '',
-        this.determineType(payload)
+        this.determineType(payload),
+        storeId
       );
 
       // Show as a browser notification if possible
@@ -166,12 +216,35 @@ export class NotificationService {
     return 'system';
   }
 
+  /**
+   * Push a notification to the current active store
+   * @param title Notification title
+   * @param body Notification body
+   * @param type Notification type
+   * @param targetStoreId Optional: If provided, only adds notification if it matches the active store
+   */
   public pushNotification(
     title: string,
     body: string,
-    type: AdminNotification['type'] = 'system'
+    type: AdminNotification['type'] = 'system',
+    targetStoreId?: string
   ): boolean {
-    console.log(`NotificationService: Pushing "${title}"`);
+    console.log(
+      `NotificationService: Pushing "${title}" for store: ${
+        targetStoreId || this.activeStoreId || 'all'
+      }`
+    );
+
+    // If targetStoreId is specified, only add if it matches current active store
+    if (targetStoreId && targetStoreId !== this.activeStoreId) {
+      console.log(
+        `NotificationService: Skipping - notification is for store ${targetStoreId}, but active store is ${this.activeStoreId}`
+      );
+      // Save to the target store's storage instead
+      this.saveNotificationToStore(title, body, type, targetStoreId);
+      return false;
+    }
+
     // Deduplication: Avoid adding exact same notification if it already exists
     const exists = this.notificationsSubject.value.some(
       (n) => n.title === title && n.body === body
@@ -190,10 +263,61 @@ export class NotificationService {
       timestamp: new Date(),
       type,
       read: false,
+      storeId: targetStoreId || this.activeStoreId || undefined,
     };
     this.addNotification(notification);
     console.log('NotificationService: Notification added successfully.');
     return true;
+  }
+
+  /**
+   * Save notification directly to a specific store's storage (for when user is viewing a different store)
+   */
+  private saveNotificationToStore(
+    title: string,
+    body: string,
+    type: AdminNotification['type'],
+    storeId: string
+  ): void {
+    const storageKey = `jjm_admin_notifications_${storeId}`;
+    let notifications: AdminNotification[] = [];
+
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        notifications = JSON.parse(saved).map((n: any) => ({
+          ...n,
+          timestamp: new Date(n.timestamp),
+        }));
+      } catch (e) {
+        console.error(
+          'Failed to parse stored notifications for store',
+          storeId
+        );
+      }
+    }
+
+    // Check for duplicates
+    const exists = notifications.some(
+      (n) => n.title === title && n.body === body
+    );
+    if (exists) return;
+
+    const notification: AdminNotification = {
+      id: Date.now().toString(),
+      title,
+      body,
+      timestamp: new Date(),
+      type,
+      read: false,
+      storeId,
+    };
+
+    notifications = [notification, ...notifications].slice(0, 15);
+    localStorage.setItem(storageKey, JSON.stringify(notifications));
+    console.log(
+      `NotificationService: Saved notification to store ${storeId} storage`
+    );
   }
 
   private addNotification(notif: AdminNotification) {

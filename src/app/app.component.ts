@@ -513,11 +513,12 @@ export class AppComponent implements OnInit, OnDestroy {
       message = `Delivery for "${sale.productName}" is due in ${daysAhead} day(s) (${dateStr}).`;
     }
 
-    // 1. Add to the new notification UI
+    // 1. Add to the new notification UI (scoped to sale's store)
     const isNew = this.notificationService.pushNotification(
       title,
       message,
-      'reminder'
+      'reminder',
+      sale.storeId
     );
 
     // 2. Play alert sound ONLY if it's a new notification
