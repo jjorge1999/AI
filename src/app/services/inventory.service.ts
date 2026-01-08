@@ -150,7 +150,56 @@ export class InventoryService {
     }
   }
 
+  /**
+   * Clears all in-memory data and stops listeners.
+   * Call this on logout to ensure clean state.
+   */
+  public clearAllData(): void {
+    console.log('InventoryService: Clearing all data...');
+
+    // Stop all listeners
+    this.stopRealtimeListeners();
+
+    // Reset listener initialization flag
+    this.listenersInitialized = false;
+
+    // Clear all signals
+    this._products.set([]);
+    this._sales.set([]);
+    this._expenses.set([]);
+    this._categories.set([]);
+    this._stats.set({
+      totalRevenue: 0,
+      mtdRevenue: 0,
+      todayRevenue: 0,
+      todayOrdersCount: 0,
+      totalProductsCount: 0,
+      lowStockCount: 0,
+      lastUpdated: new Date(),
+      storeId: '',
+    });
+
+    // Clear all subjects
+    this.productsSubject.next([]);
+    this.salesSubject.next([]);
+    this.expensesSubject.next([]);
+    this.categoriesSubject.next([]);
+    this.statsSubject.next(this._stats());
+
+    // Clear Firebase user reference
+    this.firebaseUser = null;
+  }
+
   private hydrateFromCache(): void {
+    // SECURITY: Only hydrate cache if we have a valid store context
+    const storeId = this.storeService.getActiveStoreId();
+    if (!storeId) {
+      console.log(
+        'InventoryService: No store context - skipping cache hydration for security.'
+      );
+      return;
+    }
+
     try {
       const items = [
         {
@@ -173,11 +222,14 @@ export class InventoryService {
       ];
 
       items.forEach((item) => {
-        const cached = localStorage.getItem(`jjm_${item.key}`);
+        // Cache is now keyed by storeId for isolation
+        const cacheKey = `jjm_${storeId}_${item.key}`;
+        const cached = localStorage.getItem(cacheKey);
         if (cached) {
           const parsed = JSON.parse(cached);
           item.signal.set(parsed);
           item.subject.next(parsed);
+          console.log(`Hydrated ${item.key} from cache for store ${storeId}`);
         }
       });
     } catch (e) {
@@ -186,8 +238,14 @@ export class InventoryService {
   }
 
   private saveToCache(key: string, data: any): void {
+    // SECURITY: Only save cache with store context
+    const storeId = this.storeService.getActiveStoreId();
+    if (!storeId) return; // Don't cache without store context
+
     try {
-      localStorage.setItem(`jjm_${key}`, JSON.stringify(data));
+      // Cache is keyed by storeId for isolation
+      const cacheKey = `jjm_${storeId}_${key}`;
+      localStorage.setItem(cacheKey, JSON.stringify(data));
     } catch (e) {
       console.error(`InventoryService: Failed to save ${key} to cache`, e);
     }
@@ -300,6 +358,12 @@ export class InventoryService {
     // Stop previous listeners first to avoid memory leaks/multiple streams
     this.unsubscribes.forEach((unsub) => unsub());
     this.unsubscribes = [];
+
+    // SECURITY: Hydrate cache for the NEW store (data is keyed by storeId)
+    // This ensures we load the correct store's data, not another store's
+    if (activeStoreId) {
+      this.hydrateFromCache();
+    }
 
     this.setupStatsListener(activeStoreId);
 
@@ -527,11 +591,29 @@ export class InventoryService {
             } as DashboardStats;
             this._stats.set(stats);
             this.statsSubject.next(stats);
-            // Also update legacy subject for components still using stats$ (like Landing)
           } else {
             console.log('No aggregation document found for this store.');
             this._stats.set(null);
             this.statsSubject.next(null);
+
+            // Check if we have cached data for THIS STORE to display
+            const hasCachedProducts = localStorage.getItem(
+              `jjm_${storeId}_products`
+            );
+            const hasCachedSales = localStorage.getItem(`jjm_${storeId}_sales`);
+            const isFullSync =
+              localStorage.getItem('jjm_force_full_load') === 'true';
+
+            // Only enable Full Sync if NO cached data exists AND not already in Full Sync
+            // This preserves quota optimization while ensuring dashboard has data
+            if (!isFullSync && !hasCachedProducts && !hasCachedSales) {
+              console.log(
+                'No cached data found for this store. Enabling Full Sync to fetch raw data...'
+              );
+              this.enableFullSync();
+            } else if (hasCachedProducts || hasCachedSales) {
+              console.log('Using cached data for this store. Quota preserved.');
+            }
           }
         },
         (err) => this.handleFirestoreError(err, 'Stats Listener Error')

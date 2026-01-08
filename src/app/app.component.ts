@@ -294,20 +294,30 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   logout(): void {
-    // 1. Trigger Service Cleanups
+    console.log('Logging out - clearing all caches...');
+
+    // 1. Stop Firestore Listeners and Clear Service State
+    this.inventoryService.clearAllData();
+
+    // 2. Trigger Additional Service Cleanups
     this.chatService.triggerLogout();
     this.storeService.reset();
 
-    // 2. Clear Persistence
+    // 3. Clear All Browser Storage
     localStorage.clear();
     sessionStorage.clear();
 
-    // 3. Update Auth State
+    // Note: We do NOT clear IndexedDB here as it would crash Firestore while running.
+    // The Firestore cache is keyed by user/store and will be overwritten on next login.
+
+    // 5. Update Auth State
     this.userService.setLoginState(false);
     this.isLoggedIn = false;
 
-    // 4. Navigate
+    // 6. Navigate to Login
     this.router.navigate(['/login']);
+
+    console.log('Logout complete - all caches cleared.');
   }
 
   private applyTheme(): void {

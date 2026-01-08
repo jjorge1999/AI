@@ -300,14 +300,28 @@ export class LandingComponent implements OnInit, OnDestroy {
     // Load saved widget layout
     this.loadWidgetLayout();
 
-    // Dashboard is now data-lazy. Raw products/sales/customers are only loaded
-    // when navigating to their respective management pages (Full Sync).
-    // Aggregation stats cover the initial dashboard view.
+    // Check if user/store has switched since last session
+    const currentUserId = localStorage.getItem('jjm_user_id');
+    const currentStoreId = localStorage.getItem('jjm_active_store_id');
+    const lastUserId = localStorage.getItem('jjm_last_user_id');
+    const lastStoreId = localStorage.getItem('jjm_last_store_id');
 
-    // Check for data existence before calling load (Optimization)
+    const userSwitched =
+      currentUserId !== lastUserId || currentStoreId !== lastStoreId;
+
+    if (userSwitched) {
+      console.log('User/Store switch detected. Forcing full data sync...');
+      // Update last user/store markers
+      if (currentUserId)
+        localStorage.setItem('jjm_last_user_id', currentUserId);
+      if (currentStoreId)
+        localStorage.setItem('jjm_last_store_id', currentStoreId);
+      // Enable full sync to fetch fresh data for new user/store
+      this.inventoryService.enableFullSync();
+    }
+
+    // Load customers for display
     this.customerService.loadCustomers();
-    // However, if we need side effects, we can use effect() in constructor or keeping subscription for now if updateDashboardData is complex.
-    // Let's keep a effect for updateDashboardData transition.
 
     // Auto-switch to grid view on mobile
     this.subscriptions.push(
