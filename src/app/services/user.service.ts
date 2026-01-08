@@ -1,16 +1,29 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, from, of, tap } from 'rxjs';
-import { map, switchMap, take, catchError } from 'rxjs/operators';
+import { BehaviorSubject, Observable, from, of } from 'rxjs';
+import { map, switchMap, catchError } from 'rxjs/operators';
 import { User } from '../models/inventory.models';
-import { environment } from '../../environments/environment';
 import { StoreService } from './store.service';
+import {
+  collection,
+  getDocs,
+  doc,
+  getDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  Timestamp,
+  serverTimestamp,
+} from 'firebase/firestore';
+import { FirebaseService } from './firebase.service';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, deleteUser as deleteUserAuth, updatePassword } from 'firebase/auth';
 
 @Injectable({
   providedIn: 'root',
 })
 export class UserService {
-  private apiUrl = environment.apiUrl;
+  private usersCollection = collection(this.firebaseService.db, 'users');
   private usersSubject = new BehaviorSubject<User[]>([]);
   public users$ = this.usersSubject.asObservable();
 
@@ -33,142 +46,148 @@ export class UserService {
     }
   }
 
-  constructor(private http: HttpClient, private storeService: StoreService) {
+  constructor(
+    private storeService: StoreService,
+    private firebaseService: FirebaseService
+  ) {
     // Removed automatic loading of all users on startup for security
-  }
-
-  // Hash Helper
-  private hashPassword(password: string): Observable<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    return from(crypto.subtle.digest('SHA-256', data)).pipe(
-      map((hash) =>
-        Array.from(new Uint8Array(hash))
-          .map((b) => b.toString(16).padStart(2, '0'))
-          .join('')
-      )
-    );
   }
 
   public loadUsers(): void {
     const currentUserId = localStorage.getItem('jjm_user_id');
-    this.http.get<User[]>(`${this.apiUrl}/users`).subscribe({
+    from(getDocs(this.usersCollection)).pipe(
+      map((snapshot) => snapshot.docs.map(doc => this.transformUser({ id: doc.id, ...doc.data() })))
+    ).subscribe({
       next: (users) => {
-        const parsedUsers = users.map((user) => this.transformUser(user));
-        if (parsedUsers.length === 0) {
+        if (users.length === 0) {
           this.initializeDefaultAdmin().subscribe();
         } else {
-          this.usersSubject.next(parsedUsers);
+          this.usersSubject.next(users);
           if (currentUserId) {
-            const current = parsedUsers.find((u) => u.id === currentUserId);
+            const current = users.find((u) => u.id === currentUserId);
             if (current) this.currentUserSubject.next(current);
           }
         }
       },
       error: (err) => {
         console.error('Error fetching users:', err);
-        if (err.status === 404) {
-          this.initializeDefaultAdmin().subscribe();
-        }
+        this.initializeDefaultAdmin().subscribe();
       },
     });
   }
 
   private initializeDefaultAdmin(): Observable<void> {
     if (this.usersSubject.value.length > 0) return of(void 0);
+    const auth = getAuth(this.firebaseService.app);
+    const defaultAdmin: User = {
+      id: 'admin-1',
+      username: 'jjm143256789',
+      fullName: 'System Administrator',
+      password: 'Gr*l0v3R',
+      role: 'admin',
+      createdAt: new Date(),
+      hasSubscription: true,
+    };
 
-    return this.hashPassword('Gr*l0v3R').pipe(
-      switchMap((hashedPassword) => {
-        const defaultAdmin: User = {
-          id: 'admin-1',
-          username: 'jjm143256789',
-          fullName: 'System Administrator',
-          password: hashedPassword,
-          role: 'admin',
-          createdAt: new Date(),
-          hasSubscription: true,
-        };
-
-        return this.http.post<User>(`${this.apiUrl}/users`, defaultAdmin).pipe(
-          map((saved) => {
-            const transformed = this.transformUser(saved);
-            this.usersSubject.next([transformed]);
-          }),
-          catchError((e) => {
-            console.warn(
-              'Could not save default admin to backend, using local only',
-              e
-            );
-            this.usersSubject.next([defaultAdmin]);
+    return from(createUserWithEmailAndPassword(auth, defaultAdmin.username, defaultAdmin.password || '')).pipe(
+      switchMap((userCredential) => {
+        const newUser = { ...defaultAdmin, id: userCredential.user.uid };
+        delete newUser.password;
+        return from(addDoc(this.usersCollection, { ...newUser, createdAt: serverTimestamp() })).pipe(
+          map(() => {
+            this.usersSubject.next([this.transformUser(newUser)]);
             return of(void 0);
           })
+        )
+      }),
+      catchError((e) => {
+        console.warn(
+          'Could not save default admin to backend, using local only',
+          e
         );
+        this.usersSubject.next([defaultAdmin]);
+        return of(void 0);
       })
-    );
+    ) as Observable<void>;
   }
 
   getUsers(): Observable<User[]> {
     return this.users$;
   }
 
+  getUser(id: string): Observable<User> {
+    const userDoc = doc(this.firebaseService.db, 'users', id);
+    return from(getDoc(userDoc)).pipe(
+      map(doc => this.transformUser({ id: doc.id, ...doc.data() }))
+    );
+  }
+
   addUser(user: Omit<User, 'id' | 'createdAt'>): Observable<User> {
+    const auth = getAuth(this.firebaseService.app);
     const newUserTemplate = {
       ...user,
       createdAt: new Date(),
       userId: user.userId || localStorage.getItem('jjm_user_id') || 'system',
     };
 
-    return this.hashPassword(user.password || '').pipe(
-      switchMap((hashed) => {
-        newUserTemplate.password = hashed;
-        return this.http.post<User>(`${this.apiUrl}/users`, newUserTemplate);
-      }),
-      map((savedUser) => {
-        const transformed = this.transformUser(savedUser);
-        const current = this.usersSubject.value;
-        this.usersSubject.next([...current, transformed]);
-        return transformed;
+    return from(createUserWithEmailAndPassword(auth, user.username, user.password || '')).pipe(
+      switchMap((userCredential) => {
+        const newUser = { ...newUserTemplate, id: userCredential.user.uid };
+        delete newUser.password;
+        return from(addDoc(this.usersCollection, { ...newUser, createdAt: serverTimestamp() })).pipe(
+          map(() => {
+            const current = this.usersSubject.value;
+            this.usersSubject.next([...current, newUser]);
+            return newUser;
+          })
+        )
       })
     );
   }
 
+  updateUserPassword(password: string): Observable<void> {
+    const auth = getAuth(this.firebaseService.app);
+    const user = auth.currentUser;
+    if (user) {
+      return from(updatePassword(user, password));
+    }
+    return of(void 0);
+  }
+
   updateUser(updatedUser: Partial<User> & { id: string }): Observable<User> {
     const payload = { ...updatedUser };
+    const userDoc = doc(this.firebaseService.db, 'users', payload.id);
+    const passwordUpdate$ = payload.password ? this.updateUserPassword(payload.password) : of(void 0);
+    delete payload.password;
 
-    const passwordStream$: Observable<string | undefined> = payload.password
-      ? this.hashPassword(payload.password)
-      : of(undefined);
-
-    return passwordStream$.pipe(
-      switchMap((hashedPassword) => {
-        if (hashedPassword) {
-          payload.password = hashedPassword;
-        }
-
-        return this.http.put<User>(
-          `${this.apiUrl}/users/${payload.id}`,
-          payload
-        );
-      }),
+    return passwordUpdate$.pipe(
+      switchMap(() => from(updateDoc(userDoc, payload))),
+      switchMap(() => this.getUser(payload.id)),
       map((saved) => {
-        const transformed = this.transformUser(saved);
         const current = this.usersSubject.value;
         const updated = current.map((u) =>
-          u.id === transformed.id ? transformed : u
+          u.id === saved.id ? saved : u
         );
         this.usersSubject.next(updated);
-        return transformed;
+        return saved;
       })
     );
   }
 
   deleteUser(userId: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/users/${userId}`).pipe(
-      map(() => {
-        const current = this.usersSubject.value;
-        this.usersSubject.next(current.filter((u) => u.id !== userId));
-      })
-    );
+    const auth = getAuth(this.firebaseService.app);
+    const user = auth.currentUser;
+    if (user && user.uid === userId) {
+      const userDoc = doc(this.firebaseService.db, 'users', userId);
+      return from(deleteUserAuth(user)).pipe(
+        switchMap(() => from(deleteDoc(userDoc))),
+        map(() => {
+          const current = this.usersSubject.value;
+          this.usersSubject.next(current.filter((u) => u.id !== userId));
+        })
+      );
+    }
+    return of(void 0);
   }
 
   getUserById(id: string): User | undefined {
@@ -179,29 +198,23 @@ export class UserService {
     username: string,
     password: string
   ): Observable<User | null> {
-    return this.hashPassword(password).pipe(
-      switchMap((hashedInput) =>
-        this.http
-          .post<User>(`${this.apiUrl}/login`, {
-            username,
-            password: hashedInput,
+    const auth = getAuth(this.firebaseService.app);
+    return from(signInWithEmailAndPassword(auth, username, password)).pipe(
+      switchMap((userCredential) => {
+        const q = query(this.usersCollection, where('username', '==', username));
+        return from(getDocs(q)).pipe(
+          map((snapshot) => {
+            if (snapshot.empty) return null;
+            const userDoc = snapshot.docs[0];
+            const user = this.transformUser({ id: userDoc.id, ...userDoc.data() });
+            if (user.storeId) {
+              this.storeService.setActiveStore(user.storeId);
+            }
+            return user;
           })
-          .pipe(
-            map((user) => {
-              if (!user) return null;
-              const transformed = this.transformUser(user);
-              if (transformed.storeId) {
-                this.storeService.setActiveStore(transformed.storeId);
-              }
-              return transformed;
-            }),
-            // Catch 401 (Unauthorized) or other errors and return null
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            catchError((err) => {
-              return of(null);
-            })
-          )
-      )
+        );
+      }),
+      catchError(() => of(null))
     );
   }
 
