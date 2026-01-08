@@ -1,17 +1,26 @@
 import { Injectable, signal, WritableSignal, computed } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
-import { map, tap } from 'rxjs/operators';
+import { BehaviorSubject, Observable, of, throwError, from } from 'rxjs';
+import { map, tap, catchError } from 'rxjs/operators';
 import { Customer } from '../models/inventory.models';
-import { environment } from '../../environments/environment';
 import { StoreService } from './store.service';
+import { FirebaseService } from './firebase.service';
+import {
+  collection,
+  getDocs,
+  doc,
+  getDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  setDoc,
+} from 'firebase/firestore';
 
 @Injectable({
   providedIn: 'root',
 })
 export class CustomerService {
-  private apiUrl = environment.apiUrl;
-
   // High performance state management using Signals
   private readonly _customers: WritableSignal<Customer[]> = signal([]);
   public readonly customers = this._customers.asReadonly();
@@ -19,8 +28,25 @@ export class CustomerService {
   private customersSubject = new BehaviorSubject<Customer[]>([]);
   public customers$ = this.customersSubject.asObservable();
 
-  constructor(private http: HttpClient, private storeService: StoreService) {
+  private get db() {
+    return this.firebaseService.db;
+  }
+
+  constructor(
+    private firebaseService: FirebaseService,
+    private storeService: StoreService
+  ) {
     this.hydrateFromCache();
+
+    // Automatically reload customers when the active store changes
+    this.storeService.activeStoreId$.subscribe((storeId) => {
+      if (storeId) {
+        this.loadCustomers(true); // Force reload for new store
+      } else {
+        this._customers.set([]);
+        this.customersSubject.next([]);
+      }
+    });
   }
 
   private hydrateFromCache(): void {
@@ -63,28 +89,33 @@ export class CustomerService {
   }
 
   private fetchCustomers(): void {
-    const userId = this.getCurrentUser();
     const storeId = this.storeService.getActiveStoreId();
 
-    // Security: Do not fetch customers for unauthenticated users or without store context
-    if (!userId || userId === 'guest' || !storeId) {
-      if (!storeId) {
-        this._customers.set([]);
-        this.customersSubject.next([]);
-      }
+    // Security: Fetch customers only if we have a store context.
+    // Auth security is handled by Firestore Rules.
+    if (!storeId) {
+      console.log('CustomerService: No storeId, clearing customers.');
+      this._customers.set([]);
+      this.customersSubject.next([]);
       return;
     }
 
-    const url = `${this.apiUrl}/customers?userId=${userId}&storeId=${storeId}`;
+    console.log('CustomerService: Fetching customers for storeId:', storeId);
 
-    this.http.get<Customer[]>(url).subscribe({
-      next: (customers) => {
+    const customersRef = collection(this.db, 'customers');
+    const q = query(customersRef, where('storeId', '==', storeId));
+
+    getDocs(q)
+      .then((snapshot) => {
+        const customers: Customer[] = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        })) as Customer[];
         this._customers.set(customers);
         this.customersSubject.next(customers);
         this.saveToCache(customers);
-      },
-      error: (err) => console.error('Error fetching customers:', err),
-    });
+      })
+      .catch((err) => console.error('Error fetching customers:', err));
   }
 
   getCustomers(): Observable<Customer[]> {
@@ -93,35 +124,59 @@ export class CustomerService {
 
   /**
    * Fetches specific customer by name for verification.
-   * Uses server-side filtering to prevent exposing the entire database.
+   * Uses client-side filtering to prevent exposing the entire database.
    */
   getCustomerByName(name: string): Observable<Customer[]> {
     const storeId = this.storeService.getActiveStoreId();
     if (!storeId) return of([]);
 
-    return this.http
-      .get<Customer[]>(
-        `${this.apiUrl}/customers?name=${encodeURIComponent(
-          name
-        )}&storeId=${storeId}`
-      )
-      .pipe(
-        map((customers) =>
-          customers.map((c) => ({
-            ...c,
-            // Explicitly mask sensitive data
-            phoneNumber: c.phoneNumber, // Unmasked for verification
-            deliveryAddress: '***',
-            gpsCoordinates: '***',
-            userId: '***', // Hide linked user ID if any
-          }))
-        )
-      );
+    // Query all customers for the store and filter by name client-side
+    const customersRef = collection(this.db, 'customers');
+    const q = query(customersRef, where('storeId', '==', storeId));
+
+    return from(getDocs(q)).pipe(
+      map((snapshot) => {
+        const allCustomers = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        })) as Customer[];
+
+        // Filter by name (case-insensitive)
+        const filtered = allCustomers.filter((c) =>
+          c.name?.toLowerCase().includes(name.toLowerCase())
+        );
+
+        // Mask sensitive data
+        return filtered.map((c) => ({
+          ...c,
+          phoneNumber: c.phoneNumber,
+          deliveryAddress: '***',
+          gpsCoordinates: '***',
+          userId: '***',
+        }));
+      })
+    );
   }
 
   getCustomerByPhone(phone: string): Observable<Customer[]> {
-    return this.http.get<Customer[]>(
-      `${this.apiUrl}/customers?phoneNumber=${encodeURIComponent(phone)}`
+    const storeId = this.storeService.getActiveStoreId();
+    if (!storeId) return of([]);
+
+    const customersRef = collection(this.db, 'customers');
+    const q = query(
+      customersRef,
+      where('storeId', '==', storeId),
+      where('phoneNumber', '==', phone)
+    );
+
+    return from(getDocs(q)).pipe(
+      map(
+        (snapshot) =>
+          snapshot.docs.map((docSnap) => ({
+            id: docSnap.id,
+            ...docSnap.data(),
+          })) as Customer[]
+      )
     );
   }
 
@@ -135,57 +190,69 @@ export class CustomerService {
       );
     }
 
-    const customerWithUser = {
+    const id = crypto.randomUUID();
+    const newCustomer: Customer = {
+      ...customer,
+      id,
       userId: this.getCurrentUser(),
       storeId: activeStoreId,
-      ...customer,
-    };
-    return this.http
-      .post<Customer>(`${this.apiUrl}/customers`, customerWithUser)
-      .pipe(
-        tap({
-          next: (newCustomer) => {
-            const current = this._customers();
-            const updated = [...current, newCustomer];
-            this._customers.set(updated);
-            this.customersSubject.next(updated);
-            this.saveToCache(updated);
-          },
-          error: (err) => console.error('Error adding customer:', err),
-        })
-      );
+      createdAt: new Date(),
+    } as Customer;
+
+    const docRef = doc(this.db, 'customers', id);
+    return from(setDoc(docRef, newCustomer)).pipe(
+      map(() => newCustomer),
+      tap((created) => {
+        const current = this._customers();
+        const updated = [...current, created];
+        this._customers.set(updated);
+        this.customersSubject.next(updated);
+        this.saveToCache(updated);
+      }),
+      catchError((err) => {
+        console.error('Error adding customer:', err);
+        return throwError(() => err);
+      })
+    );
   }
 
   updateCustomer(id: string, updates: Partial<Customer>): Observable<Customer> {
-    return this.http
-      .put<Customer>(`${this.apiUrl}/customers/${id}`, updates)
-      .pipe(
-        tap({
-          next: () => {
-            const current = this._customers();
-            const updated = current.map((c) =>
-              c.id === id ? { ...c, ...updates } : c
-            );
-            this._customers.set(updated);
-            this.customersSubject.next(updated);
-            this.saveToCache(updated);
-          },
-          error: (err) => console.error('Error updating customer:', err),
-        })
-      );
+    const docRef = doc(this.db, 'customers', id);
+    return from(updateDoc(docRef, updates as Record<string, any>)).pipe(
+      map(() => {
+        const current = this._customers();
+        const existing = current.find((c) => c.id === id);
+        return { ...existing, ...updates } as Customer;
+      }),
+      tap((updated) => {
+        const current = this._customers();
+        const updatedList = current.map((c) =>
+          c.id === id ? { ...c, ...updates } : c
+        );
+        this._customers.set(updatedList);
+        this.customersSubject.next(updatedList);
+        this.saveToCache(updatedList);
+      }),
+      catchError((err) => {
+        console.error('Error updating customer:', err);
+        return throwError(() => err);
+      })
+    );
   }
 
   deleteCustomer(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/customers/${id}`).pipe(
-      tap({
-        next: () => {
-          const current = this._customers();
-          const filtered = current.filter((c) => c.id !== id);
-          this._customers.set(filtered);
-          this.customersSubject.next(filtered);
-          this.saveToCache(filtered);
-        },
-        error: (err) => console.error('Error deleting customer:', err),
+    const docRef = doc(this.db, 'customers', id);
+    return from(deleteDoc(docRef)).pipe(
+      tap(() => {
+        const current = this._customers();
+        const filtered = current.filter((c) => c.id !== id);
+        this._customers.set(filtered);
+        this.customersSubject.next(filtered);
+        this.saveToCache(filtered);
+      }),
+      catchError((err) => {
+        console.error('Error deleting customer:', err);
+        return throwError(() => err);
       })
     );
   }

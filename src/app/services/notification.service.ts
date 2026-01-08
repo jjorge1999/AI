@@ -7,7 +7,6 @@ import {
   onMessage,
   Messaging,
 } from 'firebase/messaging';
-import { environment } from '../../environments/environment';
 import { BehaviorSubject, Observable, Subscription } from 'rxjs';
 import {
   doc,
@@ -156,22 +155,7 @@ export class NotificationService {
           const userRef = doc(this.db, 'users', userId);
           await updateDoc(userRef, {
             fcmTokens: arrayUnion(token),
-          }).catch(() =>
-            console.log('Firestore direct update failed, will use backend API.')
-          );
-
-          // Call Backend API to save token
-          const apiUrl = environment.apiUrl;
-          try {
-            await fetch(`${apiUrl}/fcm-token`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId, token }),
-            });
-            console.log('Token saved to backend successfully');
-          } catch (apiError) {
-            console.error('Failed to save token to backend:', apiError);
-          }
+          }).catch((e) => console.warn('Firestore direct update failed:', e));
         }
       } else {
         console.log(

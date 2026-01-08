@@ -137,6 +137,11 @@ export class AppComponent implements OnInit, OnDestroy {
         }
       });
 
+    this.storeService.activeStoreId$.subscribe((id) => {
+      this.activeStoreId = id;
+      this.updateActiveStoreName();
+    });
+
     this.userService.currentUser$.subscribe((user) => {
       this.currentUser = user;
       if (user?.role) {
@@ -148,11 +153,6 @@ export class AppComponent implements OnInit, OnDestroy {
     this.storeService.stores$.subscribe((stores) => {
       this.stores = stores;
       this.filterAllowedStores();
-      this.updateActiveStoreName();
-    });
-
-    this.storeService.activeStoreId$.subscribe((id) => {
-      this.activeStoreId = id;
       this.updateActiveStoreName();
     });
 
@@ -412,13 +412,12 @@ export class AppComponent implements OnInit, OnDestroy {
         // Don't use onStoreChange here as it has dialogs/reloads that might conflict with current observable cycle
         const defaultStoreId = this.allowedStores[0].id;
         this.storeService.setActiveStore(defaultStoreId);
-        // Important: reload data because activeStoreId has changed
-        this.inventoryService.reloadData();
+        // Note: reloadData() is now auto-triggered by InventoryService's store subscription
       }
     } else if (this.currentUser.role !== 'super-admin') {
       // If NOT a super-admin and has NO assigned stores, clear the active store
       this.storeService.setActiveStore(null);
-      this.inventoryService.reloadData();
+      // Note: reloadData() is now auto-triggered by InventoryService's store subscription
     }
 
     this.updateActiveStoreName();

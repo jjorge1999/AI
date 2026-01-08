@@ -14,12 +14,9 @@ import {
 import { environment } from '../environments/environment';
 
 // Standard Firestore Persistence Setup
+// Standard Firestore Persistence Setup
 const app = initializeApp(environment.firebaseConfig);
-initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager(),
-  }),
-});
+// Note: Persistence is now enabled in FirebaseService via enableIndexedDbPersistence
 
 export const appConfig: ApplicationConfig = {
   providers: [

@@ -39,15 +39,26 @@ export class ActivityLogsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.subscriptions.add(
       this.loggingService.getLogs().subscribe((logs) => {
-        this.logs = logs.map((log) => ({
-          ...log,
-          timestamp: new Date(
-            (log.timestamp as any)?._seconds * 1000 || new Date()
-          ),
-        }));
+        this.logs = logs.map((log) => {
+          let ts = log.timestamp;
+          if (ts && (ts as any).toDate) {
+            ts = (ts as any).toDate();
+          } else if (ts && (ts as any)._seconds) {
+            ts = new Date((ts as any)._seconds * 1000);
+          } else if (!(ts instanceof Date)) {
+            ts = new Date(ts); // Fallback for strings/numbers
+          }
+          return {
+            ...log,
+            timestamp: ts || new Date(),
+          };
+        });
         this.applyFilters();
       })
     );
+
+    // Explicitly trigger a fetch to ensure logs load when component initializes
+    this.loggingService.refreshLogs();
   }
 
   ngOnDestroy(): void {

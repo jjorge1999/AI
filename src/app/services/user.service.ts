@@ -1,17 +1,26 @@
 import { Injectable, signal, WritableSignal, computed } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, from, of, tap } from 'rxjs';
+import { BehaviorSubject, Observable, from, of, tap, throwError } from 'rxjs';
 import { map, switchMap, take, catchError } from 'rxjs/operators';
 import { User } from '../models/inventory.models';
-import { environment } from '../../environments/environment';
 import { StoreService } from './store.service';
+import { FirebaseService } from './firebase.service';
+import {
+  collection,
+  getDocs,
+  doc,
+  getDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  setDoc,
+} from 'firebase/firestore';
 
 @Injectable({
   providedIn: 'root',
 })
 export class UserService {
-  private apiUrl = environment.apiUrl;
-
   // Global App State using Signals (High Performance)
   private readonly _users: WritableSignal<User[]> = signal([]);
   public readonly users = this._users.asReadonly();
@@ -33,6 +42,10 @@ export class UserService {
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
 
+  private get db() {
+    return this.firebaseService.db;
+  }
+
   setLoginState(isLoggedIn: boolean, user?: User): void {
     this.loggedInSubject.next(isLoggedIn);
     this.isLoggedIn.set(isLoggedIn);
@@ -41,13 +54,31 @@ export class UserService {
       this.currentUserSubject.next(user);
       localStorage.setItem('jjm_user_id', user.id);
       localStorage.setItem('jjm_user_role', user.role);
+
+      // Enforce Store Assignment
+      if (user.storeId) {
+        this.storeService.setActiveStore(user.storeId);
+      }
+
+      // Save User Details to Session Storage as requested
+      sessionStorage.setItem('jjm_user_details', JSON.stringify(user));
+      if (user.storeId) {
+        sessionStorage.setItem('jjm_store_id', user.storeId);
+      }
     } else if (!isLoggedIn) {
       this._currentUser.set(null);
       this.currentUserSubject.next(null);
+      localStorage.removeItem('jjm_user_id');
+      localStorage.removeItem('jjm_user_role');
+      sessionStorage.removeItem('jjm_user_details');
+      sessionStorage.removeItem('jjm_store_id');
     }
   }
 
-  constructor(private http: HttpClient, private storeService: StoreService) {
+  constructor(
+    private firebaseService: FirebaseService,
+    private storeService: StoreService
+  ) {
     this.hydrateFromCache();
   }
 
@@ -67,6 +98,11 @@ export class UserService {
           if (current) {
             this._currentUser.set(current);
             this.currentUserSubject.next(current);
+
+            // Enforce Store Assignment on Hydration
+            if (current.storeId) {
+              this.storeService.setActiveStore(current.storeId);
+            }
           }
         }
       } catch (e) {
@@ -100,30 +136,34 @@ export class UserService {
     }
 
     const currentUserId = localStorage.getItem('jjm_user_id');
-    this.http.get<User[]>(`${this.apiUrl}/users`).subscribe({
-      next: (users) => {
-        const parsedUsers = users.map((user) => this.transformUser(user));
-        if (parsedUsers.length === 0) {
+    const usersRef = collection(this.db, 'users');
+
+    getDocs(usersRef)
+      .then((snapshot) => {
+        const users: User[] = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data();
+          return this.transformUser({ id: docSnap.id, ...data });
+        });
+
+        if (users.length === 0) {
           this.initializeDefaultAdmin().subscribe();
         } else {
-          this._users.set(parsedUsers);
-          this.usersSubject.next(parsedUsers);
+          this._users.set(users);
+          this.usersSubject.next(users);
+          this.saveToCache(users);
           if (currentUserId) {
-            const current = parsedUsers.find((u) => u.id === currentUserId);
+            const current = users.find((u) => u.id === currentUserId);
             if (current) {
               this._currentUser.set(current);
               this.currentUserSubject.next(current);
             }
           }
         }
-      },
-      error: (err) => {
+      })
+      .catch((err) => {
         console.error('Error fetching users:', err);
-        if (err.status === 404) {
-          this.initializeDefaultAdmin().subscribe();
-        }
-      },
-    });
+        this.initializeDefaultAdmin().subscribe();
+      });
   }
 
   private initializeDefaultAdmin(): Observable<void> {
@@ -141,15 +181,17 @@ export class UserService {
           hasSubscription: true,
         };
 
-        return this.http.post<User>(`${this.apiUrl}/users`, defaultAdmin).pipe(
-          map((saved) => {
-            const transformed = this.transformUser(saved);
+        const docRef = doc(this.db, 'users', defaultAdmin.id);
+        return from(setDoc(docRef, defaultAdmin)).pipe(
+          map(() => {
+            const transformed = this.transformUser(defaultAdmin);
             this._users.set([transformed]);
             this.usersSubject.next([transformed]);
+            this.saveToCache([transformed]);
           }),
           catchError((e) => {
             console.warn(
-              'Could not save default admin to backend, using local only',
+              'Could not save default admin to Firestore, using local only',
               e
             );
             this._users.set([defaultAdmin]);
@@ -166,31 +208,46 @@ export class UserService {
   }
 
   addUser(user: Omit<User, 'id' | 'createdAt'>): Observable<User> {
-    const newUserTemplate = {
+    const id = crypto.randomUUID();
+    const newUserTemplate: User = {
       ...user,
+      id,
       createdAt: new Date(),
       userId: user.userId || localStorage.getItem('jjm_user_id') || 'system',
-    };
+    } as User;
 
     return this.hashPassword(user.password || '').pipe(
       switchMap((hashed) => {
         newUserTemplate.password = hashed;
-        return this.http.post<User>(`${this.apiUrl}/users`, newUserTemplate);
+        const docRef = doc(this.db, 'users', id);
+        return from(setDoc(docRef, newUserTemplate)).pipe(
+          map(() => {
+            const transformed = this.transformUser(newUserTemplate);
+            const current = this._users();
+            const updated = [...current, transformed];
+            this._users.set(updated);
+            this.usersSubject.next(updated);
+            this.saveToCache(updated);
+            return transformed;
+          })
+        );
       }),
-      map((savedUser) => {
-        const transformed = this.transformUser(savedUser);
-        const current = this._users();
-        const updated = [...current, transformed];
-        this._users.set(updated);
-        this.usersSubject.next(updated);
-        this.saveToCache(updated);
-        return transformed;
+      catchError((err) => {
+        console.error('Error adding user:', err);
+        throw err;
       })
     );
   }
 
   updateUser(updatedUser: Partial<User> & { id: string }): Observable<User> {
     const payload = { ...updatedUser };
+
+    // Remove undefined fields which Firestore rejects
+    Object.keys(payload).forEach((key) => {
+      if ((payload as any)[key] === undefined) {
+        delete (payload as any)[key];
+      }
+    });
 
     const passwordStream$: Observable<string | undefined> = payload.password
       ? this.hashPassword(payload.password)
@@ -202,33 +259,42 @@ export class UserService {
           payload.password = hashedPassword;
         }
 
-        return this.http.put<User>(
-          `${this.apiUrl}/users/${payload.id}`,
-          payload
+        const docRef = doc(this.db, 'users', payload.id);
+        return from(updateDoc(docRef, payload as Record<string, any>)).pipe(
+          map(() => {
+            const current = this._users();
+            const existing = current.find((u) => u.id === payload.id);
+            const transformed = this.transformUser({ ...existing, ...payload });
+            const updated = current.map((u) =>
+              u.id === transformed.id ? transformed : u
+            );
+            this._users.set(updated);
+            this.usersSubject.next(updated);
+            this.saveToCache(updated);
+            return transformed;
+          })
         );
       }),
-      map((saved) => {
-        const transformed = this.transformUser(saved);
-        const current = this._users();
-        const updated = current.map((u) =>
-          u.id === transformed.id ? transformed : u
-        );
-        this._users.set(updated);
-        this.usersSubject.next(updated);
-        this.saveToCache(updated);
-        return transformed;
+      catchError((err) => {
+        console.error('Error updating user:', err);
+        throw err;
       })
     );
   }
 
   deleteUser(userId: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/users/${userId}`).pipe(
+    const docRef = doc(this.db, 'users', userId);
+    return from(deleteDoc(docRef)).pipe(
       map(() => {
         const current = this._users();
         const filtered = current.filter((u) => u.id !== userId);
         this._users.set(filtered);
         this.usersSubject.next(filtered);
         this.saveToCache(filtered);
+      }),
+      catchError((err) => {
+        console.error('Error deleting user:', err);
+        throw err;
       })
     );
   }
@@ -242,28 +308,34 @@ export class UserService {
     password: string
   ): Observable<User | null> {
     return this.hashPassword(password).pipe(
-      switchMap((hashedInput) =>
-        this.http
-          .post<User>(`${this.apiUrl}/login`, {
-            username,
-            password: hashedInput,
+      switchMap((hashedInput) => {
+        const usersRef = collection(this.db, 'users');
+        const q = query(usersRef, where('username', '==', username));
+
+        return from(getDocs(q)).pipe(
+          map((snapshot) => {
+            if (snapshot.empty) return null;
+
+            const docSnap = snapshot.docs[0];
+            const userData = docSnap.data();
+
+            // Validate password
+            if (userData['password'] !== hashedInput) {
+              return null;
+            }
+
+            const user = this.transformUser({ id: docSnap.id, ...userData });
+            if (user.storeId) {
+              this.storeService.setActiveStore(user.storeId);
+            }
+            return user;
+          }),
+          catchError((err) => {
+            console.error('Login error:', err);
+            return of(null);
           })
-          .pipe(
-            map((user) => {
-              if (!user) return null;
-              const transformed = this.transformUser(user);
-              if (transformed.storeId) {
-                this.storeService.setActiveStore(transformed.storeId);
-              }
-              return transformed;
-            }),
-            // Catch 401 (Unauthorized) or other errors and return null
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            catchError((err) => {
-              return of(null);
-            })
-          )
-      )
+        );
+      })
     );
   }
 
@@ -288,6 +360,9 @@ export class UserService {
     if (typeof date === 'string') return new Date(date);
     if (typeof date === 'object' && date._seconds !== undefined) {
       return new Date(date._seconds * 1000);
+    }
+    if (typeof date === 'object' && date.toDate) {
+      return date.toDate();
     }
     return new Date(date);
   }

@@ -192,6 +192,17 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     this.minDate = `${year}-${month}-${day}`;
     this.deliveryDate = this.minDate;
     this.deliveryTime = '10:00'; // Default to 10:00 AM
+
+    // Set up logic for Signal changes
+    effect(() => {
+      const currentSales = this.sales();
+      if (currentSales) {
+        this.updateGroupedSales();
+        if (!this.checkInterval) {
+          this.startAlarmChecks();
+        }
+      }
+    });
   }
 
   ngOnInit(): void {
@@ -202,18 +213,6 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
 
     // Load data if not already present (SWR behavior)
     this.customerService.loadCustomers();
-
-    // Set up logic for Signal changes
-    // We update allGroupedSales when sales signal changes
-    effect(() => {
-      const currentSales = this.sales();
-      if (currentSales) {
-        this.updateGroupedSales();
-        if (!this.checkInterval) {
-          this.startAlarmChecks();
-        }
-      }
-    });
 
     // Initial store setup
     const activeStoreId = this.storeService.getActiveStoreId();

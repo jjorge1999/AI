@@ -1,42 +1,97 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, from, of } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
 import { ActivityLog } from '../models/inventory.models';
-import { environment } from '../../environments/environment';
 import { StoreService } from './store.service';
+import { FirebaseService } from './firebase.service';
+import {
+  collection,
+  getDocs,
+  doc,
+  addDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  deleteDoc,
+  writeBatch,
+  Timestamp,
+} from 'firebase/firestore';
 
 @Injectable({
   providedIn: 'root',
 })
 export class LoggingService {
-  private apiUrl = environment.apiUrl;
   private logsSubject = new BehaviorSubject<ActivityLog[]>([]);
   public logs$ = this.logsSubject.asObservable();
 
-  constructor(private http: HttpClient, private storeService: StoreService) {
-    // Removed automatic fetch on instantiation
+  private get db() {
+    return this.firebaseService.db;
+  }
+
+  constructor(
+    private firebaseService: FirebaseService,
+    private storeService: StoreService
+  ) {
+    // Automatically fetch logs when the active store changes
+    this.storeService.activeStoreId$.subscribe((storeId) => {
+      if (storeId) {
+        this.fetchLogs(storeId);
+      } else {
+        this.logsSubject.next([]);
+      }
+    });
   }
 
   private getCurrentUserId(): string {
     return localStorage.getItem('jjm_user_id') || 'guest';
   }
 
-  private fetchLogs(): void {
-    const userId = this.getCurrentUserId();
-    const storeId = this.storeService.getActiveStoreId();
+  private fetchLogs(explicitStoreId?: string): void {
+    const storeId = explicitStoreId || this.storeService.getActiveStoreId();
 
-    // Security: Do not fetch for unauthenticated users or without store context
-    if (!userId || userId === 'guest' || !storeId) {
-      if (!storeId) this.logsSubject.next([]);
+    // Security: Fetch logs if we have a valid store context.
+    // Auth security is handled by Firestore Rules (request.auth).
+    if (!storeId) {
+      console.log('LoggingService: No storeId available, skipping fetch.');
+      this.logsSubject.next([]);
       return;
     }
 
-    const url = `${this.apiUrl}/logs?limit=200&userId=${userId}&storeId=${storeId}`;
+    console.log('LoggingService: Fetching logs for storeId:', storeId);
 
-    this.http.get<ActivityLog[]>(url).subscribe({
-      next: (logs) => this.logsSubject.next(logs),
-      error: (err) => console.error('Error fetching logs:', err),
-    });
+    const logsRef = collection(this.db, 'activityLogs');
+    // Note: Removing orderBy('timestamp') to avoid requiring a composite index immediately.
+    // We sort client-side for now.
+    const q = query(logsRef, where('storeId', '==', storeId), limit(200));
+
+    getDocs(q)
+      .then((snapshot) => {
+        console.log('LoggingService: Received', snapshot.docs.length, 'logs');
+        const logs: ActivityLog[] = snapshot.docs
+          .map((docSnap) => {
+            const data = docSnap.data();
+            return {
+              id: docSnap.id,
+              ...data,
+              timestamp: data['timestamp']?.toDate
+                ? data['timestamp'].toDate()
+                : data['timestamp'],
+            } as ActivityLog;
+          })
+          .sort((a, b) => {
+            const tA = a.timestamp instanceof Date ? a.timestamp.getTime() : 0;
+            const tB = b.timestamp instanceof Date ? b.timestamp.getTime() : 0;
+            return tB - tA; // Descending
+          });
+        this.logsSubject.next(logs);
+      })
+      .catch((err) => {
+        console.error('LoggingService: Error fetching logs:', err);
+        console.error(
+          'LoggingService: This may be a Firestore permissions issue. Check Security Rules for /logs collection.'
+        );
+      });
   }
 
   logActivity(
@@ -60,21 +115,26 @@ export class LoggingService {
       details,
       userId: this.getCurrentUserId(),
       storeId: activeStoreId,
+      timestamp: new Date(),
     };
 
     console.log('Logging activity:', logData);
 
-    this.http.post<ActivityLog>(`${this.apiUrl}/logs`, logData).subscribe({
-      next: (newLog) => {
+    const logsRef = collection(this.db, 'activityLogs');
+    addDoc(logsRef, logData)
+      .then((docRef) => {
+        const newLog: ActivityLog = {
+          id: docRef.id,
+          ...logData,
+        } as ActivityLog;
         console.log('Activity logged successfully:', newLog);
         const currentLogs = this.logsSubject.value;
         this.logsSubject.next([newLog, ...currentLogs]);
-      },
-      error: (err) => {
+      })
+      .catch((err) => {
         console.error('Error logging activity:', err);
         console.error('Failed log data:', logData);
-      },
-    });
+      });
   }
 
   getLogs(): Observable<ActivityLog[]> {
@@ -86,6 +146,37 @@ export class LoggingService {
   }
 
   cleanupOldLogs(): Observable<any> {
-    return this.http.post(`${this.apiUrl}/cleanup-logs`, {});
+    // Clean up logs older than 30 days
+    const userId = this.getCurrentUserId();
+    const storeId = this.storeService.getActiveStoreId();
+
+    if (!storeId) {
+      return of({ message: 'No store selected' });
+    }
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const logsRef = collection(this.db, 'activityLogs');
+    const q = query(
+      logsRef,
+      where('storeId', '==', storeId),
+      where('timestamp', '<', thirtyDaysAgo)
+    );
+
+    return from(getDocs(q)).pipe(
+      map(async (snapshot) => {
+        const batch = writeBatch(this.db);
+        snapshot.docs.forEach((docSnap) => {
+          batch.delete(docSnap.ref);
+        });
+        await batch.commit();
+        return { deleted: snapshot.docs.length };
+      }),
+      catchError((err) => {
+        console.error('Error cleaning up logs:', err);
+        return of({ error: err.message });
+      })
+    );
   }
 }

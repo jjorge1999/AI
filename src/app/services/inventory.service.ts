@@ -1,5 +1,4 @@
 import { Injectable, signal, effect } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import {
   BehaviorSubject,
   Observable,
@@ -22,12 +21,12 @@ import {
   Category,
   DashboardStats,
 } from '../models/inventory.models';
-import { environment } from '../../environments/environment';
 import { LoggingService } from './logging.service';
 import { CustomerService } from './customer.service';
 import { FirebaseService } from './firebase.service';
 import { StoreService } from './store.service';
 import { MaintenanceService } from './maintenance.service';
+import { NotificationService } from './notification.service';
 import { FirebaseApp } from 'firebase/app';
 import {
   Firestore,
@@ -44,6 +43,7 @@ import {
   setDoc,
   orderBy,
   limit,
+  getDocs,
 } from 'firebase/firestore';
 import {
   getAuth,
@@ -56,8 +56,6 @@ import {
   providedIn: 'root',
 })
 export class InventoryService {
-  private apiUrl = environment.apiUrl;
-
   // State management using Signals (Performance Optimization)
   private readonly _products = signal<Product[]>([]);
   public readonly products = this._products.asReadonly();
@@ -95,12 +93,12 @@ export class InventoryService {
   private pollingInterval: any = null;
 
   constructor(
-    private readonly http: HttpClient,
     private readonly loggingService: LoggingService,
     private readonly customerService: CustomerService,
     private readonly firebaseService: FirebaseService,
     private readonly storeService: StoreService,
-    private readonly maintenanceService: MaintenanceService
+    private readonly maintenanceService: MaintenanceService,
+    private readonly notificationService: NotificationService
   ) {
     this.app = this.firebaseService.app;
     this.db = this.firebaseService.db;
@@ -197,6 +195,12 @@ export class InventoryService {
 
   private handleFirestoreError(err: any, context: string): void {
     console.error(`${context}:`, err);
+    if (err.code === 'permission-denied') {
+      console.warn(
+        `PERMISSIONS ERROR in ${context}: The client is blocked from accessing this data. Please update Firestore Security Rules to allow access.`
+      );
+    }
+
     const isQuotaError =
       err.code === 'resource-exhausted' ||
       err.code === 8 ||
@@ -257,12 +261,34 @@ export class InventoryService {
       });
   }
 
+  private listenersInitialized = false;
+  private storeSubscription: any = null;
+  private cachedFirestoreId: string = '';
+  private cachedLegacyId: string = '';
+
   private setupFirestoreListeners(firestoreId: string, legacyId: string): void {
-    this.storeService.activeStoreId$
+    // Cache credentials for refresh calls
+    this.cachedFirestoreId = firestoreId;
+    this.cachedLegacyId = legacyId;
+
+    // Only subscribe to store changes ONCE
+    if (this.listenersInitialized) {
+      // Already subscribed - just trigger a refresh with current store
+      const currentStoreId = this.storeService.getActiveStoreId();
+      this.doSetupFirestoreListeners(firestoreId, legacyId, currentStoreId);
+      return;
+    }
+
+    this.listenersInitialized = true;
+    this.storeSubscription = this.storeService.activeStoreId$
       .pipe(distinctUntilChanged())
       .subscribe((activeStoreId) => {
         // Re-setup all listeners when store changes
-        this.doSetupFirestoreListeners(firestoreId, legacyId, activeStoreId);
+        this.doSetupFirestoreListeners(
+          this.cachedFirestoreId,
+          this.cachedLegacyId,
+          activeStoreId
+        );
       });
   }
 
@@ -513,93 +539,34 @@ export class InventoryService {
     );
   }
 
+  // Migration methods are deprecated - data is already in Firestore
   private migrateProducts(legacyId: string, firestoreId: string): void {
-    const storeId = this.storeService.getActiveStoreId();
-    this.http
-      .get<Product[]>(`${this.apiUrl}/products?userId=${legacyId}`)
-      .subscribe((products) => {
-        products.forEach(async (p) => {
-          try {
-            await setDoc(doc(this.db, 'products', p.id), {
-              ...p,
-              userId: firestoreId,
-              storeId: p.storeId || storeId || null,
-            });
-          } catch (e) {
-            console.error('Error migrating product:', e);
-          }
-        });
-      });
+    console.log(
+      'Migration deprecated - data should already exist in Firestore'
+    );
   }
 
   private migrateChat(legacyId: string, firestoreId: string): void {
-    const storeId = this.storeService.getActiveStoreId();
-    this.http
-      .get<any[]>(`${this.apiUrl}/messages?userId=${legacyId}`)
-      .subscribe((msgs) => {
-        msgs.forEach(async (m) => {
-          try {
-            await setDoc(doc(this.db, 'messages', m.id), {
-              ...m,
-              userId: firestoreId,
-              storeId: m.storeId || storeId || null,
-              timestamp: this.parseDate(m.timestamp),
-            });
-          } catch (e) {
-            console.error('Error migrating message:', e);
-          }
-        });
-      });
+    console.log(
+      'Migration deprecated - data should already exist in Firestore'
+    );
   }
 
   private migrateSales(legacyId: string, firestoreId: string): void {
-    const storeId = this.storeService.getActiveStoreId();
-    this.http
-      .get<any[]>(`${this.apiUrl}/sales?userId=${legacyId}`)
-      .subscribe((sales) => {
-        sales.forEach(async (s) => {
-          try {
-            const data = {
-              ...s,
-              pending: s.pending === true || s.pending === 'true',
-              timestamp: this.parseDate(s.timestamp),
-              deliveryDate: s.deliveryDate
-                ? this.parseDate(s.deliveryDate)
-                : null,
-              userId: firestoreId,
-              storeId: s.storeId || storeId || null,
-            };
-            await setDoc(doc(this.db, 'sales', s.id), data);
-          } catch (e) {
-            console.error('Error migrating sale:', e);
-          }
-        });
-      });
+    console.log(
+      'Migration deprecated - data should already exist in Firestore'
+    );
   }
 
   private migrateExpenses(legacyId: string, firestoreId: string): void {
-    const storeId = this.storeService.getActiveStoreId();
-    this.http
-      .get<Expense[]>(`${this.apiUrl}/expenses?userId=${legacyId}`)
-      .subscribe((expenses) => {
-        expenses.forEach(async (e) => {
-          try {
-            const data = {
-              ...e,
-              timestamp: this.parseDate(e.timestamp),
-              userId: firestoreId,
-              storeId: e.storeId || storeId || null,
-            };
-            await setDoc(doc(this.db, 'expenses', e.id), data);
-          } catch (err) {
-            console.error('Error migrating expense:', err);
-          }
-        });
-      });
+    console.log(
+      'Migration deprecated - data should already exist in Firestore'
+    );
   }
 
   public loadProducts(): void {
-    this.fetchProducts();
+    // Products are loaded via realtime listeners, no separate fetch needed
+    console.log('Products loading handled by realtime listeners');
   }
 
   /**
@@ -607,71 +574,39 @@ export class InventoryService {
    * @param userId - The userId to fetch products for (e.g., 'admin-1')
    */
   public loadProductsForUser(userId: string): void {
-    const url = `${this.apiUrl}/products?userId=${userId}`;
-    this.http.get<Product[]>(url).subscribe({
-      next: (products) => this.productsSubject.next(products),
-      error: (err) => console.error('Error fetching products for user:', err),
-    });
+    const productsQuery = query(
+      collection(this.db, 'products'),
+      where('userId', '==', userId)
+    );
+    getDocs(productsQuery)
+      .then((snapshot) => {
+        const products = snapshot.docs.map(
+          (docSnap) =>
+            ({
+              id: docSnap.id,
+              ...(docSnap.data() as any),
+            } as Product)
+        );
+        this.productsSubject.next(products);
+      })
+      .catch((err: any) =>
+        console.error('Error fetching products for user:', err)
+      );
   }
 
   private fetchProducts(): void {
-    const activeStoreId = this.storeService.getActiveStoreId();
-
-    if (!activeStoreId) {
-      this.productsSubject.next([]);
-      return;
-    }
-
-    const userId = this.getCurrentUser();
-    let url = `${this.apiUrl}/products`;
-    const params = new URLSearchParams();
-    if (userId && userId !== 'guest') params.append('userId', userId);
-    params.append('storeId', activeStoreId);
-
-    const queryString = params.toString();
-    url += `?${queryString}`;
-
-    this.http.get<Product[]>(url).subscribe({
-      next: (products) => this.productsSubject.next(products),
-      error: (err) => console.error('Error fetching products:', err),
-    });
+    // Products are fetched via realtime listeners in doSetupFirestoreListeners
+    console.log('fetchProducts - data loaded via realtime listeners');
   }
 
   private fetchSales(): void {
-    const userId = this.getCurrentUser();
-    const activeStoreId = this.storeService.getActiveStoreId();
-
-    if (!userId || userId === 'guest' || !activeStoreId) {
-      if (!activeStoreId) this.salesSubject.next([]);
-      return;
-    }
-
-    const url = `${this.apiUrl}/sales?userId=${userId}&storeId=${activeStoreId}`;
-
-    this.http.get<Sale[]>(url).subscribe({
-      next: (sales) => {
-        const parsedSales = sales.map((sale) => this.transformSale(sale));
-        this.salesSubject.next(parsedSales);
-      },
-      error: (err) => console.error('Error fetching sales:', err),
-    });
+    // Sales are fetched via realtime listeners in doSetupFirestoreListeners
+    console.log('fetchSales - data loaded via realtime listeners');
   }
 
   private fetchExpenses(): void {
-    const userId = this.getCurrentUser();
-    const activeStoreId = this.storeService.getActiveStoreId();
-
-    if (!userId || userId === 'guest' || !activeStoreId) {
-      if (!activeStoreId) this.expensesSubject.next([]);
-      return;
-    }
-
-    const url = `${this.apiUrl}/expenses?userId=${userId}&storeId=${activeStoreId}`;
-
-    this.http.get<Expense[]>(url).subscribe({
-      next: (expenses) => this.expensesSubject.next(expenses),
-      error: (err) => console.error('Error fetching expenses:', err),
-    });
+    // Expenses are fetched via realtime listeners in doSetupFirestoreListeners
+    console.log('fetchExpenses - data loaded via realtime listeners');
   }
 
   getProducts(): Observable<Product[]> {
@@ -739,27 +674,15 @@ export class InventoryService {
       );
     }
 
-    const baseData = {
+    const firestoreData = {
       ...expense,
       timestamp: new Date(),
       storeId: activeStoreId,
+      userId: this.getFirestoreUserId(),
     };
 
-    const firestoreData = { ...baseData, userId: this.getFirestoreUserId() };
-
     return from(addDoc(collection(this.db, 'expenses'), firestoreData)).pipe(
-      map((docRef) => docRef.id),
-      catchError((e) => {
-        console.warn('Firestore write failed (proceeding with Legacy):', e);
-        return of(undefined);
-      }),
-      switchMap((firestoreId) => {
-        const legacyData = { ...baseData, userId: this.getCurrentUser() };
-        if (firestoreId) {
-          Object.assign(legacyData, { id: firestoreId });
-        }
-        return this.http.post<Expense>(`${this.apiUrl}/expenses`, legacyData);
-      }),
+      map((docRef) => ({ id: docRef.id, ...firestoreData } as Expense)),
       tap({
         next: (newExpense) => {
           const current = this.expensesSubject.value;
@@ -788,25 +711,21 @@ export class InventoryService {
     }
 
     return from(deleteDoc(doc(this.db, 'expenses', expenseId))).pipe(
-      catchError((e) => {
-        console.warn('Firestore delete failed (proceeding with Legacy):', e);
-        return of(void 0);
-      }),
-      switchMap(() =>
-        this.http.delete<void>(`${this.apiUrl}/expenses/${expenseId}`)
-      ),
       tap({
         next: () => {
           const current = this.expensesSubject.value;
+          const exp = current.find((e) => e.id === expenseId);
           this.expensesSubject.next(current.filter((e) => e.id !== expenseId));
 
-          this.loggingService.logActivity(
-            'delete',
-            'expense',
-            expenseId,
-            'Expense',
-            'Deleted'
-          );
+          if (exp) {
+            this.loggingService.logActivity(
+              'delete',
+              'expense',
+              expenseId,
+              exp.productName,
+              'Expense Deleted'
+            );
+          }
         },
         error: (err) => console.error('Error deleting expense:', err),
       })
@@ -849,29 +768,11 @@ export class InventoryService {
           ...product,
           createdAt: new Date(),
           storeId: activeStoreId,
-        };
-
-        const firestoreData = {
-          ...baseData,
           userId: this.getFirestoreUserId(),
         };
 
-        return from(
-          addDoc(collection(this.db, 'products'), firestoreData)
-        ).pipe(
-          map((docRef) => docRef.id),
-          catchError((e) => {
-            console.warn('Firestore write failed:', e);
-            return of(undefined);
-          }),
-          switchMap((firestoreId) => {
-            const legacyData = { ...baseData, userId: this.getCurrentUser() };
-            if (firestoreId) Object.assign(legacyData, { id: firestoreId });
-            return this.http.post<Product>(
-              `${this.apiUrl}/products`,
-              legacyData
-            );
-          }),
+        return from(addDoc(collection(this.db, 'products'), baseData)).pipe(
+          map((docRef) => ({ id: docRef.id, ...baseData } as Product)),
           tap({
             next: (newProduct) => {
               const current = this.productsSubject.value;
@@ -906,13 +807,6 @@ export class InventoryService {
     const product = products.find((p) => p.id === productId);
 
     return from(deleteDoc(doc(this.db, 'products', productId))).pipe(
-      catchError((e) => {
-        console.warn('Firestore delete failed (proceeding with Legacy):', e);
-        return of(void 0);
-      }),
-      switchMap(() =>
-        this.http.delete<void>(`${this.apiUrl}/products/${productId}`)
-      ),
       tap({
         next: () => {
           const current = this.productsSubject.value;
@@ -926,7 +820,9 @@ export class InventoryService {
             'Deleted'
           );
         },
-        error: (err) => console.error('Error deleting product:', err),
+        error: (err) => {
+          this.handleFirestoreError(err, 'Error deleting product');
+        },
       })
     );
   }
@@ -1024,27 +920,16 @@ export class InventoryService {
         };
 
         return from(addDoc(collection(this.db, 'sales'), firestoreData)).pipe(
-          map((docRef) => docRef.id),
-          catchError((e) => {
-            console.warn('Firestore Sale Write Failed:', e);
-            return of(undefined);
-          }),
-          switchMap((firestoreId) => {
-            const legacyData = { ...baseData, userId: this.getCurrentUser() };
-            if (firestoreId) Object.assign(legacyData, { id: firestoreId });
-            return this.http.post<Sale>(`${this.apiUrl}/sales`, legacyData);
-          }),
+          map((docRef) => ({ id: docRef.id, ...firestoreData } as Sale)),
           tap({
             next: (newSale) => {
-              // Deduct Credit on Success
+              // Deduct Credit on Success (Client-side tracking)
               this.storeService.deductTransactionCredit(activeStoreId);
 
               // Update local sales state
-              const transformed = this.transformSale(newSale);
-              const currentSales = this._sales();
-              if (!currentSales.find((s) => s.id === transformed.id)) {
-                const updated = [...currentSales, transformed];
-                this._sales.set(updated);
+              const currentSales = this.salesSubject.value;
+              if (!currentSales.find((s) => s.id === newSale.id)) {
+                const updated = [newSale, ...currentSales];
                 this.salesSubject.next(updated);
               }
 
@@ -1057,7 +942,9 @@ export class InventoryService {
               );
               this.recalculateAndSaveStats();
             },
-            error: (err) => console.error('Error recording sale:', err),
+            error: (err) => {
+              this.handleFirestoreError(err, 'Error recording sale');
+            },
           })
         );
       })
@@ -1074,61 +961,69 @@ export class InventoryService {
       return;
     }
 
-    this.http
-      .put<Sale>(`${this.apiUrl}/sales/${saleId}`, { pending: false })
-      .subscribe({
-        next: () => {
-          const updatedSales = currentSales.map((s) =>
-            s.id === saleId ? { ...s, pending: false } : s
+    const saleRef = doc(this.db, 'sales', saleId);
+    updateDoc(saleRef, { pending: false })
+      .then(() => {
+        // Update local state (Optimistic or wait for listener)
+        const updatedSales = currentSales.map((s) =>
+          s.id === saleId ? { ...s, pending: false } : s
+        );
+        this.salesSubject.next(updatedSales);
+
+        // Deduct Inventory Now
+        const products = this.productsSubject.value;
+        const product = products.find((p) => p.id === sale.productId);
+        if (product) {
+          const updatedProduct = {
+            ...product,
+            quantity: product.quantity - sale.quantitySold,
+          };
+          this.updateProduct(updatedProduct).subscribe();
+        }
+
+        // Award Credits to Customer
+        if (sale.customerId) {
+          const customer = this.customerService.getCustomerById(
+            sale.customerId
           );
-          this.salesSubject.next(updatedSales);
+          if (customer) {
+            const creditsEarned = Math.floor(sale.total / 5000); // 1 credit per 10 pesos
+            if (creditsEarned > 0) {
+              const currentCredits = customer.credits || 0;
+              this.customerService.updateCustomer(customer.id, {
+                credits: currentCredits + creditsEarned,
+              });
 
-          // Deduct Inventory Now
-          const products = this.productsSubject.value;
-          const product = products.find((p) => p.id === sale.productId);
-          if (product) {
-            const updatedProduct = {
-              ...product,
-              quantity: product.quantity - sale.quantitySold,
-            };
-            this.updateProduct(updatedProduct).subscribe();
-          }
-
-          // Award Credits to Customer
-          if (sale.customerId) {
-            const customer = this.customerService.getCustomerById(
-              sale.customerId
-            );
-            if (customer) {
-              const creditsEarned = Math.floor(sale.total / 5000); // 1 credit per 10 pesos
-              if (creditsEarned > 0) {
-                const currentCredits = customer.credits || 0;
-                this.customerService.updateCustomer(customer.id, {
-                  credits: currentCredits + creditsEarned,
-                });
-
-                this.loggingService.logActivity(
-                  'update',
-                  'customer',
-                  customer.id,
-                  customer.name,
-                  `Awarded ${creditsEarned} credits for purchase`
-                );
-              }
+              this.loggingService.logActivity(
+                'update',
+                'customer',
+                customer.id,
+                customer.name,
+                `Awarded ${creditsEarned} credits for purchase`
+              );
             }
           }
+        }
 
-          this.loggingService.logActivity(
-            'complete',
-            'sale',
-            saleId,
-            sale.productName,
-            `Marked as delivered & Deducted ${sale.quantitySold} units`
-          );
-          this.recalculateAndSaveStats();
-        },
-        error: (err) => console.error('Error completing sale:', err),
-      });
+        this.loggingService.logActivity(
+          'complete',
+          'sale',
+          saleId,
+          sale.productName,
+          `Marked as delivered & Deducted ${sale.quantitySold} units`
+        );
+
+        this.notificationService.pushNotification(
+          'Delivery Confirmed! ✅',
+          `The order for ${
+            sale.customerName || 'a customer'
+          } has been delivered.`,
+          'delivery'
+        );
+
+        this.recalculateAndSaveStats();
+      })
+      .catch((err) => console.error('Error completing sale:', err));
   }
 
   updateSale(sale: Sale): void {
@@ -1138,29 +1033,29 @@ export class InventoryService {
       return;
     }
 
-    this.http
-      .put<Sale>(`${this.apiUrl}/sales/${sale.id}`, {
-        ...sale,
-        storeId: activeStoreId,
-      })
-      .subscribe({
-        next: (updatedSale) => {
-          const currentSales = this.salesSubject.value;
-          const updatedSales = currentSales.map((s) =>
-            s.id === sale.id ? this.transformSale(updatedSale) : s
-          );
-          this.salesSubject.next(updatedSales);
+    const saleRef = doc(this.db, 'sales', sale.id);
+    const updateData = { ...sale, storeId: activeStoreId };
 
-          this.loggingService.logActivity(
-            'update',
-            'sale',
-            sale.id,
-            sale.productName,
-            'Updated delivery details'
-          );
-        },
-        error: (err) => console.error('Error updating sale:', err),
-      });
+    setDoc(saleRef, updateData, { merge: true })
+      .then(() => {
+        // Optimistic update
+        const currentSales = this.salesSubject.value;
+        const updatedSales = currentSales.map((s) =>
+          s.id === sale.id
+            ? { ...this.transformSale(updateData), id: sale.id }
+            : s
+        );
+        this.salesSubject.next(updatedSales);
+
+        this.loggingService.logActivity(
+          'update',
+          'sale',
+          sale.id,
+          sale.productName,
+          'Updated delivery details'
+        );
+      })
+      .catch((err) => console.error('Error updating sale:', err));
   }
 
   confirmReservation(sale: Sale): void {
@@ -1172,32 +1067,27 @@ export class InventoryService {
       return;
     }
 
-    // 1. Update sale status to confirmed
-    const updatedSale: Sale = { ...sale, reservationStatus: 'confirmed' };
+    const saleRef = doc(this.db, 'sales', sale.id);
+    updateDoc(saleRef, { reservationStatus: 'confirmed' })
+      .then(() => {
+        // Optimistic update
+        const currentSales = this.salesSubject.value;
+        const newSales = currentSales.map((s) =>
+          s.id === sale.id
+            ? { ...s, reservationStatus: 'confirmed' as const }
+            : s
+        );
+        this.salesSubject.next(newSales);
 
-    this.http
-      .put<Sale>(`${this.apiUrl}/sales/${sale.id}`, updatedSale)
-      .subscribe({
-        next: (responseSale) => {
-          // Update local sales
-          const currentSales = this.salesSubject.value;
-          const newSales = currentSales.map((s) =>
-            s.id === sale.id ? this.transformSale(updatedSale) : s
-          );
-          this.salesSubject.next(newSales);
-
-          // 2. No Stock Deduction on Confirmation (Only on Delivery)
-
-          this.loggingService.logActivity(
-            'update',
-            'sale',
-            sale.id,
-            sale.productName,
-            'Confirmed reservation (Stock deduction pending delivery)'
-          );
-        },
-        error: (err) => console.error('Error confirming reservation:', err),
-      });
+        this.loggingService.logActivity(
+          'update',
+          'sale',
+          sale.id,
+          sale.productName,
+          'Confirmed reservation (Stock deduction pending delivery)'
+        );
+      })
+      .catch((err) => console.error('Error confirming reservation:', err));
   }
 
   private transformSale(sale: any): Sale {
@@ -1251,12 +1141,14 @@ export class InventoryService {
   }
 
   deleteSale(saleId: string): void {
-    this.http.delete(`${this.apiUrl}/sales/${saleId}`).subscribe({
-      next: () => {
-        const currentSales = this._sales();
+    deleteDoc(doc(this.db, 'sales', saleId))
+      .then(() => {
+        // Optimistic update
+        const currentSales = this.salesSubject.value; // Use behavior subject value
         const updatedSales = currentSales.filter((s) => s.id !== saleId);
-        this._sales.set(updatedSales);
         this.salesSubject.next(updatedSales);
+        // Also update signal if needed, but subscribing to subject usually syncs signal in effects
+        this._sales.set(updatedSales);
 
         this.loggingService.logActivity(
           'delete',
@@ -1266,9 +1158,8 @@ export class InventoryService {
           'Deleted sale record'
         );
         this.recalculateAndSaveStats();
-      },
-      error: (err) => console.error('Error deleting sale:', err),
-    });
+      })
+      .catch((err) => console.error('Error deleting sale:', err));
   }
 
   updateProduct(product: Product): Observable<Product> {
@@ -1290,22 +1181,16 @@ export class InventoryService {
         merge: true,
       })
     ).pipe(
-      catchError((e) => {
-        console.warn('Firestore update failed (proceeding with Legacy):', e);
-        return of(void 0);
-      }),
-      switchMap(() =>
-        this.http.put<Product>(`${this.apiUrl}/products/${product.id}`, product)
-      ),
+      map(() => product),
       tap({
         next: () => {
-          // Update products
-          const currentProducts = this._products();
+          // Update products local state
+          const currentProducts = this.productsSubject.value; // Use behavior subject
           const updatedProducts = currentProducts.map((p) =>
             p.id === product.id ? product : p
           );
-          this._products.set(updatedProducts);
           this.productsSubject.next(updatedProducts);
+          this._products.set(updatedProducts);
 
           // Update related sales (Pending and History)
           const currentSales = this.salesSubject.value;
@@ -1320,18 +1205,16 @@ export class InventoryService {
                 ? { ...s, productName: product.name }
                 : s
             );
-            this._sales.set(updatedSales);
             this.salesSubject.next(updatedSales);
+            this._sales.set(updatedSales);
 
-            // Update backend for each sale
+            // Update Firestore for each sale (Fire and forget)
             salesToUpdate.forEach((sale) => {
-              const updatedSale = { ...sale, productName: product.name };
-              this.http
-                .put<Sale>(`${this.apiUrl}/sales/${sale.id}`, updatedSale)
-                .subscribe({
-                  error: (err) =>
-                    console.error(`Error updating sale ${sale.id} name:`, err),
-                });
+              updateDoc(doc(this.db, 'sales', sale.id), {
+                productName: product.name,
+              }).catch((err) =>
+                console.error(`Error updating sale ${sale.id} name:`, err)
+              );
             });
           }
 
@@ -1343,7 +1226,9 @@ export class InventoryService {
           );
           this.recalculateAndSaveStats();
         },
-        error: (err) => console.error('Error updating product:', err),
+        error: (err) => {
+          this.handleFirestoreError(err, 'Error updating product');
+        },
       })
     );
   }
@@ -1447,44 +1332,5 @@ export class InventoryService {
     setDoc(doc(this.db, 'stats', storeId), stats).catch((err) =>
       console.error('Error updating aggregation document:', err)
     );
-  }
-
-  clearAllData(): void {
-    // Optional: Implement API endpoint to clear all data if needed
-    // For now, just clear local state
-    this.productsSubject.next([]);
-    this.salesSubject.next([]);
-    this.expensesSubject.next([]);
-  }
-
-  migrateFromLocalStorage(): void {
-    const productsData = localStorage.getItem('jjm_products');
-    const salesData = localStorage.getItem('jjm_sales');
-    const expensesData = localStorage.getItem('jjm_expenses');
-
-    if (productsData) {
-      const products: Product[] = JSON.parse(productsData);
-      products.forEach((p) => this.addProduct(p).subscribe());
-    }
-
-    if (salesData) {
-      const sales: Sale[] = JSON.parse(salesData);
-      // We need a way to add sales without triggering stock updates if they are already recorded
-      // For simplicity, we'll just add them as records.
-      // Ideally, the backend should handle bulk import or we check existence.
-      // Here we just POST them.
-      sales.forEach((s) => {
-        this.http.post(`${this.apiUrl}/sales`, s).subscribe({
-          error: (err) => console.error('Error migrating sale:', err),
-        });
-      });
-    }
-
-    if (expensesData) {
-      const expenses: Expense[] = JSON.parse(expensesData);
-      expenses.forEach((e) => this.addExpense(e).subscribe());
-    }
-
-    console.log('Migration started...');
   }
 }

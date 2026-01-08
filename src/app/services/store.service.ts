@@ -1,16 +1,25 @@
 import { Injectable, signal, WritableSignal, computed } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { BehaviorSubject, Observable, from, of, throwError } from 'rxjs';
+import { map, tap, catchError } from 'rxjs/operators';
 import { Store } from '../models/inventory.models';
-import { environment } from '../../environments/environment';
+import { FirebaseService } from './firebase.service';
+import {
+  collection,
+  getDocs,
+  doc,
+  getDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  orderBy,
+  setDoc,
+} from 'firebase/firestore';
 
 @Injectable({
   providedIn: 'root',
 })
 export class StoreService {
-  private readonly apiUrl = environment.apiUrl;
-
   // High performance state management using Signals
   private readonly _stores: WritableSignal<Store[]> = signal([]);
   public readonly stores = this._stores.asReadonly();
@@ -28,7 +37,11 @@ export class StoreService {
     localStorage.getItem('jjm_active_store_id')
   );
 
-  constructor(private readonly http: HttpClient) {
+  private get db() {
+    return this.firebaseService.db;
+  }
+
+  constructor(private readonly firebaseService: FirebaseService) {
     this.hydrateFromCache();
   }
 
@@ -65,40 +78,86 @@ export class StoreService {
       return;
     }
 
-    this.http.get<Store[]>(`${this.apiUrl}/stores`).subscribe({
-      next: (stores) => {
+    const storesRef = collection(this.db, 'stores');
+    const q = query(storesRef, orderBy('createdAt', 'desc'));
+
+    getDocs(q)
+      .then((snapshot) => {
+        const stores: Store[] = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data();
+          return {
+            ...data,
+            id: docSnap.id,
+            createdAt: data['createdAt']?.toDate
+              ? data['createdAt'].toDate()
+              : data['createdAt'],
+          } as Store;
+        });
         this._stores.set(stores);
         this.storesSubject.next(stores);
         this.saveToCache(stores);
         if (!this.activeStoreId() && stores.length > 0) {
           this.setActiveStore(stores[0].id);
         }
-      },
-      error: (err) => console.error('Error fetching stores:', err),
-    });
+      })
+      .catch((err) => console.error('Error fetching stores:', err));
   }
 
   getStoreById(id: string): Observable<Store> {
-    return this.http.get<Store>(`${this.apiUrl}/stores/${id}`);
+    const docRef = doc(this.db, 'stores', id);
+    return from(getDoc(docRef)).pipe(
+      map((docSnap) => {
+        if (!docSnap.exists()) {
+          throw new Error('Store not found');
+        }
+        const data = docSnap.data();
+        return {
+          ...data,
+          id: docSnap.id,
+          createdAt: data['createdAt']?.toDate
+            ? data['createdAt'].toDate()
+            : data['createdAt'],
+        } as Store;
+      })
+    );
   }
 
   createStore(store: Omit<Store, 'id' | 'createdAt'>): Observable<Store> {
-    return this.http.post<Store>(`${this.apiUrl}/stores`, store).pipe(
-      tap((newStore) => {
+    const id = crypto.randomUUID();
+    const newStore: Store = {
+      ...store,
+      id,
+      createdAt: new Date(),
+    } as Store;
+
+    const docRef = doc(this.db, 'stores', id);
+    return from(setDoc(docRef, newStore)).pipe(
+      map(() => newStore),
+      tap((created) => {
         const current = this._stores();
-        const updated = [...current, newStore];
+        const updated = [...current, created];
         this._stores.set(updated);
         this.storesSubject.next(updated);
         this.saveToCache(updated);
         if (!this.activeStoreId()) {
-          this.setActiveStore(newStore.id);
+          this.setActiveStore(created.id);
         }
+      }),
+      catchError((err) => {
+        console.error('Error creating store:', err);
+        return throwError(() => err);
       })
     );
   }
 
   updateStore(id: string, store: Partial<Store>): Observable<Store> {
-    return this.http.put<Store>(`${this.apiUrl}/stores/${id}`, store).pipe(
+    const docRef = doc(this.db, 'stores', id);
+    return from(updateDoc(docRef, store as Record<string, any>)).pipe(
+      map(() => {
+        const current = this._stores();
+        const existing = current.find((s) => s.id === id);
+        return { ...existing, ...store } as Store;
+      }),
       tap((updated) => {
         const current = this._stores();
         const updatedList = current.map((s) =>
@@ -107,27 +166,39 @@ export class StoreService {
         this._stores.set(updatedList);
         this.storesSubject.next(updatedList);
         this.saveToCache(updatedList);
+      }),
+      catchError((err) => {
+        console.error('Error updating store:', err);
+        return throwError(() => err);
       })
     );
   }
 
   deleteStore(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/stores/${id}`).pipe(
+    const docRef = doc(this.db, 'stores', id);
+    return from(deleteDoc(docRef)).pipe(
       tap(() => {
         const current = this._stores();
         const filtered = current.filter((s) => s.id !== id);
         this._stores.set(filtered);
         this.storesSubject.next(filtered);
+        this.saveToCache(filtered);
         if (this.activeStoreId() === id) {
           const first = filtered[0];
           this.setActiveStore(first ? first.id : null);
         }
+      }),
+      catchError((err) => {
+        console.error('Error deleting store:', err);
+        return throwError(() => err);
       })
     );
   }
 
   migrateData(storeId: string): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/stores/migrate`, { storeId });
+    // Migration is no longer needed without backend
+    console.warn('migrateData is deprecated - no backend to migrate to');
+    return of({ success: true, message: 'Migration deprecated' });
   }
 
   setActiveStore(id: string | null): void {
@@ -156,9 +227,6 @@ export class StoreService {
 
     // Starter = Limited (Check credits)
     if (plan === 'Starter' || plan.includes('Starter')) {
-      // Default to 0 if undefined. (Initialization logic should handle setting this to 1000)
-      // Note: If newly created without credits, it might block. We can leniently allow unless explicitly 0 if we assume fresh accounts have it.
-      // But adhering to strict credit field is safer.
       const credits = store.credits?.aiResponse ?? 0;
       return credits > 0;
     }
