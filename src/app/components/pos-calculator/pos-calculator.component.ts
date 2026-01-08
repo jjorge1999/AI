@@ -4,6 +4,8 @@ import {
   OnDestroy,
   HostListener,
   Input,
+  computed,
+  effect,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -32,16 +34,31 @@ interface CartItem {
   styleUrl: './pos-calculator.component.css',
 })
 export class PosCalculatorComponent implements OnInit, OnDestroy {
-  // Data collections
-  products: Product[] = [];
-  allProducts: Product[] = [];
-  customers: Customer[] = [];
-  pendingSales: Sale[] = [];
+  // State using Signals from Services
+  allProducts = this.inventoryService.products;
+  customers = this.customerService.customers;
+  sales = this.inventoryService.sales;
+  categoriesSignal = this.inventoryService.categories;
+  stores = this.storeService.stores;
+
+  // Derived state using Computed
+  products = computed(() =>
+    this.allProducts().filter((p: Product) => p.quantity > 0)
+  );
+
+  pendingSales = computed(() =>
+    this.sales().filter((s: Sale) => s.pending === true)
+  );
+
   allGroupedSales: any[] = [];
   isPendingCollapsed = false;
 
   // Category filtering
-  categories: string[] = [];
+  categories = computed(() =>
+    this.categoriesSignal()
+      .map((c: any) => c.name)
+      .sort()
+  );
   categoryFilter: string = '';
 
   // New UI state
@@ -183,45 +200,27 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
       this.isPendingPanelOpen = true;
     }
 
-    // Load customers for selection and name resolution
+    // Load data if not already present (SWR behavior)
     this.customerService.loadCustomers();
 
-    this.subscriptions.add(
-      this.inventoryService.getProducts().subscribe((products) => {
-        this.allProducts = products;
-        this.products = products.filter((p) => p.quantity > 0);
-      })
-    );
-    this.subscriptions.add(
-      this.inventoryService.getCategories().subscribe((categories) => {
-        this.categories = categories.map((c) => c.name).sort();
-      })
-    );
-    this.subscriptions.add(
-      this.customerService.getCustomers().subscribe((customers) => {
-        this.customers = customers;
-      })
-    );
-    this.subscriptions.add(
-      this.inventoryService.getSales().subscribe((sales) => {
-        this.pendingSales = sales.filter((s) => s.pending === true);
+    // Set up logic for Signal changes
+    // We update allGroupedSales when sales signal changes
+    effect(() => {
+      const currentSales = this.sales();
+      if (currentSales) {
         this.updateGroupedSales();
-        // Only start if not already started? or re-check. Logic is fine here.
         if (!this.checkInterval) {
           this.startAlarmChecks();
         }
-      })
-    );
+      }
+    });
 
-    // Load active store details for receipt
-    this.subscriptions.add(
-      this.storeService.stores$.subscribe((stores) => {
-        const activeStoreId = this.storeService.getActiveStoreId();
-        if (activeStoreId) {
-          this.activeStore = stores.find((s) => s.id === activeStoreId);
-        }
-      })
-    );
+    // Initial store setup
+    const activeStoreId = this.storeService.getActiveStoreId();
+    if (activeStoreId) {
+      this.activeStore = this.stores().find((s) => s.id === activeStoreId);
+    }
+
     this.discount = 0;
   }
 
@@ -282,17 +281,17 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
 
   /** Returns pending sales filtered by selected delivery date (if any) and sorted by delivery date */
   get filteredPendingSales(): Sale[] {
-    let filtered = this.pendingSales;
+    let filtered = this.pendingSales();
 
     // Status Filter
     if (this.statusFilter === 'reservation') {
       filtered = filtered.filter(
-        (s) => s.reservationStatus === 'pending_confirmation'
+        (s: Sale) => s.reservationStatus === 'pending_confirmation'
       );
     }
 
     if (this.deliveryFilterDate) {
-      filtered = filtered.filter((s) => {
+      filtered = filtered.filter((s: Sale) => {
         if (!s.deliveryDate) return false;
         const d = new Date(s.deliveryDate);
         const year = d.getFullYear();
@@ -302,7 +301,7 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
         return dateStr === this.deliveryFilterDate;
       });
     }
-    return filtered.slice().sort((a, b) => {
+    return filtered.slice().sort((a: Sale, b: Sale) => {
       // Sort priority: Pending Confirmations FIRST
       const aReserved = a.reservationStatus === 'pending_confirmation';
       const bReserved = b.reservationStatus === 'pending_confirmation';
@@ -324,7 +323,7 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     const now = new Date();
     const dueSales: { sale: Sale; days: number }[] = [];
 
-    this.pendingSales.forEach((sale) => {
+    this.pendingSales().forEach((sale: Sale) => {
       if (!sale.deliveryDate) return;
       const delivery = new Date(sale.deliveryDate);
       const diffMs = delivery.getTime() - now.getTime();
@@ -446,16 +445,20 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
   }
 
   get selectedProduct(): Product | undefined {
-    return this.products.find((p) => p.id === this.selectedProductId);
+    return this.products().find(
+      (p: Product) => p.id === this.selectedProductId
+    );
   }
 
   get selectedCustomer(): Customer | undefined {
-    return this.customers.find((c) => c.id === this.selectedCustomerId);
+    return this.customers().find(
+      (c: Customer) => c.id === this.selectedCustomerId
+    );
   }
 
   getCustomerById(customerId: string | undefined): Customer | undefined {
     if (!customerId) return undefined;
-    return this.customers.find((c) => c.id === customerId);
+    return this.customers().find((c: Customer) => c.id === customerId);
   }
 
   get maxQuantity(): number {
@@ -1043,8 +1046,8 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
 
     if (orderId) {
       // Update ALL sales in this order
-      const salesToUpdate = this.pendingSales.filter(
-        (s) => s.orderId === orderId
+      const salesToUpdate = this.pendingSales().filter(
+        (s: Sale) => s.orderId === orderId
       );
       salesToUpdate.forEach((s) => {
         const updatedSale: Sale = {
@@ -1113,9 +1116,11 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
 
   get filteredProducts(): Product[] {
     if (!this.categoryFilter) {
-      return this.products;
+      return this.products();
     }
-    return this.products.filter((p) => p.category === this.categoryFilter);
+    return this.products().filter(
+      (p: Product) => p.category === this.categoryFilter
+    );
   }
 
   getCategoryIcon(category: string): string {

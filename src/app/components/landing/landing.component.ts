@@ -1,10 +1,15 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { InventoryService } from '../../services/inventory.service';
 import { CustomerService } from '../../services/customer.service';
-import { Product, Sale, Customer } from '../../models/inventory.models';
+import {
+  Product,
+  Sale,
+  Customer,
+  DashboardStats,
+} from '../../models/inventory.models';
 import { DialogService } from '../../services/dialog.service';
 import { DeviceService } from '../../services/device.service';
 
@@ -69,7 +74,7 @@ interface TopCustomer {
   name: string;
   totalSpent: number;
   ordersCount: number;
-  lastOrderDate: Date;
+  lastOrderDate?: Date;
 }
 
 interface TodaySummary {
@@ -238,18 +243,21 @@ export class LandingComponent implements OnInit, OnDestroy {
   isEditMode = false;
   draggedWidget: DashboardWidget | null = null;
 
-  // Chart data points (for SVG path)
-  salesChartPath = '';
-  costsChartPath = '';
+  // State using Signals local to component
+  products = this.inventoryService.products;
+  sales = this.inventoryService.sales;
+  stats = this.inventoryService.stats;
+  customers = this.customerService.customers;
 
+  // UI State
   viewMode: 'table' | 'grid' = 'table';
   today = new Date();
   isMobile = false;
-
   private subscriptions: Subscription[] = [];
-  private products: Product[] = [];
-  private sales: Sale[] = [];
-  private customers: Customer[] = [];
+
+  // Chart data points (for SVG path)
+  salesChartPath = '';
+  costsChartPath = '';
 
   // User info
   userName = 'User';
@@ -262,6 +270,18 @@ export class LandingComponent implements OnInit, OnDestroy {
     private dialogService: DialogService,
     private deviceService: DeviceService
   ) {
+    // Bridge Signals to side-effects
+    effect(() => {
+      // update dashboard data whenever sales or products change
+      this.sales();
+      this.products();
+      this.updateDashboardData();
+    });
+
+    effect(() => {
+      const stats = this.stats();
+      if (stats) this.applyAggregationStats(stats);
+    });
     this.userName =
       localStorage.getItem('jjm_fullname') ||
       localStorage.getItem('jjm_username') ||
@@ -280,31 +300,14 @@ export class LandingComponent implements OnInit, OnDestroy {
     // Load saved widget layout
     this.loadWidgetLayout();
 
-    // Load customers for name lookup
+    // Dashboard is now data-lazy. Raw products/sales/customers are only loaded
+    // when navigating to their respective management pages (Full Sync).
+    // Aggregation stats cover the initial dashboard view.
+
+    // Check for data existence before calling load (Optimization)
     this.customerService.loadCustomers();
-
-    // Subscribe to customers
-    this.subscriptions.push(
-      this.customerService.getCustomers().subscribe((customers) => {
-        this.customers = customers;
-        this.updateDashboardData();
-      })
-    );
-
-    // Subscribe to products and sales
-    this.subscriptions.push(
-      this.inventoryService.getProducts().subscribe((products) => {
-        this.products = products;
-        this.updateDashboardData();
-      })
-    );
-
-    this.subscriptions.push(
-      this.inventoryService.getSales().subscribe((sales) => {
-        this.sales = sales;
-        this.updateDashboardData();
-      })
-    );
+    // However, if we need side effects, we can use effect() in constructor or keeping subscription for now if updateDashboardData is complex.
+    // Let's keep a effect for updateDashboardData transition.
 
     // Auto-switch to grid view on mobile
     this.subscriptions.push(
@@ -364,10 +367,87 @@ export class LandingComponent implements OnInit, OnDestroy {
     this.generateChartPaths();
   }
 
+  private applyAggregationStats(stats: DashboardStats): void {
+    // Update Today's Summary smoothly
+    this.todaySummary = {
+      ...this.todaySummary,
+      totalOrders: stats.todayOrdersCount,
+      totalRevenue: stats.todayRevenue,
+      averageOrderValue:
+        stats.todayOrdersCount > 0
+          ? stats.todayRevenue / stats.todayOrdersCount
+          : 0,
+    };
+
+    // Find and update specific KPI cards if they match the aggregated stats
+    this.kpiCards = this.kpiCards.map((card) => {
+      if (card.title.includes('Revenue (MTD)')) {
+        return {
+          ...card,
+          value: this.formatCurrency(stats.mtdRevenue),
+          trendValue: 'Live Stats',
+        };
+      }
+      if (card.title.includes('Low Stock Items')) {
+        return {
+          ...card,
+          value: stats.lowStockCount.toString(),
+          trendValue: stats.lowStockCount > 0 ? 'Action Needed' : 'All Good',
+        };
+      }
+      if (card.title.includes('Total Stock Value')) {
+        return {
+          ...card,
+          value: this.formatCurrency(stats.totalRevenue), // Using totalRevenue as a placeholder if intended
+        };
+      }
+      return card;
+    });
+
+    // Upate Lists if available in aggregated data
+    if (stats.topSellingProducts) {
+      this.topSellingProducts = stats.topSellingProducts.map((p, index) => ({
+        name: p.name,
+        unitsSold: p.unitsSold,
+        revenue: p.revenue,
+        trend: index === 0 ? 'up' : index < 3 ? 'neutral' : 'down',
+      }));
+    }
+
+    if (stats.categoryDistribution) {
+      const colors = ['#137fec', '#a855f7', '#f97316', '#94a3b8'];
+      this.categories = stats.categoryDistribution.map((c, i) => ({
+        name: c.name,
+        percentage: c.percentage,
+        color: colors[i] || '#94a3b8',
+      }));
+    }
+
+    if (stats.recentOrders && stats.recentOrders.length > 0) {
+      this.recentOrders = stats.recentOrders.map((sale) => ({
+        id: `#ORD-${sale.id?.slice(-4) || '0000'}`,
+        customer: this.getCustomerDisplayName(sale),
+        status: this.getSaleStatus(sale),
+        amount: sale.total || 0,
+        productName: sale.productName || 'Unknown Product',
+        quantity: sale.quantitySold || 1,
+        timestamp: new Date(sale.timestamp),
+        discount: sale.discount,
+        discountType: sale.discountType,
+        cashReceived: sale.cashReceived,
+        change: sale.change,
+      }));
+    }
+
+    if (stats.topCustomers) {
+      this.topCustomers = stats.topCustomers;
+    }
+  }
+
   // ... (existing updateDashboardData calls)
 
   private loadPendingDeliveries(): void {
-    this.pendingDeliveries = this.sales
+    this.pendingDeliveries = this.sales()
       .filter((s) => s.pending === true || (s as any).pending === 'true')
       .sort((a, b) => {
         const dateA = a.deliveryDate ? new Date(a.deliveryDate).getTime() : 0;
@@ -411,7 +491,7 @@ export class LandingComponent implements OnInit, OnDestroy {
     let phone = sale.customerContact;
 
     if (!phone && sale.customerId) {
-      const customer = this.customers.find((c) => c.id === sale.customerId);
+      const customer = this.customers().find((c) => c.id === sale.customerId);
       if (customer) phone = customer.phoneNumber;
     }
 
@@ -426,20 +506,20 @@ export class LandingComponent implements OnInit, OnDestroy {
 
   private calculateKpis(): void {
     // Total Stock Value
-    const totalStockValue = this.products.reduce(
+    const totalStockValue = this.products().reduce(
       (sum, p) => sum + p.price * (p.quantity || 0),
       0
     );
 
     // Low Stock Items count (using default threshold of 5)
     const LOW_STOCK_THRESHOLD = 5;
-    const lowStockCount = this.products.filter(
+    const lowStockCount = this.products().filter(
       (p) => (p.quantity || 0) <= LOW_STOCK_THRESHOLD
     ).length;
 
     // Today's orders
     const today = new Date().toISOString().split('T')[0];
-    const todayOrders = this.sales.filter((s) => {
+    const todayOrders = this.sales().filter((s) => {
       const saleDate = new Date(s.timestamp).toISOString().split('T')[0];
       return saleDate === today;
     });
@@ -447,7 +527,7 @@ export class LandingComponent implements OnInit, OnDestroy {
     // Month-to-date revenue
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const mtdSales = this.sales.filter((s) => {
+    const mtdSales = this.sales().filter((s) => {
       const saleDate = new Date(s.timestamp);
       return saleDate >= startOfMonth;
     });
@@ -496,12 +576,12 @@ export class LandingComponent implements OnInit, OnDestroy {
   private calculateCategories(): void {
     // Group products by category and calculate percentages
     const categoryMap: { [key: string]: number } = {};
-    this.products.forEach((p) => {
+    this.products().forEach((p) => {
       const category = p.category || 'Others';
       categoryMap[category] = (categoryMap[category] || 0) + 1;
     });
 
-    const total = this.products.length || 1;
+    const total = this.products().length || 1;
     const colors = ['#137fec', '#a855f7', '#f97316', '#94a3b8'];
 
     const sortedCategories = Object.entries(categoryMap)
@@ -527,7 +607,7 @@ export class LandingComponent implements OnInit, OnDestroy {
 
   private loadRecentOrders(): void {
     // Get last 5 sales for more visibility
-    const recentSales = [...this.sales]
+    const recentSales = [...this.sales()]
       .sort(
         (a, b) =>
           new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -572,7 +652,7 @@ export class LandingComponent implements OnInit, OnDestroy {
 
     // 2. Try to look up by customerId
     if (sale.customerId) {
-      const customer = this.customers.find((c) => c.id === sale.customerId);
+      const customer = this.customers().find((c) => c.id === sale.customerId);
       if (customer) {
         return customer.name;
       }
@@ -585,7 +665,7 @@ export class LandingComponent implements OnInit, OnDestroy {
   getCustomerContact(sale: Sale): string {
     if (sale.customerContact) return sale.customerContact;
     if (sale.customerId) {
-      const customer = this.customers.find((c) => c.id === sale.customerId);
+      const customer = this.customers().find((c) => c.id === sale.customerId);
       return customer?.phoneNumber || '';
     }
     return '';
@@ -594,7 +674,7 @@ export class LandingComponent implements OnInit, OnDestroy {
   getCustomerAddress(sale: Sale): string {
     if (sale.customerAddress) return sale.customerAddress;
     if (sale.customerId) {
-      const customer = this.customers.find((c) => c.id === sale.customerId);
+      const customer = this.customers().find((c) => c.id === sale.customerId);
       return customer?.deliveryAddress || '';
     }
     return '';
@@ -614,7 +694,7 @@ export class LandingComponent implements OnInit, OnDestroy {
     const LOW_STOCK_THRESHOLD = 5;
     const REORDER_POINT = 10;
 
-    const lowStock = this.products
+    const lowStock = this.products()
       .filter((p) => (p.quantity || 0) <= LOW_STOCK_THRESHOLD)
       .sort((a, b) => (a.quantity || 0) - (b.quantity || 0))
       .slice(0, 3);
@@ -697,7 +777,7 @@ export class LandingComponent implements OnInit, OnDestroy {
       [key: string]: { name: string; units: number; revenue: number };
     } = {};
 
-    this.sales.forEach((sale) => {
+    this.sales().forEach((sale) => {
       const key = sale.productId || sale.productName;
       if (!productSales[key]) {
         productSales[key] = { name: sale.productName, units: 0, revenue: 0 };
@@ -742,7 +822,7 @@ export class LandingComponent implements OnInit, OnDestroy {
       };
     } = {};
 
-    this.sales.forEach((sale) => {
+    this.sales().forEach((sale) => {
       const customerId = sale.customerId || 'walk-in';
       const customerName = this.getCustomerDisplayName(sale);
 
@@ -794,7 +874,7 @@ export class LandingComponent implements OnInit, OnDestroy {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const todaySales = this.sales.filter((s) => {
+    const todaySales = this.sales().filter((s) => {
       const saleDate = new Date(s.timestamp);
       saleDate.setHours(0, 0, 0, 0);
       return saleDate.getTime() === today.getTime();

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal, WritableSignal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
@@ -11,19 +11,47 @@ import { StoreService } from './store.service';
 })
 export class CustomerService {
   private apiUrl = environment.apiUrl;
+
+  // High performance state management using Signals
+  private readonly _customers: WritableSignal<Customer[]> = signal([]);
+  public readonly customers = this._customers.asReadonly();
+
   private customersSubject = new BehaviorSubject<Customer[]>([]);
   public customers$ = this.customersSubject.asObservable();
 
   constructor(private http: HttpClient, private storeService: StoreService) {
-    // Manual loading only
+    this.hydrateFromCache();
   }
 
-  public loadCustomers(): void {
+  private hydrateFromCache(): void {
+    const cached = localStorage.getItem('jjm_cached_customers');
+    if (cached) {
+      try {
+        const customers = JSON.parse(cached);
+        this._customers.set(customers);
+        this.customersSubject.next(customers);
+        console.log('Hydrated Customers from cache');
+      } catch (e) {
+        console.warn('Failed to hydrate customers from cache', e);
+      }
+    }
+  }
+
+  private saveToCache(customers: Customer[]): void {
+    localStorage.setItem('jjm_cached_customers', JSON.stringify(customers));
+  }
+
+  public loadCustomers(force = false): void {
+    // Check if data exists before calling fetch (Optimization)
+    if (!force && this._customers().length > 0) {
+      console.log('Customers already loaded in Signal. Skipping fetch.');
+      return;
+    }
     this.fetchCustomers();
   }
 
   private loadInitialData(): void {
-    this.fetchCustomers();
+    this.loadCustomers();
   }
 
   private getCurrentUser(): string {
@@ -31,7 +59,7 @@ export class CustomerService {
   }
 
   public reloadData(): void {
-    this.loadInitialData();
+    this.loadCustomers(true);
   }
 
   private fetchCustomers(): void {
@@ -40,14 +68,21 @@ export class CustomerService {
 
     // Security: Do not fetch customers for unauthenticated users or without store context
     if (!userId || userId === 'guest' || !storeId) {
-      if (!storeId) this.customersSubject.next([]);
+      if (!storeId) {
+        this._customers.set([]);
+        this.customersSubject.next([]);
+      }
       return;
     }
 
     const url = `${this.apiUrl}/customers?userId=${userId}&storeId=${storeId}`;
 
     this.http.get<Customer[]>(url).subscribe({
-      next: (customers) => this.customersSubject.next(customers),
+      next: (customers) => {
+        this._customers.set(customers);
+        this.customersSubject.next(customers);
+        this.saveToCache(customers);
+      },
       error: (err) => console.error('Error fetching customers:', err),
     });
   }
@@ -110,8 +145,11 @@ export class CustomerService {
       .pipe(
         tap({
           next: (newCustomer) => {
-            const current = this.customersSubject.value;
-            this.customersSubject.next([...current, newCustomer]);
+            const current = this._customers();
+            const updated = [...current, newCustomer];
+            this._customers.set(updated);
+            this.customersSubject.next(updated);
+            this.saveToCache(updated);
           },
           error: (err) => console.error('Error adding customer:', err),
         })
@@ -124,11 +162,13 @@ export class CustomerService {
       .pipe(
         tap({
           next: () => {
-            const current = this.customersSubject.value;
+            const current = this._customers();
             const updated = current.map((c) =>
               c.id === id ? { ...c, ...updates } : c
             );
+            this._customers.set(updated);
             this.customersSubject.next(updated);
+            this.saveToCache(updated);
           },
           error: (err) => console.error('Error updating customer:', err),
         })
@@ -139,9 +179,11 @@ export class CustomerService {
     return this.http.delete<void>(`${this.apiUrl}/customers/${id}`).pipe(
       tap({
         next: () => {
-          const current = this.customersSubject.value;
+          const current = this._customers();
           const filtered = current.filter((c) => c.id !== id);
+          this._customers.set(filtered);
           this.customersSubject.next(filtered);
+          this.saveToCache(filtered);
         },
         error: (err) => console.error('Error deleting customer:', err),
       })

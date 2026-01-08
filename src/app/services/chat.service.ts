@@ -22,6 +22,7 @@ import {
 } from 'firebase/firestore';
 import { Message } from '../models/inventory.models';
 import { StoreService } from './store.service';
+import { MaintenanceService } from './maintenance.service';
 
 export interface UserStatus {
   id: string;
@@ -52,7 +53,8 @@ export class ChatService {
 
   constructor(
     private readonly firebaseService: FirebaseService,
-    private readonly storeService: StoreService
+    private readonly storeService: StoreService,
+    private readonly maintenanceService: MaintenanceService
   ) {
     this.app = this.firebaseService.app;
     this.db = this.firebaseService.db;
@@ -74,6 +76,20 @@ export class ChatService {
     }
     this.listenForMessages();
     this.listenForStatus();
+  }
+
+  private handleFirestoreError(err: any, context: string): void {
+    console.error(`${context}:`, err);
+    if (
+      err.code === 'resource-exhausted' ||
+      err.code === 8 ||
+      (err.message && err.message.toLowerCase().includes('quota'))
+    ) {
+      this.maintenanceService.setMaintenanceMode(
+        true,
+        'Firebase Quota Exhausted. System is in read-only maintenance mode.'
+      );
+    }
   }
 
   private listenForStatus(): void {
@@ -107,10 +123,7 @@ export class ChatService {
         this.onlineUsersSubject.next(statuses);
       },
       (error) => {
-        console.warn(
-          'Status update listener failed (check Firestore rules):',
-          error
-        );
+        this.handleFirestoreError(error, 'Status update listener failed');
       }
     );
   }
@@ -150,7 +163,7 @@ export class ChatService {
         this.messagesSubject.next(messages);
       },
       (error) => {
-        console.error('Error listening to messages:', error);
+        this.handleFirestoreError(error, 'Error listening to messages');
       }
     );
   }

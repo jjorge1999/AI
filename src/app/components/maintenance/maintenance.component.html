@@ -1,0 +1,20 @@
+<div class="maintenance-overlay" *ngIf="maintenanceService.isMaintenanceMode$ | async">
+  <div class="maintenance-card">
+    <div class="maintenance-icon">
+      <span class="material-icons">engineering</span>
+    </div>
+    <h1>Maintenance Mode</h1>
+    <p class="message">{{ maintenanceService.maintenanceMessage$ | async }}</p>
+    <div class="status-badge">
+      <span class="pulse"></span>
+      System is being optimized
+    </div>
+    <div class="action-section">
+      <p>We'll be back shortly. Thank you for your patience.</p>
+      <button class="refresh-btn" (click)="reloadPage()">
+        <span class="material-icons">refresh</span>
+        Check Again
+      </button>
+    </div>
+  </div>
+</div>

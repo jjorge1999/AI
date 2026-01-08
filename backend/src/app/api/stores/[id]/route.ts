@@ -2,8 +2,12 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { Store } from '@/lib/models';
 import { withCors, corsResponse } from '@/lib/cors';
+import { backendCache } from '@/lib/cache';
+
+const CACHE_KEY = 'global:stores';
 
 export async function OPTIONS(request: Request) {
+  // ... existing OPTIONS ...
   const origin = request.headers.get('origin');
   return corsResponse(origin);
 }
@@ -57,6 +61,7 @@ export async function PUT(
     delete updateData.createdAt;
 
     await db.collection('stores').doc(id).update(updateData);
+    backendCache.delete(CACHE_KEY);
     return withCors(NextResponse.json({ id, ...updateData }), origin);
   } catch (error) {
     const err = error as Error;
@@ -98,6 +103,7 @@ export async function DELETE(
     }
 
     await db.collection('stores').doc(id).delete();
+    backendCache.delete(CACHE_KEY);
     return withCors(NextResponse.json({ success: true }), origin);
   } catch (error) {
     console.error('Error deleting store:', error);

@@ -12,7 +12,7 @@
         <span class="category-label">All Items</span>
       </button>
       <button
-        *ngFor="let cat of categories"
+        *ngFor="let cat of categories()"
         class="category-btn"
         [class.active]="categoryFilter === cat"
         (click)="categoryFilter = cat"
@@ -73,7 +73,7 @@
     <div class="customer-select-wrapper">
       <select [(ngModel)]="selectedCustomerId" class="customer-select">
         <option value="">-- Walk-in Customer --</option>
-        <option *ngFor="let customer of customers" [value]="customer.id">
+        <option *ngFor="let customer of customers()" [value]="customer.id">
           {{ customer.name }}
         </option>
       </select>
@@ -154,7 +154,7 @@
         <button class="action-btn" (click)="togglePendingPanel()">
           <span class="material-icon">schedule</span>
           <span class="action-label">Pending</span>
-          <span class="pending-badge" *ngIf="pendingSales.length > 0">{{ pendingSales.length }}</span>
+          <span class="pending-badge" *ngIf="pendingSales().length > 0">{{ pendingSales().length }}</span>
         </button>
       </div>
 

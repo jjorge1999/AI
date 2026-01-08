@@ -164,3 +164,18 @@ export interface Reservation {
   reservationDate: Date;
   storeId?: string;
 }
+
+export interface DashboardStats {
+  totalRevenue: number;
+  mtdRevenue: number;
+  todayRevenue: number;
+  todayOrdersCount: number;
+  totalProductsCount: number;
+  lowStockCount: number;
+  lastUpdated: Date;
+  storeId: string;
+  topSellingProducts?: { name: string; unitsSold: number; revenue: number }[];
+  categoryDistribution?: { name: string; percentage: number }[];
+  recentOrders?: any[]; // Simplified for storage
+  topCustomers?: { name: string; totalSpent: number; ordersCount: number }[];
+}

@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { withCors, corsResponse } from '@/lib/cors';
+import { backendCache } from '@/lib/cache';
 
 const COLLECTION_NAME = 'users';
+const CACHE_KEY_PREFIX = 'global:users';
 
 export async function OPTIONS(request: Request) {
   const origin = request.headers.get('origin');
@@ -16,6 +18,15 @@ export async function GET(request: Request) {
     const username = searchParams.get('username');
     const userId = searchParams.get('userId');
     const storeId = searchParams.get('storeId');
+
+    const cacheKey = `${CACHE_KEY_PREFIX}:${username || 'all'}:${
+      userId || 'all'
+    }:${storeId || 'all'}`;
+    const cached = backendCache.get(cacheKey);
+    if (cached) {
+      console.log('Serving users from backend cache');
+      return withCors(NextResponse.json(cached), origin);
+    }
 
     let query: FirebaseFirestore.Query = db.collection(COLLECTION_NAME);
 
@@ -42,6 +53,8 @@ export async function GET(request: Request) {
         ...safeData,
       };
     });
+
+    backendCache.set(cacheKey, users, 300); // 5 minute cache
 
     return withCors(NextResponse.json(users), origin);
   } catch (error) {
@@ -74,6 +87,10 @@ export async function POST(request: Request) {
       });
       id = docRef.id;
     }
+
+    // Invalidate Cache
+    backendCache.delete(`${CACHE_KEY_PREFIX}:all:all:all`);
+    backendCache.delete(`${CACHE_KEY_PREFIX}:all:all:${body.storeId || 'all'}`);
 
     return withCors(
       NextResponse.json({ id, ...body }, { status: 201 }),

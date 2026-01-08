@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { withCors, corsResponse } from '@/lib/cors';
 
+import { backendCache } from '@/lib/cache';
+
 const COLLECTION_NAME = 'sales';
 
 export async function OPTIONS(request: Request) {
@@ -16,6 +18,13 @@ export async function GET(request: Request) {
     const userId = searchParams.get('userId');
     const storeId = searchParams.get('storeId');
 
+    const cacheKey = `sales:${userId || 'null'}:${storeId || 'null'}`;
+    const cachedData = backendCache.get(cacheKey);
+    if (cachedData) {
+      console.log('Serving sales from cache:', cacheKey);
+      return withCors(NextResponse.json(cachedData), origin);
+    }
+
     let query: FirebaseFirestore.Query = db.collection(COLLECTION_NAME);
 
     if (storeId) {
@@ -27,6 +36,10 @@ export async function GET(request: Request) {
 
     const snapshot = await query.get();
     const sales = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+    // Cache for 2 minutes
+    backendCache.set(cacheKey, sales, 120);
+
     return withCors(NextResponse.json(sales), origin);
   } catch (error) {
     console.error('Error fetching sales:', error);
@@ -58,6 +71,11 @@ export async function POST(request: Request) {
       });
       id = docRef.id;
     }
+
+    // Invalidate Cache
+    // Invalidate Cache
+    const cacheKey = `sales:${body.userId || 'null'}:${body.storeId || 'null'}`;
+    backendCache.delete(cacheKey);
 
     return withCors(
       NextResponse.json({ id, ...body }, { status: 201 }),

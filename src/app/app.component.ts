@@ -21,6 +21,8 @@ import { Store, User } from './models/inventory.models';
 import { DialogComponent } from './components/dialog/dialog.component';
 import { LoadingComponent } from './components/loading/loading.component';
 import { ChatComponent } from './components/chat/chat.component';
+import { MaintenanceComponent } from './components/maintenance/maintenance.component';
+import { MaintenanceService } from './services/maintenance.service';
 import { Subscription } from 'rxjs';
 import { filter, take } from 'rxjs/operators';
 import {
@@ -42,6 +44,7 @@ import { Sale } from './models/inventory.models';
     DialogComponent,
     LoadingComponent,
     ChatComponent,
+    MaintenanceComponent,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
@@ -88,6 +91,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private dialogService: DialogService,
     private deviceService: DeviceService,
     private storeService: StoreService,
+    private maintenanceService: MaintenanceService,
     private router: Router,
     private ngZone: NgZone
   ) {
@@ -115,6 +119,23 @@ export class AppComponent implements OnInit, OnDestroy {
         this.userService.loadUsers();
       }
     });
+
+    this.router.events
+      .pipe(filter((event) => event instanceof NavigationEnd))
+      .subscribe((event: any) => {
+        const url = event.urlAfterRedirects;
+        const heavyRoutes = [
+          '/inventory',
+          '/sales',
+          '/customers',
+          '/expenses',
+          '/reports',
+          '/pricing',
+        ];
+        if (heavyRoutes.some((route) => url.startsWith(route))) {
+          this.inventoryService.enableFullSync();
+        }
+      });
 
     this.userService.currentUser$.subscribe((user) => {
       this.currentUser = user;

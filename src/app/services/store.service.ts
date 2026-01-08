@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal, WritableSignal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
@@ -10,6 +10,13 @@ import { environment } from '../../environments/environment';
 })
 export class StoreService {
   private readonly apiUrl = environment.apiUrl;
+
+  // High performance state management using Signals
+  private readonly _stores: WritableSignal<Store[]> = signal([]);
+  public readonly stores = this._stores.asReadonly();
+
+  // Keep BehaviorSubject for backward compatibility with existing streams if needed,
+  // but bridge them here.
   private readonly storesSubject = new BehaviorSubject<Store[]>([]);
   public stores$ = this.storesSubject.asObservable();
 
@@ -17,19 +24,53 @@ export class StoreService {
     localStorage.getItem('jjm_active_store_id')
   );
   public activeStoreId$ = this.activeStoreIdSubject.asObservable();
+  public readonly activeStoreId = signal<string | null>(
+    localStorage.getItem('jjm_active_store_id')
+  );
 
-  constructor(private readonly http: HttpClient) {}
-
-  reset(): void {
-    this.storesSubject.next([]);
-    this.activeStoreIdSubject.next(null);
+  constructor(private readonly http: HttpClient) {
+    this.hydrateFromCache();
   }
 
-  loadStores(): void {
+  private hydrateFromCache(): void {
+    const cached = localStorage.getItem('jjm_cached_stores');
+    if (cached) {
+      try {
+        const stores = JSON.parse(cached);
+        this._stores.set(stores);
+        this.storesSubject.next(stores);
+        console.log('Hydrated Stores from cache');
+      } catch (e) {
+        console.warn('Failed to hydrate stores from cache', e);
+      }
+    }
+  }
+
+  private saveToCache(stores: Store[]): void {
+    localStorage.setItem('jjm_cached_stores', JSON.stringify(stores));
+  }
+
+  reset(): void {
+    this._stores.set([]);
+    this.storesSubject.next([]);
+    this.activeStoreIdSubject.next(null);
+    this.activeStoreId.set(null);
+    localStorage.removeItem('jjm_cached_stores');
+  }
+
+  loadStores(force = false): void {
+    // If not forced and already loaded, skip to save on endpoint calls
+    if (!force && this._stores().length > 0) {
+      console.log('Stores already loaded in Signal. Skipping fetch.');
+      return;
+    }
+
     this.http.get<Store[]>(`${this.apiUrl}/stores`).subscribe({
       next: (stores) => {
+        this._stores.set(stores);
         this.storesSubject.next(stores);
-        if (!this.activeStoreIdSubject.value && stores.length > 0) {
+        this.saveToCache(stores);
+        if (!this.activeStoreId() && stores.length > 0) {
           this.setActiveStore(stores[0].id);
         }
       },
@@ -44,9 +85,12 @@ export class StoreService {
   createStore(store: Omit<Store, 'id' | 'createdAt'>): Observable<Store> {
     return this.http.post<Store>(`${this.apiUrl}/stores`, store).pipe(
       tap((newStore) => {
-        const current = this.storesSubject.value;
-        this.storesSubject.next([...current, newStore]);
-        if (!this.activeStoreIdSubject.value) {
+        const current = this._stores();
+        const updated = [...current, newStore];
+        this._stores.set(updated);
+        this.storesSubject.next(updated);
+        this.saveToCache(updated);
+        if (!this.activeStoreId()) {
           this.setActiveStore(newStore.id);
         }
       })
@@ -56,10 +100,13 @@ export class StoreService {
   updateStore(id: string, store: Partial<Store>): Observable<Store> {
     return this.http.put<Store>(`${this.apiUrl}/stores/${id}`, store).pipe(
       tap((updated) => {
-        const current = this.storesSubject.value;
-        this.storesSubject.next(
-          current.map((s) => (s.id === id ? { ...s, ...updated } : s))
+        const current = this._stores();
+        const updatedList = current.map((s) =>
+          s.id === id ? { ...s, ...updated } : s
         );
+        this._stores.set(updatedList);
+        this.storesSubject.next(updatedList);
+        this.saveToCache(updatedList);
       })
     );
   }
@@ -67,10 +114,12 @@ export class StoreService {
   deleteStore(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/stores/${id}`).pipe(
       tap(() => {
-        const current = this.storesSubject.value;
-        this.storesSubject.next(current.filter((s) => s.id !== id));
-        if (this.activeStoreIdSubject.value === id) {
-          const first = this.storesSubject.value[0];
+        const current = this._stores();
+        const filtered = current.filter((s) => s.id !== id);
+        this._stores.set(filtered);
+        this.storesSubject.next(filtered);
+        if (this.activeStoreId() === id) {
+          const first = filtered[0];
           this.setActiveStore(first ? first.id : null);
         }
       })
@@ -87,11 +136,12 @@ export class StoreService {
     } else {
       localStorage.removeItem('jjm_active_store_id');
     }
+    this.activeStoreId.set(id);
     this.activeStoreIdSubject.next(id);
   }
 
   getActiveStoreId(): string | null {
-    return this.activeStoreIdSubject.value;
+    return this.activeStoreId();
   }
 
   hasAiResponseCredits(storeId: string): boolean {

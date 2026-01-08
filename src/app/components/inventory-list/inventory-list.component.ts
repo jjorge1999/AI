@@ -17,10 +17,23 @@ import { DeviceService } from '../../services/device.service';
 })
 // Inventory List Component
 export class InventoryListComponent implements OnInit, OnDestroy {
-  products: Product[] = [];
-  sales: Sale[] = [];
-  customers: Customer[] = [];
-  inventoryViewMode: 'table' | 'grid' = 'table'; // Added for List/Grid view
+  // State using Signals
+  productsSignal = this.inventoryService.products;
+  salesSignal = this.inventoryService.sales;
+  customersSignal = this.customerService.customers;
+  isMobile = this.deviceService.isMobile;
+
+  get products(): Product[] {
+    return this.productsSignal();
+  }
+  get sales(): Sale[] {
+    return this.salesSignal();
+  }
+  get customers(): Customer[] {
+    return this.customersSignal();
+  }
+
+  inventoryViewMode: 'table' | 'grid' = 'table';
   private subscriptions: Subscription = new Subscription();
 
   // Category filter
@@ -75,35 +88,13 @@ export class InventoryListComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    // Load customers for credit calculation on sale completion
+    // Load data if not already present (SWR behavior)
     this.customerService.loadCustomers();
 
-    this.subscriptions.add(
-      this.inventoryService.getProducts().subscribe((products) => {
-        this.products = products;
-      })
-    );
-
-    this.subscriptions.add(
-      this.inventoryService.getSales().subscribe((sales) => {
-        this.sales = sales;
-      })
-    );
-
-    this.subscriptions.add(
-      this.customerService.getCustomers().subscribe((customers) => {
-        this.customers = customers;
-      })
-    );
-
-    // Auto-switch to grid view on mobile
-    this.subscriptions.add(
-      this.deviceService.isMobile$.subscribe((isMobile) => {
-        if (isMobile) {
-          this.inventoryViewMode = 'grid';
-        }
-      })
-    );
+    // Auto-switch to grid view on mobile (Signal-based)
+    if (this.isMobile()) {
+      this.inventoryViewMode = 'grid';
+    }
   }
 
   ngOnDestroy(): void {
@@ -111,7 +102,7 @@ export class InventoryListComponent implements OnInit, OnDestroy {
   }
 
   get pendingSales(): Sale[] {
-    return this.sales.filter((s) => s.pending === true);
+    return this.salesSignal().filter((s: Sale) => s.pending === true);
   }
 
   get groupedPendingSales(): any[] {
@@ -184,15 +175,17 @@ export class InventoryListComponent implements OnInit, OnDestroy {
 
   get filteredSales(): Sale[] {
     // Exclude pending sales; only show completed ones
-    const completed = this.sales.filter((s) => s.pending !== true);
+    const completed = this.salesSignal().filter(
+      (s: Sale) => s.pending !== true
+    );
     if (this.selectedCategory === 'All') {
       return completed;
     }
-    return completed.filter((s) => s.category === this.selectedCategory);
+    return completed.filter((s: Sale) => s.category === this.selectedCategory);
   }
 
   get availableProducts(): Product[] {
-    return this.products.filter((p) => p.quantity > 0);
+    return this.productsSignal().filter((p: Product) => p.quantity > 0);
   }
 
   get paginatedAvailableProducts(): Product[] {
@@ -209,7 +202,7 @@ export class InventoryListComponent implements OnInit, OnDestroy {
   }
 
   get outOfStockProducts(): Product[] {
-    return this.products.filter((p) => p.quantity === 0);
+    return this.productsSignal().filter((p: Product) => p.quantity === 0);
   }
 
   get paginatedOutOfStockProducts(): Product[] {
@@ -236,9 +229,9 @@ export class InventoryListComponent implements OnInit, OnDestroy {
     const categoryMap = new Map<string, { total: number; count: number }>();
 
     // Only consider delivered (non-pending) sales for analytics
-    this.sales
-      .filter((s) => !s.pending)
-      .forEach((sale) => {
+    this.salesSignal()
+      .filter((s: Sale) => !s.pending)
+      .forEach((sale: Sale) => {
         const existing = categoryMap.get(sale.category) || {
           total: 0,
           count: 0,
@@ -257,14 +250,17 @@ export class InventoryListComponent implements OnInit, OnDestroy {
   }
 
   get totalInventoryValue(): number {
-    return this.products.reduce((sum, p) => sum + p.price * p.quantity, 0);
+    return this.productsSignal().reduce(
+      (sum: number, p: Product) => sum + p.price * p.quantity,
+      0
+    );
   }
 
   get totalSalesValue(): number {
     // Only consider delivered (non-pending) sales
-    return this.sales
-      .filter((s) => !s.pending)
-      .reduce((sum, s) => sum + s.total, 0);
+    return this.salesSignal()
+      .filter((s: Sale) => !s.pending)
+      .reduce((sum: number, s: Sale) => sum + s.total, 0);
   }
 
   // Pagination methods for available products
@@ -515,7 +511,9 @@ export class InventoryListComponent implements OnInit, OnDestroy {
 
     // If not, try to look up by customerId
     if (sale.customerId) {
-      const customer = this.customers.find((c) => c.id === sale.customerId);
+      const customer = this.customersSignal().find(
+        (c: Customer) => c.id === sale.customerId
+      );
       if (customer) {
         return customer.name;
       }

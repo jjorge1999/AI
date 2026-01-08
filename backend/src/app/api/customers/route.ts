@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { withCors, corsResponse } from '@/lib/cors';
 import { Customer } from '@/lib/models';
+import { backendCache } from '@/lib/cache';
 
 const COLLECTION_NAME = 'customers';
 
@@ -19,13 +20,36 @@ export async function GET(request: Request) {
     const storeId = searchParams.get('storeId');
     const phoneNumber = searchParams.get('phoneNumber');
 
+    // Use cache only for standard lists (storeId or userId)
+    if (!name && !phoneNumber && (storeId || userId)) {
+      const cacheKey = `customers:${storeId || 'no-store'}:${
+        userId || 'no-user'
+      }`;
+      const cached = backendCache.get(cacheKey);
+      if (cached) return withCors(NextResponse.json(cached), origin);
+
+      let query: FirebaseFirestore.Query = db.collection(COLLECTION_NAME);
+      if (storeId) {
+        query = query.where('storeId', '==', storeId);
+      } else if (userId) {
+        query = query.where('userId', '==', userId);
+      }
+
+      const snapshot = await query.get();
+      const customers = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      backendCache.set(cacheKey, customers, 120);
+      return withCors(NextResponse.json(customers), origin);
+    }
+
     let query: FirebaseFirestore.Query = db.collection(COLLECTION_NAME);
 
     // Filter by phone number if provided (exact match)
     if (phoneNumber) {
       query = query.where('phoneNumber', '==', phoneNumber);
     }
-
     // If 'name' is provided, we assume this is a public verification request
     if (name) {
       const snapshot = await db.collection(COLLECTION_NAME).get();
@@ -45,7 +69,7 @@ export async function GET(request: Request) {
         deliveryAddress: '***',
         gpsCoordinates: '***',
         userId: '***',
-        credits: c.credits, // Allow credits if present
+        credits: c.credits,
         createdAt: c.createdAt,
       }));
 
@@ -97,6 +121,11 @@ export async function POST(request: Request) {
       });
       id = docRef.id;
     }
+
+    // Invalidate Cache
+    const storePart = body.storeId || 'no-store';
+    const userPart = body.userId || 'no-user';
+    backendCache.delete(`customers:${storePart}:${userPart}`);
 
     return withCors(
       NextResponse.json({ id, ...body }, { status: 201 }),

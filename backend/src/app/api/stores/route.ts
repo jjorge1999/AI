@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { Store } from '@/lib/models';
 import { withCors, corsResponse } from '@/lib/cors';
+import { backendCache } from '@/lib/cache';
+
+const CACHE_KEY = 'global:stores';
 
 export async function OPTIONS(request: Request) {
   const origin = request.headers.get('origin');
@@ -11,6 +14,12 @@ export async function OPTIONS(request: Request) {
 export async function GET(request: Request) {
   const origin = request.headers.get('origin');
   try {
+    const cached = backendCache.get<Store[]>(CACHE_KEY);
+    if (cached) {
+      console.log('Serving stores from backend cache');
+      return withCors(NextResponse.json(cached), origin);
+    }
+
     const storesSnapshot = await db
       .collection('stores')
       .orderBy('createdAt', 'desc')
@@ -27,6 +36,8 @@ export async function GET(request: Request) {
           : data.createdAt,
       } as Store);
     });
+
+    backendCache.set(CACHE_KEY, stores, 300); // 5 minute cache
 
     return withCors(NextResponse.json(stores), origin);
   } catch (error) {
@@ -51,6 +62,7 @@ export async function POST(request: Request) {
     };
 
     await db.collection('stores').doc(id).set(newStore);
+    backendCache.delete(CACHE_KEY);
 
     return withCors(NextResponse.json(newStore), origin);
   } catch (error) {

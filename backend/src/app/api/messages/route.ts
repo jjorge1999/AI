@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { withCors, corsResponse } from '@/lib/cors';
+import { backendCache } from '@/lib/cache';
 import * as admin from 'firebase-admin';
 
 const COLLECTION_NAME = 'messages';
@@ -16,6 +17,13 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     const storeId = searchParams.get('storeId');
+
+    const cacheKey = `messages:${userId || 'null'}:${storeId || 'null'}`;
+    const cachedData = backendCache.get(cacheKey);
+    if (cachedData) {
+      console.log('Serving messages from cache:', cacheKey);
+      return withCors(NextResponse.json(cachedData), origin);
+    }
 
     let query: admin.firestore.Query = db.collection(COLLECTION_NAME);
 
@@ -39,6 +47,10 @@ export async function GET(request: Request) {
           : data.timestamp,
       };
     });
+
+    // Cache for 1 minute (short ttl for chat)
+    backendCache.set(cacheKey, messages, 60);
+
     return withCors(NextResponse.json(messages), origin);
   } catch (error) {
     console.error('Error fetching messages:', error);
@@ -67,6 +79,13 @@ export async function POST(request: Request) {
       ...body,
       timestamp: new Date(),
     };
+
+    // Invalidate Cache
+    // Invalidate Cache
+    const cacheKey = `messages:${body.userId || 'null'}:${
+      body.storeId || 'null'
+    }`;
+    backendCache.delete(cacheKey);
 
     // Broadcast to WebSocket server
     const socketUrl = process.env.SOCKET_URL || 'http://localhost:3001';

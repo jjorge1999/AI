@@ -56,8 +56,9 @@ export async function POST(request: Request) {
       let expiryDate = new Date(user.accessExpiryDate);
 
       // Handle Firebase Timestamp
-      if ((user.accessExpiryDate as any)._seconds) {
-        expiryDate = new Date((user.accessExpiryDate as any)._seconds * 1000);
+      const expiry = user.accessExpiryDate as { _seconds?: number };
+      if (expiry && typeof expiry._seconds === 'number') {
+        expiryDate = new Date(expiry._seconds * 1000);
       }
 
       // Set expiry to end of day to be generous
@@ -85,10 +86,32 @@ export async function POST(request: Request) {
       }),
       origin
     );
-  } catch (error) {
-    console.error('Error logging in:', error);
+  } catch (error: unknown) {
+    const err = error as any;
+    console.error('Error logging in:', err);
+
+    // Detect quota errors or database not found (Project ID mismatch)
+    const isQuotaError =
+      err.code === 8 ||
+      err.code === 'resource-exhausted' ||
+      (err.message && err.message.toLowerCase().includes('quota'));
+
+    const isNotFound =
+      err.code === 5 || (err.message && err.message.includes('NOT_FOUND'));
+
     return withCors(
-      NextResponse.json({ error: 'Internal Server Error' }, { status: 500 }),
+      NextResponse.json(
+        {
+          error: isQuotaError
+            ? 'Firebase Quota Exhausted'
+            : isNotFound
+            ? 'Database/Project Not Found'
+            : 'Internal Server Error',
+          details: err instanceof Error ? err.message : String(err),
+          code: err.code,
+        },
+        { status: isQuotaError ? 429 : isNotFound ? 404 : 500 }
+      ),
       origin
     );
   }
