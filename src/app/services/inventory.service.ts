@@ -22,7 +22,7 @@ import {
   collection,
   query,
   where,
-  onSnapshot,
+  getDocs,
   Unsubscribe,
   Timestamp,
   addDoc,
@@ -153,21 +153,17 @@ export class InventoryService {
   private setupFirestoreListeners(firestoreId: string, legacyId: string): void {
     this.storeService.activeStoreId$.subscribe((activeStoreId) => {
       // Re-setup all listeners when store changes
-      this.doSetupFirestoreListeners(firestoreId, legacyId, activeStoreId);
+      this.fetchInitialData(firestoreId, legacyId, activeStoreId);
     });
   }
 
-  private doSetupFirestoreListeners(
+  private async fetchInitialData(
     firestoreId: string,
     legacyId: string,
     activeStoreId: string | null
-  ): void {
-    // Stop previous listeners first to avoid memory leaks/multiple streams
-    this.unsubscribes.forEach((unsub) => unsub());
-    this.unsubscribes = [];
-
+  ): Promise<void> {
     console.log(
-      `Starting Firestore Listeners. FirestoreID: ${firestoreId}, LegacyID: ${legacyId}, StoreID: ${activeStoreId}`
+      `Fetching Initial Data. FirestoreID: ${firestoreId}, LegacyID: ${legacyId}, StoreID: ${activeStoreId}`
     );
 
     // Products
@@ -200,33 +196,28 @@ export class InventoryService {
       }
     }
 
-    this.unsubscribes.push(
-      onSnapshot(
-        productsQuery,
-        (snapshot) => {
-          console.log('Products Snapshot:', snapshot.docs.length);
-          const products = snapshot.docs.map(
-            (doc) =>
-              ({
-                id: doc.id,
-                ...(doc.data() as any),
-              } as Product)
-          );
-          this.productsSubject.next(products);
-          if (!isCustomer && products.length === 0) {
-            this.migrateProducts(legacyId, firestoreId);
-            this.migrateChat(legacyId, firestoreId);
-          }
-        },
-        (err) => {
-          console.error('Products Listener Error:', err);
-          if (err.code === 'permission-denied') {
-            console.warn('Permission Denied. Falling back to Legacy Polling.');
-            this.fallbackToLegacyPolling();
-          }
-        }
-      )
-    );
+    try {
+      const snapshot = await getDocs(productsQuery);
+      console.log('Products Snapshot:', snapshot.docs.length);
+      const products = snapshot.docs.map(
+        (doc) =>
+          ({
+            id: doc.id,
+            ...(doc.data() as any),
+          } as Product)
+      );
+      this.productsSubject.next(products);
+      if (!isCustomer && products.length === 0) {
+        this.migrateProducts(legacyId, firestoreId);
+        this.migrateChat(legacyId, firestoreId);
+      }
+    } catch (err: any) {
+      console.error('Products Fetch Error:', err);
+      if (err.code === 'permission-denied') {
+        console.warn('Permission Denied. Falling back to Legacy Polling.');
+        this.fallbackToLegacyPolling();
+      }
+    }
 
     // Sales
     // Determine if we are querying as a Seller or a Customer
@@ -260,23 +251,20 @@ export class InventoryService {
       }
     }
 
-    this.unsubscribes.push(
-      onSnapshot(
-        salesQuery,
-        (snapshot) => {
-          console.log('Sales Snapshot:', snapshot.docs.length);
-          const sales = snapshot.docs.map((doc) =>
-            this.transformSale({ id: doc.id, ...doc.data() })
-          );
-          this.salesSubject.next(sales);
-          // Only migrate if we are Admin/Seller and empty?
-          if (!isCustomer && sales.length === 0) {
-            this.migrateSales(legacyId, firestoreId);
-          }
-        },
-        (err) => console.error('Sales Listener Error:', err)
-      )
-    );
+    try {
+      const snapshot = await getDocs(salesQuery);
+      console.log('Sales Snapshot:', snapshot.docs.length);
+      const sales = snapshot.docs.map((doc) =>
+        this.transformSale({ id: doc.id, ...doc.data() })
+      );
+      this.salesSubject.next(sales);
+      // Only migrate if we are Admin/Seller and empty?
+      if (!isCustomer && sales.length === 0) {
+        this.migrateSales(legacyId, firestoreId);
+      }
+    } catch (err) {
+      console.error('Sales Fetch Error:', err);
+    }
 
     // Expenses
     let expensesQuery = query(
@@ -291,26 +279,24 @@ export class InventoryService {
         where('storeId', '==', activeStoreId)
       );
     }
-    this.unsubscribes.push(
-      onSnapshot(
-        expensesQuery,
-        (snapshot) => {
-          console.log('Expenses Snapshot:', snapshot.docs.length);
-          const expenses = snapshot.docs.map(
-            (doc) =>
-              ({
-                id: doc.id,
-                ...(doc.data() as any),
-              } as Expense)
-          );
-          this.expensesSubject.next(expenses);
-          if (expenses.length === 0) {
-            this.migrateExpenses(legacyId, firestoreId);
-          }
-        },
-        (err) => console.error('Expenses Listener Error:', err)
-      )
-    );
+
+    try {
+      const snapshot = await getDocs(expensesQuery);
+      console.log('Expenses Snapshot:', snapshot.docs.length);
+      const expenses = snapshot.docs.map(
+        (doc) =>
+          ({
+            id: doc.id,
+            ...(doc.data() as any),
+          } as Expense)
+      );
+      this.expensesSubject.next(expenses);
+      if (expenses.length === 0) {
+        this.migrateExpenses(legacyId, firestoreId);
+      }
+    } catch (err) {
+      console.error('Expenses Fetch Error:', err);
+    }
 
     // Categories
     let categoriesQuery = query(
@@ -326,40 +312,20 @@ export class InventoryService {
       );
     }
 
-    this.unsubscribes.push(
-      onSnapshot(
-        categoriesQuery,
-        (snapshot) => {
-          console.log('Categories Snapshot:', snapshot.docs.length);
-          const categories = snapshot.docs.map(
-            (doc) =>
-              ({
-                id: doc.id,
-                ...(doc.data() as any),
-              } as Category)
-          );
-          this.categoriesSubject.next(categories);
-        },
-        (err) => console.error('Categories Listener Error:', err)
-      )
-    );
-  }
-
-  private fallbackToLegacyPolling(): void {
-    if (this.pollingInterval) return; // Already polling
-    console.log('Starting Legacy Polling (Fallback Mode)...');
-
-    this.fetchAllLegacyData();
-    this.pollingInterval = setInterval(
-      () => this.fetchAllLegacyData(),
-      10000 // Poll every 10 seconds
-    );
-  }
-
-  private fetchAllLegacyData(): void {
-    this.fetchProducts();
-    this.fetchSales();
-    this.fetchExpenses();
+    try {
+      const snapshot = await getDocs(categoriesQuery);
+      console.log('Categories Snapshot:', snapshot.docs.length);
+      const categories = snapshot.docs.map(
+        (doc) =>
+          ({
+            id: doc.id,
+            ...(doc.data() as any),
+          } as Category)
+      );
+      this.categoriesSubject.next(categories);
+    } catch (err) {
+      console.error('Categories Fetch Error:', err);
+    }
   }
 
   private migrateProducts(legacyId: string, firestoreId: string): void {
@@ -708,33 +674,22 @@ export class InventoryService {
         return from(
           addDoc(collection(this.db, 'products'), firestoreData)
         ).pipe(
-          map((docRef) => docRef.id),
-          catchError((e) => {
-            console.warn('Firestore write failed:', e);
-            return of(undefined);
-          }),
-          switchMap((firestoreId) => {
-            const legacyData = { ...baseData, userId: this.getCurrentUser() };
-            if (firestoreId) Object.assign(legacyData, { id: firestoreId });
-            return this.http.post<Product>(
-              `${this.apiUrl}/products`,
-              legacyData
+          map(docRef => ({ ...baseData, id: docRef.id } as Product)),
+          tap(newProduct => {
+            const current = this.productsSubject.value;
+            if (!current.find((p) => p.id === newProduct.id)) {
+              this.productsSubject.next([...current, newProduct]);
+            }
+            this.loggingService.logActivity(
+              'create',
+              'product',
+              newProduct.id,
+              newProduct.name
             );
           }),
-          tap({
-            next: (newProduct) => {
-              const current = this.productsSubject.value;
-              if (!current.find((p) => p.id === newProduct.id)) {
-                this.productsSubject.next([...current, newProduct]);
-              }
-              this.loggingService.logActivity(
-                'create',
-                'product',
-                newProduct.id,
-                newProduct.name
-              );
-            },
-            error: (err) => console.error('Error adding product:', err),
+          catchError((err) => {
+            console.error('Error adding product:', err);
+            return throwError(() => err);
           })
         );
       })
@@ -753,27 +708,20 @@ export class InventoryService {
     const product = products.find((p) => p.id === productId);
 
     return from(deleteDoc(doc(this.db, 'products', productId))).pipe(
-      catchError((e) => {
-        console.warn('Firestore delete failed (proceeding with Legacy):', e);
-        return of(void 0);
+      tap(() => {
+        const current = this.productsSubject.value;
+        this.productsSubject.next(current.filter((p) => p.id !== productId));
+        this.loggingService.logActivity(
+          'delete',
+          'product',
+          productId,
+          product?.name || 'Product',
+          'Deleted'
+        );
       }),
-      switchMap(() =>
-        this.http.delete<void>(`${this.apiUrl}/products/${productId}`)
-      ),
-      tap({
-        next: () => {
-          const current = this.productsSubject.value;
-          this.productsSubject.next(current.filter((p) => p.id !== productId));
-
-          this.loggingService.logActivity(
-            'delete',
-            'product',
-            productId,
-            product?.name || 'Product',
-            'Deleted'
-          );
-        },
-        error: (err) => console.error('Error deleting product:', err),
+      catchError((err) => {
+        console.error('Error deleting product:', err);
+        return throwError(() => err);
       })
     );
   }
@@ -871,39 +819,31 @@ export class InventoryService {
         };
 
         return from(addDoc(collection(this.db, 'sales'), firestoreData)).pipe(
-          map((docRef) => docRef.id),
-          catchError((e) => {
-            console.warn('Firestore Sale Write Failed:', e);
-            return of(undefined);
-          }),
-          switchMap((firestoreId) => {
-            const legacyData = { ...baseData, userId: this.getCurrentUser() };
-            if (firestoreId) Object.assign(legacyData, { id: firestoreId });
-            return this.http.post<Sale>(`${this.apiUrl}/sales`, legacyData);
-          }),
-          tap({
-            next: (newSale) => {
-              // Deduct Credit on Success
-              this.storeService.deductTransactionCredit(activeStoreId);
+          map(docRef => ({ ...baseData, id: docRef.id } as Sale)),
+          tap(newSale => {
+            // Deduct Credit on Success
+            this.storeService.deductTransactionCredit(activeStoreId);
 
-              // Update local sales state
-              const currentSales = this.salesSubject.value;
-              if (!currentSales.find((s) => s.id === newSale.id)) {
-                this.salesSubject.next([
-                  ...currentSales,
-                  this.transformSale(newSale),
-                ]);
-              }
+            // Update local sales state
+            const currentSales = this.salesSubject.value;
+            if (!currentSales.find((s) => s.id === newSale.id)) {
+              this.salesSubject.next([
+                ...currentSales,
+                this.transformSale(newSale),
+              ]);
+            }
 
-              this.loggingService.logActivity(
-                'create',
-                'sale',
-                newSale.id,
-                product.name,
-                `Sold ${quantitySold} units (Pending Delivery)`
-              );
-            },
-            error: (err) => console.error('Error recording sale:', err),
+            this.loggingService.logActivity(
+              'create',
+              'sale',
+              newSale.id,
+              product.name,
+              `Sold ${quantitySold} units (Pending Delivery)`
+            );
+          }),
+          catchError((err) => {
+            console.error('Error recording sale:', err);
+            return throwError(() => err);
           })
         );
       })
@@ -1133,57 +1073,47 @@ export class InventoryService {
         merge: true,
       })
     ).pipe(
-      catchError((e) => {
-        console.warn('Firestore update failed (proceeding with Legacy):', e);
-        return of(void 0);
+      map(() => product),
+      tap(() => {
+        // Update products
+        const currentProducts = this.productsSubject.value;
+        const updatedProducts = currentProducts.map((p) =>
+          p.id === product.id ? product : p
+        );
+        this.productsSubject.next(updatedProducts);
+
+        // Update related sales (Pending and History)
+        const currentSales = this.salesSubject.value;
+        const salesToUpdate = currentSales.filter(
+          (s) => s.productId === product.id && s.productName !== product.name
+        );
+
+        if (salesToUpdate.length > 0) {
+          // Update local state immediately for responsiveness
+          const updatedSales = currentSales.map((s) =>
+            s.productId === product.id
+              ? { ...s, productName: product.name }
+              : s
+          );
+          this.salesSubject.next(updatedSales);
+
+          // Update firestore for each sale
+          salesToUpdate.forEach((sale) => {
+            updateDoc(doc(this.db, 'sales', sale.id), { productName: product.name })
+              .catch(err => console.error(`Error updating sale ${sale.id} name:`, err));
+          });
+        }
+
+        this.loggingService.logActivity(
+          'update',
+          'product',
+          product.id,
+          product.name
+        );
       }),
-      switchMap(() =>
-        this.http.put<Product>(`${this.apiUrl}/products/${product.id}`, product)
-      ),
-      tap({
-        next: () => {
-          // Update products
-          const currentProducts = this.productsSubject.value;
-          const updatedProducts = currentProducts.map((p) =>
-            p.id === product.id ? product : p
-          );
-          this.productsSubject.next(updatedProducts);
-
-          // Update related sales (Pending and History)
-          const currentSales = this.salesSubject.value;
-          const salesToUpdate = currentSales.filter(
-            (s) => s.productId === product.id && s.productName !== product.name
-          );
-
-          if (salesToUpdate.length > 0) {
-            // Update local state immediately for responsiveness
-            const updatedSales = currentSales.map((s) =>
-              s.productId === product.id
-                ? { ...s, productName: product.name }
-                : s
-            );
-            this.salesSubject.next(updatedSales);
-
-            // Update backend for each sale
-            salesToUpdate.forEach((sale) => {
-              const updatedSale = { ...sale, productName: product.name };
-              this.http
-                .put<Sale>(`${this.apiUrl}/sales/${sale.id}`, updatedSale)
-                .subscribe({
-                  error: (err) =>
-                    console.error(`Error updating sale ${sale.id} name:`, err),
-                });
-            });
-          }
-
-          this.loggingService.logActivity(
-            'update',
-            'product',
-            product.id,
-            product.name
-          );
-        },
-        error: (err) => console.error('Error updating product:', err),
+      catchError((err) => {
+        console.error('Error updating product:', err);
+        return throwError(() => err);
       })
     );
   }
