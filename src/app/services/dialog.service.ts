@@ -49,14 +49,19 @@ export class DialogService {
     return subject.asObservable();
   }
 
-  confirm(message: string, title?: string): Observable<boolean> {
+  confirm(
+    message: string,
+    title?: string,
+    confirmText = 'Confirm',
+    cancelText = 'Cancel'
+  ): Observable<boolean> {
     const subject = new Subject<boolean>();
     const config: DialogConfig = {
       title: title || 'Confirm',
       message,
       type: 'confirm',
-      confirmText: 'Confirm',
-      cancelText: 'Cancel',
+      confirmText,
+      cancelText,
       showCancel: true,
     };
     this.enqueueDialog(config, subject);

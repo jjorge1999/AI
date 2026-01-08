@@ -44,6 +44,8 @@ import {
   orderBy,
   limit,
   getDocs,
+  disableNetwork,
+  enableNetwork,
 } from 'firebase/firestore';
 import {
   getAuth,
@@ -72,6 +74,10 @@ export class InventoryService {
   private readonly _stats = signal<DashboardStats | null>(null);
   public readonly stats = this._stats.asReadonly();
 
+  // Track offline queue count for safety and UI warnings
+  private readonly _offlineQueueCount = signal<number>(0);
+  public readonly offlineQueueCount = this._offlineQueueCount.asReadonly();
+
   private productsSubject = new BehaviorSubject<Product[]>([]);
   private salesSubject = new BehaviorSubject<Sale[]>([]);
   private expensesSubject = new BehaviorSubject<Expense[]>([]);
@@ -92,6 +98,10 @@ export class InventoryService {
   private unsubscribes: Unsubscribe[] = [];
   private pollingInterval: any = null;
 
+  // IndexedDB Constants for Offline Queue
+  private readonly DB_NAME = 'JJM_Offline_DB';
+  private readonly STORE_NAME = 'offline_queue';
+
   constructor(
     private readonly loggingService: LoggingService,
     private readonly customerService: CustomerService,
@@ -105,6 +115,9 @@ export class InventoryService {
     this.auth = getAuth(this.app);
     this.hydrateFromCache();
 
+    // Initial check of offline queue count
+    this.updateOfflineQueueCount();
+
     // Auto-save to cache on changes
     effect(() => this.saveToCache('products', this._products()));
     effect(() => this.saveToCache('sales', this._sales()));
@@ -115,6 +128,152 @@ export class InventoryService {
 
   private getCurrentUser(): string {
     return localStorage.getItem('jjm_user_id') || 'guest';
+  }
+
+  /**
+   * Check if Data Saver mode is enabled (offline mode - no network calls)
+   */
+  public isDataSaverMode(): boolean {
+    return localStorage.getItem('jjm_data_saver_mode') === 'true';
+  }
+
+  /**
+   * Helper to open the IndexedDB for offline storage.
+   */
+  private getDB(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.DB_NAME, 1);
+
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+          db.createObjectStore(this.STORE_NAME, {
+            keyPath: 'id',
+            autoIncrement: true,
+          });
+        }
+      };
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Updates the signal tracking how many items are in the queue.
+   */
+  private async updateOfflineQueueCount(): Promise<void> {
+    try {
+      const db = await this.getDB();
+      const transaction = db.transaction(this.STORE_NAME, 'readonly');
+      const store = transaction.objectStore(this.STORE_NAME);
+      const request = store.count();
+
+      request.onsuccess = () => {
+        this._offlineQueueCount.set(request.result);
+      };
+    } catch (e) {
+      console.warn('Failed to update offline queue count:', e);
+    }
+  }
+
+  /**
+   * Queue a write operation to IndexedDB for later sync when offline.
+   */
+  private async queueOfflineWrite(
+    operation: 'create' | 'update' | 'delete',
+    collection: string,
+    data: any
+  ): Promise<void> {
+    try {
+      const db = await this.getDB();
+      const transaction = db.transaction(this.STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(this.STORE_NAME);
+
+      const entry = {
+        operation,
+        collection,
+        data,
+        timestamp: new Date().toISOString(),
+        storeId: this.storeService.getActiveStoreId(),
+      };
+
+      store.add(entry);
+
+      transaction.oncomplete = () => {
+        console.log(
+          `Queued offline ${operation} for ${collection} in IndexedDB`
+        );
+        this.updateOfflineQueueCount();
+      };
+    } catch (e) {
+      console.error('Failed to queue offline write to IndexedDB:', e);
+    }
+  }
+
+  /**
+   * Process all queued offline writes from IndexedDB when coming back online.
+   */
+  public async syncOfflineQueue(): Promise<void> {
+    try {
+      const db = await this.getDB();
+      const transaction = db.transaction(this.STORE_NAME, 'readonly');
+      const store = transaction.objectStore(this.STORE_NAME);
+      const request = store.getAll();
+
+      request.onsuccess = async () => {
+        const queue = request.result;
+
+        if (queue.length === 0) {
+          console.log('No offline writes to sync from IndexedDB.');
+          return;
+        }
+
+        console.log(`Syncing ${queue.length} offline writes from IndexedDB...`);
+
+        for (const item of queue) {
+          try {
+            if (item.operation === 'create') {
+              await addDoc(collection(this.db, item.collection), item.data);
+            } else if (item.operation === 'update') {
+              await updateDoc(
+                doc(this.db, item.collection, item.data.id),
+                item.data
+              );
+            } else if (item.operation === 'delete') {
+              await deleteDoc(doc(this.db, item.collection, item.data.id));
+            }
+            console.log(`Synced ${item.operation} for ${item.collection}`);
+          } catch (e) {
+            console.error(`Failed to sync ${item.operation}:`, e);
+          }
+        }
+
+        // Clear the queue after successful sync items were processed
+        this.clearOfflineQueue();
+      };
+    } catch (e) {
+      console.error('Failed to sync offline queue from IndexedDB:', e);
+    }
+  }
+
+  /**
+   * Clears the IndexedDB offline queue.
+   */
+  private async clearOfflineQueue(): Promise<void> {
+    try {
+      const db = await this.getDB();
+      const transaction = db.transaction(this.STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(this.STORE_NAME);
+      store.clear();
+
+      transaction.oncomplete = () => {
+        console.log('IndexedDB offline queue cleared.');
+        this.updateOfflineQueueCount();
+      };
+    } catch (e) {
+      console.error('Failed to clear IndexedDB offline queue:', e);
+    }
   }
 
   private getFirestoreUserId(): string {
@@ -136,17 +295,57 @@ export class InventoryService {
   }
 
   public enableFullSync(): void {
+    if (this.isDataSaverMode()) {
+      console.log(
+        'InventoryService: enableFullSync blocked because Data Saver Mode is ON.'
+      );
+      return;
+    }
     console.log('Enabling Full Firestore Sync...');
     localStorage.setItem('jjm_force_full_load', 'true');
     this.reloadData();
   }
 
   public stopRealtimeListeners(): void {
+    console.log('InventoryService: Stopping all real-time listeners.');
     this.unsubscribes.forEach((unsub) => unsub());
     this.unsubscribes = [];
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
       this.pollingInterval = null;
+    }
+  }
+
+  /**
+   * Explicitly disables Firestore network communication.
+   */
+  public async disableFirestoreNetwork(): Promise<void> {
+    console.warn('InventoryService: DISABLING Firestore Network Connection.');
+    try {
+      await disableNetwork(this.db);
+    } catch (e) {
+      console.error('Failed to disable Firestore network:', e);
+    }
+  }
+
+  /**
+   * Explicitly enables Firestore network communication.
+   */
+  public async enableFirestoreNetwork(): Promise<void> {
+    // SECURITY: Never enable network if Data Saver mode is explicitly ON
+    // unless this is a force-sync operation (handled separately)
+    if (this.isDataSaverMode()) {
+      console.warn(
+        'InventoryService: enableFirestoreNetwork BLOCKED. Data Saver is currently ON.'
+      );
+      return;
+    }
+
+    console.log('InventoryService: ENABLING Firestore Network Connection.');
+    try {
+      await enableNetwork(this.db);
+    } catch (e) {
+      console.error('Failed to enable Firestore network:', e);
     }
   }
 
@@ -277,46 +476,66 @@ export class InventoryService {
   }
 
   private startRealtimeListeners(): void {
-    this.stopRealtimeListeners(); // Cleanup first
+    // Check if Data Saver mode is enabled - don't start listeners
+    const isDataSaverMode =
+      localStorage.getItem('jjm_data_saver_mode') === 'true';
 
-    const legacyUserId = this.getCurrentUser();
-    if (!legacyUserId || legacyUserId === 'guest') return;
-
-    // 0. Check for cached failure to avoid console noise
-    const isAuthDisabled =
-      localStorage.getItem('firebase_auth_disabled') === 'true';
-    if (isAuthDisabled) {
-      console.log('Auth previously failed. Skipping to Public/Fallback Mode.');
-      this.setupFirestoreListeners(legacyUserId, legacyUserId);
+    if (isDataSaverMode) {
+      console.log(
+        'Data Saver Mode is ON - Ensuring network is disabled and using cache.'
+      );
+      this.stopRealtimeListeners();
+      this.disableFirestoreNetwork(); // Force offline
+      // Still hydrate from cache so data is available
+      this.hydrateFromCache();
       return;
     }
 
-    // 1. Check if we already have a user
-    const currentUser = this.auth.currentUser;
-    if (currentUser) {
-      console.log('Already Authenticated. Starting Secure Listeners.');
-      this.firebaseUser = currentUser;
-      this.setupFirestoreListeners(currentUser.uid, legacyUserId);
-      return;
-    }
+    // Ensure network is enabled before starting listeners
+    this.enableFirestoreNetwork().then(() => {
+      this.stopRealtimeListeners(); // Cleanup first
 
-    // 2. Try to Sign In
-    signInAnonymously(this.auth)
-      .then((cred) => {
-        console.log('Signed In Anonymously. Starting Secure Listeners.');
-        this.firebaseUser = cred.user;
-        this.setupFirestoreListeners(cred.user.uid, legacyUserId);
-      })
-      .catch((err) => {
-        console.warn(
-          'Anonymous Auth unavailable. Attempting Public Realtime Mode with Legacy ID.'
+      const legacyUserId = this.getCurrentUser();
+      if (!legacyUserId || legacyUserId === 'guest') return;
+
+      // 0. Check for cached failure to avoid console noise
+      const isAuthDisabled =
+        localStorage.getItem('firebase_auth_disabled') === 'true';
+      if (isAuthDisabled) {
+        console.log(
+          'Auth previously failed. Skipping to Public/Fallback Mode.'
         );
-        // Cache the failure so we don't spam 400 errors on reload
-        localStorage.setItem('firebase_auth_disabled', 'true');
-
-        // 3. Fallback to Public Mode (using Legacy ID as Firestore ID)
         this.setupFirestoreListeners(legacyUserId, legacyUserId);
-      });
+        return;
+      }
+
+      // 1. Check if we already have a user
+      const currentUser = this.auth.currentUser;
+      if (currentUser) {
+        console.log('Already Authenticated. Starting Secure Listeners.');
+        this.firebaseUser = currentUser;
+        this.setupFirestoreListeners(currentUser.uid, legacyUserId);
+        return;
+      }
+
+      // 2. Try to Sign In
+      signInAnonymously(this.auth)
+        .then((cred) => {
+          console.log('Signed In Anonymously. Starting Secure Listeners.');
+          this.firebaseUser = cred.user;
+          this.setupFirestoreListeners(cred.user.uid, legacyUserId);
+        })
+        .catch((err) => {
+          console.warn(
+            'Anonymous Auth unavailable. Attempting Public Realtime Mode with Legacy ID.'
+          );
+          // Cache the failure so we don't spam 400 errors on reload
+          localStorage.setItem('firebase_auth_disabled', 'true');
+
+          // 3. Fallback to Public Mode (using Legacy ID as Firestore ID)
+          this.setupFirestoreListeners(legacyUserId, legacyUserId);
+        });
+    });
   }
 
   private listenersInitialized = false;
@@ -722,11 +941,38 @@ export class InventoryService {
       userId: this.getCurrentUser(),
     };
 
+    // DATA SAVER MODE: Queue write locally
+    if (this.isDataSaverMode()) {
+      const offlineId = `offline_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+      const newCategory = { id: offlineId, ...baseData } as Category;
+
+      this.queueOfflineWrite('create', 'categories', baseData);
+
+      const current = this.categoriesSubject.value;
+      const updated = [...current, newCategory];
+      this._categories.set(updated);
+      this.categoriesSubject.next(updated);
+
+      this.loggingService.logActivity(
+        'create',
+        'category',
+        offlineId,
+        name,
+        '(Queued Offline)'
+      );
+      return of(newCategory);
+    }
+
+    // ONLINE MODE
     return from(addDoc(collection(this.db, 'categories'), baseData)).pipe(
       map((docRef) => ({ id: docRef.id, ...baseData } as Category)),
       tap((newCategory) => {
         const current = this.categoriesSubject.value;
-        this.categoriesSubject.next([...current, newCategory]);
+        const updated = [...current, newCategory];
+        this._categories.set(updated);
+        this.categoriesSubject.next(updated);
       }),
       catchError((err) => {
         this.handleFirestoreError(err, 'Error adding category');
@@ -736,10 +982,32 @@ export class InventoryService {
   }
 
   deleteCategory(categoryId: string): Observable<void> {
+    // DATA SAVER MODE: Queue delete locally
+    if (this.isDataSaverMode()) {
+      this.queueOfflineWrite('delete', 'categories', { id: categoryId });
+
+      const current = this.categoriesSubject.value;
+      const updated = current.filter((c) => c.id !== categoryId);
+      this._categories.set(updated);
+      this.categoriesSubject.next(updated);
+
+      this.loggingService.logActivity(
+        'delete',
+        'category',
+        categoryId,
+        'Category',
+        '(Queued Offline)'
+      );
+      return of(undefined as void);
+    }
+
+    // ONLINE MODE
     return from(deleteDoc(doc(this.db, 'categories', categoryId))).pipe(
       tap(() => {
         const current = this.categoriesSubject.value;
-        this.categoriesSubject.next(current.filter((c) => c.id !== categoryId));
+        const updated = current.filter((c) => c.id !== categoryId);
+        this._categories.set(updated);
+        this.categoriesSubject.next(updated);
       }),
       catchError((err) => {
         this.handleFirestoreError(err, 'Error deleting category');
@@ -763,13 +1031,40 @@ export class InventoryService {
       userId: this.getFirestoreUserId(),
     };
 
+    // DATA SAVER MODE: Queue write locally
+    if (this.isDataSaverMode()) {
+      const offlineId = `offline_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+      const newExpense = { id: offlineId, ...firestoreData } as Expense;
+
+      this.queueOfflineWrite('create', 'expenses', firestoreData);
+
+      const current = this.expensesSubject.value;
+      const updated = [...current, newExpense];
+      this._expenses.set(updated);
+      this.expensesSubject.next(updated);
+
+      this.loggingService.logActivity(
+        'create',
+        'expense',
+        offlineId,
+        newExpense.productName,
+        '(Queued Offline)'
+      );
+      return of(newExpense);
+    }
+
+    // ONLINE MODE
     return from(addDoc(collection(this.db, 'expenses'), firestoreData)).pipe(
       map((docRef) => ({ id: docRef.id, ...firestoreData } as Expense)),
       tap({
         next: (newExpense) => {
           const current = this.expensesSubject.value;
           if (!current.find((e) => e.id === newExpense.id)) {
-            this.expensesSubject.next([...current, newExpense]);
+            const updated = [...current, newExpense];
+            this._expenses.set(updated);
+            this.expensesSubject.next(updated);
           }
           this.loggingService.logActivity(
             'create',
@@ -792,12 +1087,37 @@ export class InventoryService {
       );
     }
 
+    // DATA SAVER MODE: Queue delete locally
+    if (this.isDataSaverMode()) {
+      this.queueOfflineWrite('delete', 'expenses', { id: expenseId });
+
+      const current = this.expensesSubject.value;
+      const exp = current.find((e) => e.id === expenseId);
+      const updated = current.filter((e) => e.id !== expenseId);
+      this._expenses.set(updated);
+      this.expensesSubject.next(updated);
+
+      if (exp) {
+        this.loggingService.logActivity(
+          'delete',
+          'expense',
+          expenseId,
+          exp.productName,
+          '(Queued Offline)'
+        );
+      }
+      return of(undefined as void);
+    }
+
+    // ONLINE MODE
     return from(deleteDoc(doc(this.db, 'expenses', expenseId))).pipe(
       tap({
         next: () => {
           const current = this.expensesSubject.value;
           const exp = current.find((e) => e.id === expenseId);
-          this.expensesSubject.next(current.filter((e) => e.id !== expenseId));
+          const updated = current.filter((e) => e.id !== expenseId);
+          this._expenses.set(updated);
+          this.expensesSubject.next(updated);
 
           if (exp) {
             this.loggingService.logActivity(
@@ -853,13 +1173,42 @@ export class InventoryService {
           userId: this.getFirestoreUserId(),
         };
 
+        // DATA SAVER MODE: Queue write locally
+        if (this.isDataSaverMode()) {
+          const offlineId = `offline_${Date.now()}_${Math.random()
+            .toString(36)
+            .substr(2, 9)}`;
+          const newProduct = { id: offlineId, ...baseData } as Product;
+
+          this.queueOfflineWrite('create', 'products', baseData);
+
+          const current = this.productsSubject.value;
+          const updated = [...current, newProduct];
+          this._products.set(updated);
+          this.productsSubject.next(updated);
+
+          this.loggingService.logActivity(
+            'create',
+            'product',
+            offlineId,
+            newProduct.name,
+            '(Queued Offline)'
+          );
+          this.recalculateAndSaveStats();
+
+          return of(newProduct);
+        }
+
+        // ONLINE MODE: Normal Firestore write
         return from(addDoc(collection(this.db, 'products'), baseData)).pipe(
           map((docRef) => ({ id: docRef.id, ...baseData } as Product)),
           tap({
             next: (newProduct) => {
               const current = this.productsSubject.value;
               if (!current.find((p) => p.id === newProduct.id)) {
-                this.productsSubject.next([...current, newProduct]);
+                const updated = [...current, newProduct];
+                this._products.set(updated); // Update signal for cache effect
+                this.productsSubject.next(updated);
               }
               this.loggingService.logActivity(
                 'create',
@@ -888,11 +1237,33 @@ export class InventoryService {
     const products = this.productsSubject.value;
     const product = products.find((p) => p.id === productId);
 
+    // DATA SAVER MODE: Queue delete locally
+    if (this.isDataSaverMode()) {
+      this.queueOfflineWrite('delete', 'products', { id: productId });
+
+      const current = this.productsSubject.value;
+      const updated = current.filter((p) => p.id !== productId);
+      this._products.set(updated);
+      this.productsSubject.next(updated);
+
+      this.loggingService.logActivity(
+        'delete',
+        'product',
+        productId,
+        product?.name || 'Product',
+        '(Queued Offline)'
+      );
+      return of(undefined as void);
+    }
+
+    // ONLINE MODE
     return from(deleteDoc(doc(this.db, 'products', productId))).pipe(
       tap({
         next: () => {
           const current = this.productsSubject.value;
-          this.productsSubject.next(current.filter((p) => p.id !== productId));
+          const updated = current.filter((p) => p.id !== productId);
+          this._products.set(updated); // Update signal for cache effect
+          this.productsSubject.next(updated);
 
           this.loggingService.logActivity(
             'delete',
@@ -1001,6 +1372,36 @@ export class InventoryService {
           userId: this.getFirestoreUserId(),
         };
 
+        // DATA SAVER MODE: Queue write locally instead of calling Firestore
+        if (this.isDataSaverMode()) {
+          const offlineId = `offline_${Date.now()}_${Math.random()
+            .toString(36)
+            .substr(2, 9)}`;
+          const newSale = { id: offlineId, ...firestoreData } as Sale;
+
+          // Queue for later sync
+          this.queueOfflineWrite('create', 'sales', firestoreData);
+
+          // Update local state immediately
+          this.storeService.deductTransactionCredit(activeStoreId);
+          const currentSales = this.salesSubject.value;
+          const updated = [newSale, ...currentSales];
+          this._sales.set(updated);
+          this.salesSubject.next(updated);
+
+          this.loggingService.logActivity(
+            'create',
+            'sale',
+            offlineId,
+            product.name,
+            `Sold ${quantitySold} units (Queued Offline)`
+          );
+          this.recalculateAndSaveStats();
+
+          return of(newSale);
+        }
+
+        // ONLINE MODE: Normal Firestore write
         return from(addDoc(collection(this.db, 'sales'), firestoreData)).pipe(
           map((docRef) => ({ id: docRef.id, ...firestoreData } as Sale)),
           tap({
@@ -1008,10 +1409,11 @@ export class InventoryService {
               // Deduct Credit on Success (Client-side tracking)
               this.storeService.deductTransactionCredit(activeStoreId);
 
-              // Update local sales state
+              // Update local sales state (both signal and subject for cache effect)
               const currentSales = this.salesSubject.value;
               if (!currentSales.find((s) => s.id === newSale.id)) {
                 const updated = [newSale, ...currentSales];
+                this._sales.set(updated); // Update signal for cache effect
                 this.salesSubject.next(updated);
               }
 
@@ -1043,13 +1445,72 @@ export class InventoryService {
       return;
     }
 
+    // Helper function for local state update
+    const updateLocalState = () => {
+      const updatedSales = currentSales.map((s) =>
+        s.id === saleId ? { ...s, pending: false } : s
+      );
+      this._sales.set(updatedSales);
+      this.salesSubject.next(updatedSales);
+
+      // Deduct Inventory locally
+      const products = this.productsSubject.value;
+      const product = products.find((p) => p.id === sale.productId);
+      if (product) {
+        const updatedProducts = products.map((p) =>
+          p.id === sale.productId
+            ? { ...p, quantity: p.quantity - sale.quantitySold }
+            : p
+        );
+        this._products.set(updatedProducts);
+        this.productsSubject.next(updatedProducts);
+      }
+
+      this.loggingService.logActivity(
+        'complete',
+        'sale',
+        saleId,
+        sale.productName,
+        `Marked as delivered & Deducted ${sale.quantitySold} units`
+      );
+      this.recalculateAndSaveStats();
+    };
+
+    // DATA SAVER MODE: Queue update locally
+    if (this.isDataSaverMode()) {
+      this.queueOfflineWrite('update', 'sales', { id: saleId, pending: false });
+
+      // Also queue product update
+      const product = this.productsSubject.value.find(
+        (p) => p.id === sale.productId
+      );
+      if (product) {
+        this.queueOfflineWrite('update', 'products', {
+          id: sale.productId,
+          quantity: product.quantity - sale.quantitySold,
+        });
+      }
+
+      updateLocalState();
+      this.notificationService.pushNotification(
+        'Delivery Confirmed! ✅ (Offline)',
+        `The order for ${
+          sale.customerName || 'a customer'
+        } has been delivered.`,
+        'delivery'
+      );
+      return;
+    }
+
+    // ONLINE MODE
     const saleRef = doc(this.db, 'sales', saleId);
     updateDoc(saleRef, { pending: false })
       .then(() => {
-        // Update local state (Optimistic or wait for listener)
+        // Update local state (both signal and subject for cache effect)
         const updatedSales = currentSales.map((s) =>
           s.id === saleId ? { ...s, pending: false } : s
         );
+        this._sales.set(updatedSales); // Update signal for cache effect
         this.salesSubject.next(updatedSales);
 
         // Deduct Inventory Now
@@ -1115,18 +1576,43 @@ export class InventoryService {
       return;
     }
 
-    const saleRef = doc(this.db, 'sales', sale.id);
     const updateData = { ...sale, storeId: activeStoreId };
 
+    // DATA SAVER MODE: Queue update locally
+    if (this.isDataSaverMode()) {
+      this.queueOfflineWrite('update', 'sales', updateData);
+
+      const currentSales = this.salesSubject.value;
+      const updatedSales = currentSales.map((s) =>
+        s.id === sale.id
+          ? { ...this.transformSale(updateData), id: sale.id }
+          : s
+      );
+      this._sales.set(updatedSales);
+      this.salesSubject.next(updatedSales);
+
+      this.loggingService.logActivity(
+        'update',
+        'sale',
+        sale.id,
+        sale.productName,
+        '(Queued Offline)'
+      );
+      return;
+    }
+
+    // ONLINE MODE
+    const saleRef = doc(this.db, 'sales', sale.id);
     setDoc(saleRef, updateData, { merge: true })
       .then(() => {
-        // Optimistic update
+        // Optimistic update (both signal and subject for cache effect)
         const currentSales = this.salesSubject.value;
         const updatedSales = currentSales.map((s) =>
           s.id === sale.id
             ? { ...this.transformSale(updateData), id: sale.id }
             : s
         );
+        this._sales.set(updatedSales); // Update signal for cache effect
         this.salesSubject.next(updatedSales);
 
         this.loggingService.logActivity(
@@ -1149,16 +1635,42 @@ export class InventoryService {
       return;
     }
 
+    // DATA SAVER MODE: Queue update locally
+    if (this.isDataSaverMode()) {
+      this.queueOfflineWrite('update', 'sales', {
+        id: sale.id,
+        reservationStatus: 'confirmed',
+      });
+
+      const currentSales = this.salesSubject.value;
+      const newSales = currentSales.map((s) =>
+        s.id === sale.id ? { ...s, reservationStatus: 'confirmed' as const } : s
+      );
+      this._sales.set(newSales);
+      this.salesSubject.next(newSales);
+
+      this.loggingService.logActivity(
+        'update',
+        'sale',
+        sale.id,
+        sale.productName,
+        'Confirmed reservation (Queued Offline)'
+      );
+      return;
+    }
+
+    // ONLINE MODE
     const saleRef = doc(this.db, 'sales', sale.id);
     updateDoc(saleRef, { reservationStatus: 'confirmed' })
       .then(() => {
-        // Optimistic update
+        // Optimistic update (both signal and subject for cache effect)
         const currentSales = this.salesSubject.value;
         const newSales = currentSales.map((s) =>
           s.id === sale.id
             ? { ...s, reservationStatus: 'confirmed' as const }
             : s
         );
+        this._sales.set(newSales); // Update signal for cache effect
         this.salesSubject.next(newSales);
 
         this.loggingService.logActivity(
@@ -1223,6 +1735,27 @@ export class InventoryService {
   }
 
   deleteSale(saleId: string): void {
+    // DATA SAVER MODE: Queue delete locally
+    if (this.isDataSaverMode()) {
+      this.queueOfflineWrite('delete', 'sales', { id: saleId });
+
+      const currentSales = this.salesSubject.value;
+      const updatedSales = currentSales.filter((s) => s.id !== saleId);
+      this._sales.set(updatedSales);
+      this.salesSubject.next(updatedSales);
+
+      this.loggingService.logActivity(
+        'delete',
+        'sale',
+        saleId,
+        'Sale',
+        '(Queued Offline)'
+      );
+      this.recalculateAndSaveStats();
+      return;
+    }
+
+    // ONLINE MODE
     deleteDoc(doc(this.db, 'sales', saleId))
       .then(() => {
         // Optimistic update
@@ -1258,6 +1791,45 @@ export class InventoryService {
       userId: this.getFirestoreUserId(),
     };
 
+    // Helper for local state update
+    const updateLocalProductState = () => {
+      const currentProducts = this.productsSubject.value;
+      const updatedProducts = currentProducts.map((p) =>
+        p.id === product.id ? product : p
+      );
+      this._products.set(updatedProducts);
+      this.productsSubject.next(updatedProducts);
+
+      // Update related sales locally
+      const currentSales = this.salesSubject.value;
+      const salesToUpdate = currentSales.filter(
+        (s) => s.productId === product.id && s.productName !== product.name
+      );
+      if (salesToUpdate.length > 0) {
+        const updatedSales = currentSales.map((s) =>
+          s.productId === product.id ? { ...s, productName: product.name } : s
+        );
+        this._sales.set(updatedSales);
+        this.salesSubject.next(updatedSales);
+      }
+    };
+
+    // DATA SAVER MODE: Queue update locally
+    if (this.isDataSaverMode()) {
+      this.queueOfflineWrite('update', 'products', firestoreData);
+      updateLocalProductState();
+      this.loggingService.logActivity(
+        'update',
+        'product',
+        product.id,
+        product.name,
+        '(Queued Offline)'
+      );
+      this.recalculateAndSaveStats();
+      return of(product);
+    }
+
+    // ONLINE MODE
     return from(
       setDoc(doc(this.db, 'products', product.id), firestoreData, {
         merge: true,
@@ -1411,6 +1983,17 @@ export class InventoryService {
       topCustomers,
     };
 
+    // Update local signals and subjects
+    this._stats.set(stats);
+    this.statsSubject.next(stats);
+
+    // DATA SAVER MODE: Don't write back aggregations to Firestore to save quota
+    if (this.isDataSaverMode()) {
+      console.log('Data Saver Mode: Skipping stats Firestore update');
+      return;
+    }
+
+    // ONLINE MODE: Update Firestore for other users to see fresh stats
     setDoc(doc(this.db, 'stats', storeId), stats).catch((err) =>
       console.error('Error updating aggregation document:', err)
     );

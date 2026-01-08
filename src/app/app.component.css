@@ -282,6 +282,30 @@ body.dark-theme .theme-btn:hover {
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
+/* Data Saver Button */
+.data-saver-btn:hover {
+  background: linear-gradient(135deg, #34d399, #10b981);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.data-saver-btn.active {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: white;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+  animation: dataSaverPulse 2s ease-in-out infinite;
+}
+
+@keyframes dataSaverPulse {
+  0%, 100% { 
+    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+  }
+  50% { 
+    box-shadow: 0 4px 20px rgba(249, 115, 22, 0.5);
+  }
+}
+
 /* Collapsed Sidebar Adjustments */
 .sidebar.collapsed .user-profile {
   justify-content: center;
@@ -385,6 +409,69 @@ body.dark-theme .theme-btn:hover {
   font-weight: 600;
   color: var(--color-text);
   margin: 0;
+}
+
+/* Data Saver Toggle - Header Version */
+.data-saver-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  margin-left: var(--space-md);
+}
+
+.data-saver-toggle .material-icon {
+  font-size: 18px;
+}
+
+.data-saver-toggle .toggle-label {
+  white-space: nowrap;
+}
+
+.data-saver-toggle:hover {
+  background: linear-gradient(135deg, #34d399, #10b981);
+  border-color: #10b981;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.data-saver-toggle.active {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  border-color: #ea580c;
+  color: white;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+  animation: dataSaverHeaderPulse 2s ease-in-out infinite;
+}
+
+@keyframes dataSaverHeaderPulse {
+  0%, 100% { 
+    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+  }
+  50% { 
+    box-shadow: 0 4px 20px rgba(249, 115, 22, 0.5);
+  }
+}
+
+/* Hide label on smaller screens */
+@media (max-width: 768px) {
+  .data-saver-toggle .toggle-label {
+    display: none;
+  }
+  
+  .data-saver-toggle {
+    padding: 8px 10px;
+    margin-left: var(--space-sm);
+  }
 }
 
 .header-right {
