@@ -1,0 +1,16 @@
+{
+  "projectId": "prj_4hJsIsKG9GqjPAoggCDBNqY3OfmL",
+  "orgId": "team_z75LvM4VDLCXjg6SlVhYTtfJ",
+  "projectName": "jjm-inventory",
+  "settings": {
+    "createdAt": 1767859738039,
+    "framework": "angular",
+    "devCommand": null,
+    "installCommand": null,
+    "buildCommand": "npx nx run jjm-inventory:build:production",
+    "outputDirectory": "dist/jjm-inventory/browser",
+    "rootDirectory": null,
+    "directoryListing": false,
+    "nodeVersion": "24.x"
+  }
+}
