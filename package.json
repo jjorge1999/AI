@@ -10,9 +10,14 @@
     "build:web": "nx build --configuration production",
     "apk:release": "npm run build:web && npx cap copy android && cd android && gradlew.bat assembleRelease",
     "dev": "concurrently \"npm start\" \"npm run dev --prefix backend\"",
-    "backend": "npm run dev --prefix backend"
+    "backend": "npm run dev --prefix backend",
+    "vercel-build": "npm run build --prefix backend"
   },
   "private": true,
+  "workspaces": [
+    ".",
+    "backend"
+  ],
   "dependencies": {
     "@angular/animations": "^17.3.0",
     "@angular/common": "^17.3.0",
