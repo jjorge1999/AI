@@ -1,15 +1,26 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { BehaviorSubject, from, Observable, of } from 'rxjs';
+import { map, switchMap, tap } from 'rxjs/operators';
 import { Store } from '../models/inventory.models';
 import { environment } from '../../environments/environment';
+import {
+  collection,
+  getDocs,
+  doc,
+  getDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  Timestamp,
+  serverTimestamp,
+} from 'firebase/firestore';
+import { FirebaseService } from './firebase.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class StoreService {
-  private readonly apiUrl = environment.apiUrl;
+  private storesCollection = collection(this.firebaseService.db, 'stores');
   private readonly storesSubject = new BehaviorSubject<Store[]>([]);
   public stores$ = this.storesSubject.asObservable();
 
@@ -18,15 +29,27 @@ export class StoreService {
   );
   public activeStoreId$ = this.activeStoreIdSubject.asObservable();
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly firebaseService: FirebaseService) {}
 
   reset(): void {
     this.storesSubject.next([]);
     this.activeStoreIdSubject.next(null);
   }
 
+  private transformStore(doc: any): Store {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      createdAt: (data.createdAt as Timestamp)?.toDate(),
+      subscriptionExpiryDate: (data.subscriptionExpiryDate as Timestamp)?.toDate(),
+    } as Store;
+  }
+
   loadStores(): void {
-    this.http.get<Store[]>(`${this.apiUrl}/stores`).subscribe({
+    from(getDocs(this.storesCollection)).pipe(
+      map((snapshot) => snapshot.docs.map(this.transformStore))
+    ).subscribe({
       next: (stores) => {
         this.storesSubject.next(stores);
         if (!this.activeStoreIdSubject.value && stores.length > 0) {
@@ -38,11 +61,16 @@ export class StoreService {
   }
 
   getStoreById(id: string): Observable<Store> {
-    return this.http.get<Store>(`${this.apiUrl}/stores/${id}`);
+    const storeDoc = doc(this.firebaseService.db, 'stores', id);
+    return from(getDoc(storeDoc)).pipe(
+      map((doc) => this.transformStore(doc))
+    );
   }
 
   createStore(store: Omit<Store, 'id' | 'createdAt'>): Observable<Store> {
-    return this.http.post<Store>(`${this.apiUrl}/stores`, store).pipe(
+    const newStore = { ...store, createdAt: serverTimestamp() };
+    return from(addDoc(this.storesCollection, newStore)).pipe(
+      switchMap((docRef) => this.getStoreById(docRef.id)),
       tap((newStore) => {
         const current = this.storesSubject.value;
         this.storesSubject.next([...current, newStore]);
@@ -54,7 +82,9 @@ export class StoreService {
   }
 
   updateStore(id: string, store: Partial<Store>): Observable<Store> {
-    return this.http.put<Store>(`${this.apiUrl}/stores/${id}`, store).pipe(
+    const storeDoc = doc(this.firebaseService.db, 'stores', id);
+    return from(updateDoc(storeDoc, store)).pipe(
+      switchMap(() => this.getStoreById(id)),
       tap((updated) => {
         const current = this.storesSubject.value;
         this.storesSubject.next(
@@ -65,7 +95,8 @@ export class StoreService {
   }
 
   deleteStore(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/stores/${id}`).pipe(
+    const storeDoc = doc(this.firebaseService.db, 'stores', id);
+    return from(deleteDoc(storeDoc)).pipe(
       tap(() => {
         const current = this.storesSubject.value;
         this.storesSubject.next(current.filter((s) => s.id !== id));
@@ -78,7 +109,8 @@ export class StoreService {
   }
 
   migrateData(storeId: string): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/stores/migrate`, { storeId });
+    const storeDoc = doc(this.firebaseService.db, 'stores', storeId);
+    return from(updateDoc(storeDoc, { migrated: true }));
   }
 
   setActiveStore(id: string | null): void {

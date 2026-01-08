@@ -41,6 +41,9 @@ testem.log
 .DS_Store
 Thumbs.db
 
+# Log files
+*.log
+
 
 
 .nx/cache
