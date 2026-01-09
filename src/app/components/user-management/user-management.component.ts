@@ -29,6 +29,9 @@ export class UserManagementComponent implements OnInit, OnDestroy {
   roleFilter = 'all';
   statusFilter = 'all';
   roles = ['all', 'super-admin', 'admin', 'editor', 'user'];
+  availableRoles = ['user', 'editor', 'admin', 'super-admin'];
+  isAdmin = false;
+  isSuperAdmin = false;
 
   // Modal state
   isModalOpen = false;
@@ -81,7 +84,16 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       })
     );
 
-    // Auto-switch to grid view on mobile
+    const userRole = localStorage.getItem('jjm_role');
+    this.isAdmin = userRole === 'admin';
+    this.isSuperAdmin = userRole === 'super-admin';
+
+    // Restrict available roles for non-super-admins
+    if (!this.isSuperAdmin) {
+      this.availableRoles = ['user', 'editor', 'admin'];
+      this.roles = ['all', 'admin', 'editor', 'user'];
+    }
+
     this.subscriptions.push(
       this.deviceService.isMobile$.subscribe((isMobile) => {
         if (isMobile) {
@@ -97,17 +109,9 @@ export class UserManagementComponent implements OnInit, OnDestroy {
 
   loadUsers(): void {
     this.isLoading = true;
-    const currentUserId = localStorage.getItem('jjm_user_id');
-
     this.subscriptions.push(
       this.userService.getUsers().subscribe((users) => {
-        if (currentUserId && currentUserId !== 'admin') {
-          this.users = users.filter(
-            (u) => u.id === currentUserId || u.userId === currentUserId
-          );
-        } else {
-          this.users = users;
-        }
+        this.users = users;
         this.applyFilters();
         this.isLoading = false;
       })
@@ -207,6 +211,17 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Security: Only super-admins can create/edit super-admins
+    if (this.currentUser.role === 'super-admin' && !this.isSuperAdmin) {
+      this.dialogService
+        .error(
+          'You do not have permission to assign this role.',
+          'Security Error'
+        )
+        .subscribe();
+      return;
+    }
+
     if (!this.isEditing && !this.formPassword) {
       this.dialogService
         .error('Password is required for new users.', 'Validation Error')
@@ -236,12 +251,16 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       });
     } else {
       const currentUserId = localStorage.getItem('jjm_user_id') || 'system';
+      const adminStoreId =
+        this.userService.currentUser()?.storeId ||
+        localStorage.getItem('jjm_store_id');
+
       const newUser = {
         ...this.currentUser,
         password: this.formPassword,
         createdBy: currentUserId,
         userId: currentUserId,
-        storeId: this.currentUser.storeId,
+        storeId: this.currentUser.storeId || adminStoreId,
       } as User;
 
       this.userService.addUser(newUser).subscribe(() => {

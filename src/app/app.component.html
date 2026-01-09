@@ -193,17 +193,6 @@
             </span>
           </div>
         </div>
-        
-        <!-- Data Saver Toggle -->
-        <button 
-          class="data-saver-toggle" 
-          [class.active]="isDataSaverMode"
-          (click)="toggleDataSaverMode()" 
-          [title]="isDataSaverMode ? 'Data Saver ON - Click to sync online' : 'Data Saver OFF - Click to enable offline mode'"
-        >
-          <span class="material-icon">{{ isDataSaverMode ? 'cloud_off' : 'cloud_sync' }}</span>
-          <span class="toggle-label">{{ isDataSaverMode ? 'Offline' : 'Online' }}</span>
-        </button>
       </div>
       <div class="header-right">
         <!-- Quick Actions -->

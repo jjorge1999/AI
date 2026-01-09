@@ -4,7 +4,6 @@ import {
   Firestore,
   getFirestore,
   enableIndexedDbPersistence,
-  disableNetwork,
 } from 'firebase/firestore';
 
 @Injectable({
@@ -20,16 +19,15 @@ export class FirebaseService {
 
     enableIndexedDbPersistence(this.db).catch((err) => {
       console.warn('Firebase Persistence Error:', err.code);
+      if (err.code == 'failed-precondition') {
+        console.warn(
+          'Multiple tabs open, persistence can only be enabled in one tab at a time.'
+        );
+      } else if (err.code == 'unimplemented') {
+        console.warn(
+          'The current browser does not support all of the features required to enable persistence'
+        );
+      }
     });
-
-    // TRUE OFFLINE: If Data Saver is ON, disable network immediately at the source
-    if (localStorage.getItem('jjm_data_saver_mode') === 'true') {
-      console.warn(
-        'FirebaseService: Data Saver Mode detected on startup. Disabling network.'
-      );
-      disableNetwork(this.db).catch((err) =>
-        console.error('Failed to disable network on startup', err)
-      );
-    }
   }
 }

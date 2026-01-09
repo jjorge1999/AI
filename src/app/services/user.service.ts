@@ -135,34 +135,58 @@ export class UserService {
       return;
     }
 
-    const currentUserId = localStorage.getItem('jjm_user_id');
-    const usersRef = collection(this.db, 'users');
+    const currentUser = this.currentUser();
+    const currentUserId =
+      currentUser?.id || localStorage.getItem('jjm_user_id');
+    const userRole = currentUser?.role || localStorage.getItem('jjm_role');
+    const storeId =
+      currentUser?.storeId || localStorage.getItem('jjm_store_id');
 
-    getDocs(usersRef)
+    if (!currentUserId) return;
+
+    const usersRef = collection(this.db, 'users');
+    let usersQuery;
+
+    // Security check: Only admins and super-admins should load users
+    if (userRole === 'super-admin') {
+      // Super-admins see everyone
+      usersQuery = query(usersRef);
+    } else if (userRole === 'admin' && storeId) {
+      // Admins see only users assigned to their store
+      usersQuery = query(usersRef, where('storeId', '==', storeId));
+    } else {
+      // Other users only see themselves
+      usersQuery = query(usersRef, where('id', '==', currentUserId));
+    }
+
+    getDocs(usersQuery)
       .then((snapshot) => {
         const users: User[] = snapshot.docs.map((docSnap) => {
           const data = docSnap.data();
           return this.transformUser({ id: docSnap.id, ...data });
         });
 
-        if (users.length === 0) {
+        if (users.length === 0 && userRole === 'admin' && !storeId) {
+          // This case should ideally not happen if stores are assigned properly
           this.initializeDefaultAdmin().subscribe();
         } else {
           this._users.set(users);
           this.usersSubject.next(users);
           this.saveToCache(users);
-          if (currentUserId) {
-            const current = users.find((u) => u.id === currentUserId);
-            if (current) {
-              this._currentUser.set(current);
-              this.currentUserSubject.next(current);
-            }
+
+          // Re-sync current user if found in the list
+          const current = users.find((u) => u.id === currentUserId);
+          if (current) {
+            this._currentUser.set(current);
+            this.currentUserSubject.next(current);
           }
         }
       })
       .catch((err) => {
         console.error('Error fetching users:', err);
-        this.initializeDefaultAdmin().subscribe();
+        if (userRole === 'super-admin') {
+          this.initializeDefaultAdmin().subscribe();
+        }
       });
   }
 
@@ -214,6 +238,7 @@ export class UserService {
       id,
       createdAt: new Date(),
       userId: user.userId || localStorage.getItem('jjm_user_id') || 'system',
+      storeId: this.enforceStoreId(user.storeId),
     } as User;
 
     return this.hashPassword(user.password || '').pipe(
@@ -241,6 +266,11 @@ export class UserService {
 
   updateUser(updatedUser: Partial<User> & { id: string }): Observable<User> {
     const payload = { ...updatedUser };
+
+    // Enforce Store ID restrictions for non-super-admins
+    if (payload.storeId) {
+      payload.storeId = this.enforceStoreId(payload.storeId);
+    }
 
     // Remove undefined fields which Firestore rejects
     Object.keys(payload).forEach((key) => {
@@ -365,5 +395,17 @@ export class UserService {
       return date.toDate();
     }
     return new Date(date);
+  }
+
+  private enforceStoreId(requestedId?: string): string | undefined {
+    const role = localStorage.getItem('jjm_role');
+    const userStoreId = localStorage.getItem('jjm_store_id');
+
+    if (role === 'super-admin') {
+      return requestedId;
+    }
+
+    // Admins and others are restricted to their own store
+    return userStoreId || undefined;
   }
 }

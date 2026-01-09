@@ -17,7 +17,6 @@ import { UserService } from './services/user.service';
 import { InventoryService } from './services/inventory.service';
 import { ChatService } from './services/chat.service';
 import { StoreService } from './services/store.service';
-import { CustomerService } from './services/customer.service';
 import { Store, User } from './models/inventory.models';
 import { DialogComponent } from './components/dialog/dialog.component';
 import { LoadingComponent } from './components/loading/loading.component';
@@ -69,7 +68,6 @@ export class AppComponent implements OnInit, OnDestroy {
   isVisionAid = false;
   isLoginPage = false;
   isReservationPage = false;
-  isDataSaverMode = localStorage.getItem('jjm_data_saver_mode') === 'true';
 
   // Store state
   stores: Store[] = [];
@@ -93,7 +91,6 @@ export class AppComponent implements OnInit, OnDestroy {
     private dialogService: DialogService,
     private deviceService: DeviceService,
     private storeService: StoreService,
-    private customerService: CustomerService,
     private maintenanceService: MaintenanceService,
     private router: Router,
     private ngZone: NgZone
@@ -296,85 +293,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   }
 
-  toggleDataSaverMode(): void {
-    this.isDataSaverMode = !this.isDataSaverMode;
-    localStorage.setItem('jjm_data_saver_mode', String(this.isDataSaverMode));
-
-    if (this.isDataSaverMode) {
-      // ENABLE Data Saver: Stop real-time listeners and disable network to save quota/bandwidth
-      console.log(
-        'Data Saver Mode ENABLED - Disabling Firestore network connection'
-      );
-      this.inventoryService.stopRealtimeListeners();
-      this.inventoryService.disableFirestoreNetwork();
-
-      this.dialogService.success(
-        'Data Saver Mode enabled. Network connection to Firestore is disabled. Using local cache.',
-        'Data Saver ON'
-      );
-    } else {
-      // DISABLE Data Saver: Sync all data with Firestore
-      console.log('Data Saver Mode DISABLED - Syncing with Firestore');
-      this.dialogService.info(
-        'Syncing all offline changes with Firestore. Please wait...',
-        'Syncing Data'
-      );
-
-      // First, enable the network again
-      this.inventoryService.enableFirestoreNetwork().then(() => {
-        // Then sync any queued offline writes
-        this.inventoryService.syncOfflineQueue().then(() => {
-          // Then force full sync to ensure all changes are uploaded and fresh data is downloaded
-          this.inventoryService.enableFullSync();
-
-          // Reload all services to get fresh data from other users
-          this.storeService.loadStores();
-          this.customerService.reloadData();
-
-          setTimeout(() => {
-            this.dialogService.success(
-              'All data synced successfully. Real-time updates are now enabled.',
-              'Sync Complete'
-            );
-          }, 2500);
-        });
-      });
-    }
-  }
-
-  // EXIT WARNING: Protect unsynced changes from manual browser refresh/close
-  @HostListener('window:beforeunload', ['$event'])
-  onBeforeUnload(event: BeforeUnloadEvent): string | void {
-    const unsyncedCount = this.inventoryService.offlineQueueCount();
-    if (unsyncedCount > 0) {
-      const message = `You have ${unsyncedCount} unsynced changes. If you leave now, these changes will be lost permanently. Please turn OFF Data Saver to sync first.`;
-      event.returnValue = message; // Standard for most browsers
-      return message; // Standard for some older browsers
-    }
-  }
-
   logout(): void {
-    const unsyncedCount = this.inventoryService.offlineQueueCount();
-
-    if (unsyncedCount > 0) {
-      this.dialogService
-        .confirm(
-          `You have ${unsyncedCount} unsynced changes that will be LOST if you logout now. Are you sure you want to proceed?`,
-          'Unsynced Changes Warning',
-          'Logout Anyways',
-          'Stay & Sync'
-        )
-        .subscribe((confirmed) => {
-          if (confirmed) {
-            this.performLogout();
-          }
-        });
-    } else {
-      this.performLogout();
-    }
-  }
-
-  private performLogout(): void {
     console.log('Logging out - clearing all caches...');
 
     // 1. Stop Firestore Listeners and Clear Service State

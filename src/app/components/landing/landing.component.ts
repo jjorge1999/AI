@@ -300,25 +300,9 @@ export class LandingComponent implements OnInit, OnDestroy {
     // Load saved widget layout
     this.loadWidgetLayout();
 
-    // Check if user/store has switched since last session
-    const currentUserId = localStorage.getItem('jjm_user_id');
-    const currentStoreId = localStorage.getItem('jjm_active_store_id');
-    const lastUserId = localStorage.getItem('jjm_last_user_id');
-    const lastStoreId = localStorage.getItem('jjm_last_store_id');
-
-    const userSwitched =
-      currentUserId !== lastUserId || currentStoreId !== lastStoreId;
-
-    if (userSwitched) {
-      console.log('User/Store switch detected. Forcing full data sync...');
-      // Update last user/store markers
-      if (currentUserId)
-        localStorage.setItem('jjm_last_user_id', currentUserId);
-      if (currentStoreId)
-        localStorage.setItem('jjm_last_store_id', currentStoreId);
-      // Enable full sync to fetch fresh data for new user/store
-      this.inventoryService.enableFullSync();
-    }
+    // Dashboard needs full data to display stats, orders, etc.
+    // Enable Full Sync to ensure all data is loaded
+    this.inventoryService.enableFullSync();
 
     // Load customers for display
     this.customerService.loadCustomers();
