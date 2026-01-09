@@ -65,8 +65,8 @@ export class LoggingService {
     // We sort client-side for now.
     const q = query(logsRef, where('storeId', '==', storeId), limit(200));
 
-    getDocs(q)
-      .then((snapshot) => {
+    from(getDocs(q)).subscribe({
+      next: (snapshot) => {
         console.log('LoggingService: Received', snapshot.docs.length, 'logs');
         const logs: ActivityLog[] = snapshot.docs
           .map((docSnap) => {
@@ -85,13 +85,14 @@ export class LoggingService {
             return tB - tA; // Descending
           });
         this.logsSubject.next(logs);
-      })
-      .catch((err) => {
+      },
+      error: (err) => {
         console.error('LoggingService: Error fetching logs:', err);
         console.error(
           'LoggingService: This may be a Firestore permissions issue. Check Security Rules for /logs collection.'
         );
-      });
+      },
+    });
   }
 
   logActivity(
@@ -121,8 +122,8 @@ export class LoggingService {
     console.log('Logging activity:', logData);
 
     const logsRef = collection(this.db, 'activityLogs');
-    addDoc(logsRef, logData)
-      .then((docRef) => {
+    from(addDoc(logsRef, logData)).subscribe({
+      next: (docRef) => {
         const newLog: ActivityLog = {
           id: docRef.id,
           ...logData,
@@ -130,11 +131,12 @@ export class LoggingService {
         console.log('Activity logged successfully:', newLog);
         const currentLogs = this.logsSubject.value;
         this.logsSubject.next([newLog, ...currentLogs]);
-      })
-      .catch((err) => {
+      },
+      error: (err) => {
         console.error('Error logging activity:', err);
         console.error('Failed log data:', logData);
-      });
+      },
+    });
   }
 
   getLogs(): Observable<ActivityLog[]> {

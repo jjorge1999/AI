@@ -301,13 +301,13 @@ export class InventoryService {
     }
 
     // 2. Try to Sign In
-    signInAnonymously(this.auth)
-      .then((cred) => {
+    from(signInAnonymously(this.auth)).subscribe({
+      next: (cred) => {
         console.log('Signed In Anonymously. Starting Secure Listeners.');
         this.firebaseUser = cred.user;
         this.setupFirestoreListeners(cred.user.uid, legacyUserId);
-      })
-      .catch((err) => {
+      },
+      error: (err) => {
         console.warn(
           'Anonymous Auth unavailable. Attempting Public Realtime Mode with Legacy ID.'
         );
@@ -316,7 +316,8 @@ export class InventoryService {
 
         // 3. Fallback to Public Mode (using Legacy ID as Firestore ID)
         this.setupFirestoreListeners(legacyUserId, legacyUserId);
-      });
+      },
+    });
   }
 
   private listenersInitialized = false;
@@ -671,8 +672,8 @@ export class InventoryService {
       collection(this.db, 'products'),
       where('storeId', '==', storeId)
     );
-    getDocs(productsQuery)
-      .then((snapshot) => {
+    from(getDocs(productsQuery)).subscribe({
+      next: (snapshot) => {
         const products = snapshot.docs.map(
           (docSnap) =>
             ({
@@ -681,10 +682,10 @@ export class InventoryService {
             } as Product)
         );
         this.productsSubject.next(products);
-      })
-      .catch((err: any) =>
-        console.error('Error fetching products for user:', err)
-      );
+      },
+      error: (err: any) =>
+        console.error('Error fetching products for store:', err),
+    });
   }
 
   private fetchProducts(): void {
@@ -1038,8 +1039,8 @@ export class InventoryService {
     }
 
     const saleRef = doc(this.db, 'sales', saleId);
-    updateDoc(saleRef, { pending: false })
-      .then(() => {
+    from(updateDoc(saleRef, { pending: false })).subscribe({
+      next: () => {
         // Update local state (Optimistic or wait for listener)
         const updatedSales = currentSales.map((s) =>
           s.id === saleId ? { ...s, pending: false } : s
@@ -1098,8 +1099,9 @@ export class InventoryService {
         );
 
         this.recalculateAndSaveStats();
-      })
-      .catch((err) => console.error('Error completing sale:', err));
+      },
+      error: (err: any) => console.error('Error completing sale:', err),
+    });
   }
 
   updateSale(sale: Sale): void {
@@ -1112,8 +1114,8 @@ export class InventoryService {
     const saleRef = doc(this.db, 'sales', sale.id);
     const updateData = { ...sale, storeId: activeStoreId };
 
-    setDoc(saleRef, updateData, { merge: true })
-      .then(() => {
+    from(setDoc(saleRef, updateData, { merge: true })).subscribe({
+      next: () => {
         this.loggingService.logActivity(
           'update',
           'sale',
@@ -1121,8 +1123,9 @@ export class InventoryService {
           sale.productName,
           'Updated delivery details'
         );
-      })
-      .catch((err) => console.error('Error updating sale:', err));
+      },
+      error: (err) => console.error('Error updating sale:', err),
+    });
   }
 
   confirmReservation(sale: Sale): void {
@@ -1135,8 +1138,8 @@ export class InventoryService {
     }
 
     const saleRef = doc(this.db, 'sales', sale.id);
-    updateDoc(saleRef, { reservationStatus: 'confirmed' })
-      .then(() => {
+    from(updateDoc(saleRef, { reservationStatus: 'confirmed' })).subscribe({
+      next: () => {
         // Optimistic update
         const currentSales = this.salesSubject.value;
         const newSales = currentSales.map((s) =>
@@ -1153,8 +1156,9 @@ export class InventoryService {
           sale.productName,
           'Confirmed reservation (Stock deduction pending delivery)'
         );
-      })
-      .catch((err) => console.error('Error confirming reservation:', err));
+      },
+      error: (err) => console.error('Error confirming reservation:', err),
+    });
   }
 
   private transformSale(sale: any): Sale {
@@ -1208,8 +1212,8 @@ export class InventoryService {
   }
 
   deleteSale(saleId: string): void {
-    deleteDoc(doc(this.db, 'sales', saleId))
-      .then(() => {
+    from(deleteDoc(doc(this.db, 'sales', saleId))).subscribe({
+      next: () => {
         this.loggingService.logActivity(
           'delete',
           'sale',
@@ -1218,8 +1222,9 @@ export class InventoryService {
           'Deleted sale record'
         );
         this.recalculateAndSaveStats();
-      })
-      .catch((err) => console.error('Error deleting sale:', err));
+      },
+      error: (err) => console.error('Error deleting sale:', err),
+    });
   }
 
   updateProduct(product: Product): Observable<Product> {

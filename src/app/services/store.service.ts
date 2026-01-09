@@ -90,8 +90,8 @@ export class StoreService {
       q = query(storesRef, where('id', '==', assignedStoreId));
     }
 
-    getDocs(q)
-      .then((snapshot) => {
+    from(getDocs(q)).subscribe({
+      next: (snapshot) => {
         const stores: Store[] = snapshot.docs.map((docSnap) => {
           const data = docSnap.data();
           return {
@@ -108,8 +108,9 @@ export class StoreService {
         if (!this.activeStoreId() && stores.length > 0) {
           this.setActiveStore(stores[0].id);
         }
-      })
-      .catch((err) => console.error('Error fetching stores:', err));
+      },
+      error: (err) => console.error('Error fetching stores:', err),
+    });
   }
 
   getStoreById(id: string): Observable<Store> {

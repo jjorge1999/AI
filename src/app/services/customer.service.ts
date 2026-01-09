@@ -105,8 +105,8 @@ export class CustomerService {
     const customersRef = collection(this.db, 'customers');
     const q = query(customersRef, where('storeId', '==', storeId));
 
-    getDocs(q)
-      .then((snapshot) => {
+    from(getDocs(q)).subscribe({
+      next: (snapshot) => {
         const customers: Customer[] = snapshot.docs.map((docSnap) => ({
           id: docSnap.id,
           ...docSnap.data(),
@@ -114,8 +114,9 @@ export class CustomerService {
         this._customers.set(customers);
         this.customersSubject.next(customers);
         this.saveToCache(customers);
-      })
-      .catch((err) => console.error('Error fetching customers:', err));
+      },
+      error: (err) => console.error('Error fetching customers:', err),
+    });
   }
 
   getCustomers(): Observable<Customer[]> {

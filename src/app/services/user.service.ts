@@ -157,8 +157,8 @@ export class UserService {
       usersQuery = query(usersRef, where('id', '==', currentUserId));
     }
 
-    getDocs(usersQuery)
-      .then((snapshot) => {
+    from(getDocs(usersQuery)).subscribe({
+      next: (snapshot) => {
         const users: User[] = snapshot.docs.map((docSnap) => {
           const data = docSnap.data();
           return this.transformUser({ id: docSnap.id, ...data });
@@ -179,13 +179,14 @@ export class UserService {
             this.currentUserSubject.next(current);
           }
         }
-      })
-      .catch((err) => {
+      },
+      error: (err) => {
         console.error('Error fetching users:', err);
         if (userRole === 'super-admin') {
           this.initializeDefaultAdmin().subscribe();
         }
-      });
+      },
+    });
   }
 
   private initializeDefaultAdmin(): Observable<void> {
