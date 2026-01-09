@@ -136,7 +136,7 @@ export interface User {
   address?: string; // Added for chat/profile info
   gpsCoordinates?: string;
   password?: string; // Optional for display, required for auth
-  role: 'super-admin' | 'admin' | 'user';
+  role: 'super-admin' | 'admin' | 'editor' | 'user';
   createdAt: Date;
   createdBy?: string;
   userId?: string;

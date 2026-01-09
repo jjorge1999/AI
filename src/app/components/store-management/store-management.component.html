@@ -6,7 +6,7 @@
         <h1 class="premium-title">Store Management</h1>
         <p class="subtitle">Manage and monitor all your physical branches from one place</p>
       </div>
-      <div class="header-actions-top">
+      <div class="header-actions-top" *ngIf="currentUser?.role === 'super-admin'">
         <button class="btn-migrate" (click)="onMigrateData()" title="Move unassigned data to current store" type="button">
           <span class="material-icon" aria-hidden="true">settings_backup_restore</span>
           <span>Migrate Data</span>
@@ -118,7 +118,7 @@
               </span>
             </div>
           </div>
-          <button *ngIf="!store.isSuperAdminOnly" class="btn-delete-subtle" (click)="onDeleteStore(store, $event); $event.stopPropagation()" title="Delete Store" type="button">
+          <button *ngIf="!store.isSuperAdminOnly && currentUser?.role === 'super-admin'" class="btn-delete-subtle" (click)="onDeleteStore(store, $event); $event.stopPropagation()" title="Delete Store" type="button">
             <span class="material-icon" aria-hidden="true">delete_outline</span>
           </button>
         </div>
@@ -240,7 +240,7 @@
             </div>
           </div>
 
-          <div class="input-field half">
+          <div class="input-field half" *ngIf="currentUser?.role === 'super-admin'">
             <label for="reg-super">Super Admin Only</label>
             <div class="toggle-wrapper" style="display: flex; align-items: center; gap: 10px; height: 100%;">
               <span class="material-icon" style="color: #6366f1; font-size: 20px;">security</span>
@@ -248,7 +248,7 @@
             </div>
           </div>
 
-          <div class="input-field full">
+          <div class="input-field full" *ngIf="currentUser?.role === 'super-admin'">
             <label for="reg-plan">Subscription Plan</label>
             <div class="input-wrapper">
               <span class="material-icon" aria-hidden="true">card_membership</span>
@@ -260,7 +260,7 @@
             </div>
           </div>
 
-          <div class="input-field full">
+          <div class="input-field full" *ngIf="currentUser?.role === 'super-admin'">
             <label for="reg-expiry">Subscription Expiry</label>
             <div class="input-wrapper" style="display: flex; gap: 8px; align-items: center;">
               <span class="material-icon" aria-hidden="true" style="margin-right: 8px;">event</span>

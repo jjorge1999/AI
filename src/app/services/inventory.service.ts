@@ -390,17 +390,17 @@ export class InventoryService {
         limit(100)
       );
     } else {
-      // Seller Mode: Query by userId AND storeId
-      productsQuery = query(
-        collection(this.db, 'products'),
-        where('userId', '==', legacyId)
-      );
-
+      // Seller Mode: Query by storeId only
       if (activeStoreId) {
         productsQuery = query(
           collection(this.db, 'products'),
-          where('userId', '==', legacyId),
           where('storeId', '==', activeStoreId)
+        );
+      } else {
+        // No store context, return empty/nothing
+        productsQuery = query(
+          collection(this.db, 'products'),
+          where('storeId', '==', 'none')
         );
       }
     }
@@ -452,17 +452,16 @@ export class InventoryService {
         limit(100)
       );
     } else {
-      // Seller Mode: Query by userId AND storeId
-      salesQuery = query(
-        collection(this.db, 'sales'),
-        where('userId', '==', legacyId)
-      );
-
+      // Seller Mode: Query by storeId only
       if (activeStoreId) {
         salesQuery = query(
           collection(this.db, 'sales'),
-          where('userId', '==', legacyId),
           where('storeId', '==', activeStoreId)
+        );
+      } else {
+        salesQuery = query(
+          collection(this.db, 'sales'),
+          where('storeId', '==', 'none')
         );
       }
     }
@@ -486,17 +485,17 @@ export class InventoryService {
       )
     );
 
-    // Expenses
-    let expensesQuery = query(
-      collection(this.db, 'expenses'),
-      where('userId', '==', firestoreId)
-    );
-
+    // Expenses - Filter by storeId only
+    let expensesQuery;
     if (activeStoreId) {
       expensesQuery = query(
         collection(this.db, 'expenses'),
-        where('userId', '==', firestoreId),
         where('storeId', '==', activeStoreId)
+      );
+    } else {
+      expensesQuery = query(
+        collection(this.db, 'expenses'),
+        where('storeId', '==', 'none')
       );
     }
     this.unsubscribes.push(
@@ -521,17 +520,17 @@ export class InventoryService {
       )
     );
 
-    // Categories
-    let categoriesQuery = query(
-      collection(this.db, 'categories'),
-      where('userId', '==', legacyId)
-    );
-
+    // Categories - Filter by storeId only
+    let categoriesQuery;
     if (activeStoreId) {
       categoriesQuery = query(
         collection(this.db, 'categories'),
-        where('userId', '==', legacyId),
         where('storeId', '==', activeStoreId)
+      );
+    } else {
+      categoriesQuery = query(
+        collection(this.db, 'categories'),
+        where('storeId', '==', 'none')
       );
     }
 
@@ -547,8 +546,20 @@ export class InventoryService {
                 ...(doc.data() as any),
               } as Category)
           );
-          this._categories.set(categories);
-          this.categoriesSubject.next(categories);
+          // Deduplicate by name (case-insensitive) to handle any existing dirty data
+          const uniqueCategories: Category[] = [];
+          const seenNames = new Set<string>();
+
+          categories.forEach((cat) => {
+            const normalized = cat.name.trim().toLowerCase();
+            if (!seenNames.has(normalized)) {
+              seenNames.add(normalized);
+              uniqueCategories.push(cat);
+            }
+          });
+
+          this._categories.set(uniqueCategories);
+          this.categoriesSubject.next(uniqueCategories);
         },
         (err) => this.handleFirestoreError(err, 'Categories Listener Error')
       )
@@ -652,13 +663,13 @@ export class InventoryService {
   }
 
   /**
-   * Load products for a specific user (e.g., for public reservation page)
-   * @param userId - The userId to fetch products for (e.g., 'admin-1')
+   * Load products for a specific store (e.g., for public reservation page)
+   * @param storeId - The storeId to fetch products for
    */
-  public loadProductsForUser(userId: string): void {
+  public loadProductsForStore(storeId: string): void {
     const productsQuery = query(
       collection(this.db, 'products'),
-      where('userId', '==', userId)
+      where('storeId', '==', storeId)
     );
     getDocs(productsQuery)
       .then((snapshot) => {
@@ -715,8 +726,18 @@ export class InventoryService {
       );
     }
 
+    // Check for duplicates (case-insensitive)
+    const normalizedName = name.trim().toLowerCase();
+    const existing = this.categoriesSubject.value.find(
+      (c) => c.name.toLowerCase() === normalizedName
+    );
+
+    if (existing) {
+      return throwError(() => new Error('Category already exists.'));
+    }
+
     const baseData = {
-      name,
+      name: name.trim(),
       createdAt: new Date(),
       storeId: activeStoreId,
       userId: this.getCurrentUser(),
@@ -724,10 +745,6 @@ export class InventoryService {
 
     return from(addDoc(collection(this.db, 'categories'), baseData)).pipe(
       map((docRef) => ({ id: docRef.id, ...baseData } as Category)),
-      tap((newCategory) => {
-        const current = this.categoriesSubject.value;
-        this.categoriesSubject.next([...current, newCategory]);
-      }),
       catchError((err) => {
         this.handleFirestoreError(err, 'Error adding category');
         return throwError(() => err);
@@ -737,10 +754,6 @@ export class InventoryService {
 
   deleteCategory(categoryId: string): Observable<void> {
     return from(deleteDoc(doc(this.db, 'categories', categoryId))).pipe(
-      tap(() => {
-        const current = this.categoriesSubject.value;
-        this.categoriesSubject.next(current.filter((c) => c.id !== categoryId));
-      }),
       catchError((err) => {
         this.handleFirestoreError(err, 'Error deleting category');
         return throwError(() => err);
@@ -767,10 +780,6 @@ export class InventoryService {
       map((docRef) => ({ id: docRef.id, ...firestoreData } as Expense)),
       tap({
         next: (newExpense) => {
-          const current = this.expensesSubject.value;
-          if (!current.find((e) => e.id === newExpense.id)) {
-            this.expensesSubject.next([...current, newExpense]);
-          }
           this.loggingService.logActivity(
             'create',
             'expense',
@@ -795,10 +804,9 @@ export class InventoryService {
     return from(deleteDoc(doc(this.db, 'expenses', expenseId))).pipe(
       tap({
         next: () => {
+          // Note: Activity log entity info must be retrieved BEFORE deletion completes if using local state
           const current = this.expensesSubject.value;
           const exp = current.find((e) => e.id === expenseId);
-          this.expensesSubject.next(current.filter((e) => e.id !== expenseId));
-
           if (exp) {
             this.loggingService.logActivity(
               'delete',
@@ -857,10 +865,6 @@ export class InventoryService {
           map((docRef) => ({ id: docRef.id, ...baseData } as Product)),
           tap({
             next: (newProduct) => {
-              const current = this.productsSubject.value;
-              if (!current.find((p) => p.id === newProduct.id)) {
-                this.productsSubject.next([...current, newProduct]);
-              }
               this.loggingService.logActivity(
                 'create',
                 'product',
@@ -891,9 +895,6 @@ export class InventoryService {
     return from(deleteDoc(doc(this.db, 'products', productId))).pipe(
       tap({
         next: () => {
-          const current = this.productsSubject.value;
-          this.productsSubject.next(current.filter((p) => p.id !== productId));
-
           this.loggingService.logActivity(
             'delete',
             'product',
@@ -1008,13 +1009,6 @@ export class InventoryService {
               // Deduct Credit on Success (Client-side tracking)
               this.storeService.deductTransactionCredit(activeStoreId);
 
-              // Update local sales state
-              const currentSales = this.salesSubject.value;
-              if (!currentSales.find((s) => s.id === newSale.id)) {
-                const updated = [newSale, ...currentSales];
-                this.salesSubject.next(updated);
-              }
-
               this.loggingService.logActivity(
                 'create',
                 'sale',
@@ -1120,15 +1114,6 @@ export class InventoryService {
 
     setDoc(saleRef, updateData, { merge: true })
       .then(() => {
-        // Optimistic update
-        const currentSales = this.salesSubject.value;
-        const updatedSales = currentSales.map((s) =>
-          s.id === sale.id
-            ? { ...this.transformSale(updateData), id: sale.id }
-            : s
-        );
-        this.salesSubject.next(updatedSales);
-
         this.loggingService.logActivity(
           'update',
           'sale',
@@ -1225,13 +1210,6 @@ export class InventoryService {
   deleteSale(saleId: string): void {
     deleteDoc(doc(this.db, 'sales', saleId))
       .then(() => {
-        // Optimistic update
-        const currentSales = this.salesSubject.value; // Use behavior subject value
-        const updatedSales = currentSales.filter((s) => s.id !== saleId);
-        this.salesSubject.next(updatedSales);
-        // Also update signal if needed, but subscribing to subject usually syncs signal in effects
-        this._sales.set(updatedSales);
-
         this.loggingService.logActivity(
           'delete',
           'sale',
@@ -1266,14 +1244,6 @@ export class InventoryService {
       map(() => product),
       tap({
         next: () => {
-          // Update products local state
-          const currentProducts = this.productsSubject.value; // Use behavior subject
-          const updatedProducts = currentProducts.map((p) =>
-            p.id === product.id ? product : p
-          );
-          this.productsSubject.next(updatedProducts);
-          this._products.set(updatedProducts);
-
           // Update related sales (Pending and History)
           const currentSales = this.salesSubject.value;
           const salesToUpdate = currentSales.filter(

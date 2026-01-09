@@ -184,18 +184,22 @@ export class CustomerService {
     customer: Omit<Customer, 'id' | 'createdAt'>
   ): Observable<Customer> {
     const activeStoreId = this.storeService.getActiveStoreId();
-    if (!activeStoreId) {
+    if (!activeStoreId && !customer.storeId) {
       return throwError(
         () => new Error('Store selection required for this transaction.')
       );
     }
+
+    const targetStoreId = this.enforceStoreId(
+      customer.storeId || activeStoreId || ''
+    );
 
     const id = crypto.randomUUID();
     const newCustomer: Customer = {
       ...customer,
       id,
       userId: this.getCurrentUser(),
-      storeId: activeStoreId,
+      storeId: targetStoreId,
       createdAt: new Date(),
     } as Customer;
 
@@ -217,8 +221,13 @@ export class CustomerService {
   }
 
   updateCustomer(id: string, updates: Partial<Customer>): Observable<Customer> {
+    const payload = { ...updates };
+    if (payload.storeId) {
+      payload.storeId = this.enforceStoreId(payload.storeId);
+    }
+
     const docRef = doc(this.db, 'customers', id);
-    return from(updateDoc(docRef, updates as Record<string, any>)).pipe(
+    return from(updateDoc(docRef, payload as Record<string, any>)).pipe(
       map(() => {
         const current = this._customers();
         const existing = current.find((c) => c.id === id);
@@ -259,5 +268,17 @@ export class CustomerService {
 
   getCustomerById(id: string): Customer | undefined {
     return this.customersSubject.value.find((c) => c.id === id);
+  }
+
+  private enforceStoreId(requestedId?: string): string | undefined {
+    const role = localStorage.getItem('jjm_role');
+    const userStoreId = localStorage.getItem('jjm_store_id');
+
+    if (role === 'super-admin') {
+      return requestedId;
+    }
+
+    // Admins and others are restricted to their own store
+    return userStoreId || undefined;
   }
 }

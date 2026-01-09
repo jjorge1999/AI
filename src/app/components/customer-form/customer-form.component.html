@@ -249,6 +249,14 @@
           rows="3"
         ></textarea>
       </div>
+      <div class="form-group" *ngIf="availableStores.length > 0 && (isAdmin || isSuperAdmin)">
+        <label for="assignedStore">Default Store Assignment</label>
+        <select id="assignedStore" [(ngModel)]="customer.storeId" [disabled]="!isSuperAdmin && !!customer.storeId">
+          <option [value]="''">No Store assigned</option>
+          <option *ngFor="let store of availableStores" [value]="store.id">{{ store.name }}</option>
+        </select>
+        <small class="form-help" *ngIf="!isSuperAdmin">Admins can only manage customers within their assigned store.</small>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" (click)="closeAddModal()">Cancel</button>

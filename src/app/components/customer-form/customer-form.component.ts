@@ -7,6 +7,9 @@ import { InventoryService } from '../../services/inventory.service';
 import { DialogService } from '../../services/dialog.service';
 import { Customer, Sale } from '../../models/inventory.models';
 import { DeviceService } from '../../services/device.service';
+import { UserService } from '../../services/user.service';
+import { StoreService } from '../../services/store.service';
+import { Store } from '../../models/inventory.models';
 
 interface CustomerStats {
   totalSpent: number;
@@ -35,6 +38,9 @@ export class CustomerFormComponent implements OnInit, OnDestroy {
   showAddModal = false;
   showProfileModal = false;
   selectedCustomer: Customer | null = null;
+  isAdmin = false;
+  isSuperAdmin = false;
+  availableStores: Store[] = [];
 
   // Pagination
   currentPage = 1;
@@ -42,10 +48,11 @@ export class CustomerFormComponent implements OnInit, OnDestroy {
   pageSizeOptions = [5, 10, 20, 50];
 
   // Form
-  customer = {
+  customer: any = {
     name: '',
     phoneNumber: '',
     deliveryAddress: '',
+    storeId: '',
   };
 
   private subscriptions: Subscription[] = [];
@@ -54,7 +61,9 @@ export class CustomerFormComponent implements OnInit, OnDestroy {
     private customerService: CustomerService,
     private inventoryService: InventoryService,
     private dialogService: DialogService,
-    private deviceService: DeviceService
+    private deviceService: DeviceService,
+    private userService: UserService,
+    private storeService: StoreService
   ) {}
 
   ngOnInit(): void {
@@ -80,6 +89,19 @@ export class CustomerFormComponent implements OnInit, OnDestroy {
         }
       })
     );
+
+    // Get role info
+    const userRole = localStorage.getItem('jjm_role');
+    this.isAdmin = userRole === 'admin';
+    this.isSuperAdmin = userRole === 'super-admin';
+
+    // Get available stores
+    this.subscriptions.push(
+      this.storeService.stores$.subscribe((stores) => {
+        this.availableStores = stores;
+      })
+    );
+    this.storeService.loadStores();
   }
 
   ngOnDestroy(): void {
@@ -195,6 +217,12 @@ export class CustomerFormComponent implements OnInit, OnDestroy {
   openAddModal(): void {
     this.editingId = null;
     this.resetForm();
+
+    // Default store assignment
+    if (!this.isSuperAdmin) {
+      this.customer.storeId = localStorage.getItem('jjm_store_id') || '';
+    }
+
     this.showAddModal = true;
   }
 
@@ -204,6 +232,7 @@ export class CustomerFormComponent implements OnInit, OnDestroy {
       name: customer.name,
       phoneNumber: customer.phoneNumber || '',
       deliveryAddress: customer.deliveryAddress || '',
+      storeId: customer.storeId || '',
     };
     this.showAddModal = true;
   }
@@ -233,6 +262,7 @@ export class CustomerFormComponent implements OnInit, OnDestroy {
             name: this.customer.name,
             phoneNumber: this.customer.phoneNumber,
             deliveryAddress: this.customer.deliveryAddress,
+            storeId: this.customer.storeId,
           })
           .subscribe(() => {
             this.closeAddModal();
@@ -256,6 +286,7 @@ export class CustomerFormComponent implements OnInit, OnDestroy {
             name: this.customer.name,
             phoneNumber: this.customer.phoneNumber,
             deliveryAddress: this.customer.deliveryAddress,
+            storeId: this.customer.storeId,
           })
           .subscribe(() => {
             this.closeAddModal();
@@ -277,6 +308,7 @@ export class CustomerFormComponent implements OnInit, OnDestroy {
       name: '',
       phoneNumber: '',
       deliveryAddress: '',
+      storeId: '',
     };
   }
 

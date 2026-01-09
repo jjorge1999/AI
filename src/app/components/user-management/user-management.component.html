@@ -48,7 +48,11 @@
     <div class="filter-chips">
       <select [(ngModel)]="roleFilter" (ngModelChange)="onFilterChange()" class="filter-select">
         <option value="all">Role: All</option>
-        <option *ngFor="let role of roles.slice(1)" [value]="role">{{ role | titlecase }}</option>
+        <option *ngFor="let role of roles.slice(1)" [value]="role">{{ role.replace('-', ' ') | titlecase }}</option>
+      </select>
+      <select *ngIf="isSuperAdmin" [(ngModel)]="storeFilter" (ngModelChange)="onFilterChange()" class="filter-select">
+        <option value="all">Store: All</option>
+        <option *ngFor="let store of availableStores" [value]="store.id">{{ store.name }}</option>
       </select>
     </div>
   </div>
@@ -63,6 +67,7 @@
             <th class="col-user">User</th>
             <th class="col-email">Username</th>
             <th class="col-role">Role</th>
+            <th class="col-store" *ngIf="isSuperAdmin">Store</th>
             <th class="col-status">Status</th>
             <th class="col-active">Last Active</th>
             <th class="col-actions"></th>
@@ -81,8 +86,11 @@
             <td class="email-cell">{{ user.username }}</td>
             <td class="role-cell">
               <span class="role-badge" [ngClass]="getRoleBadgeClass(user.role)">
-                {{ user.role | titlecase }}
+                {{ user.role.replace('-', ' ') | titlecase }}
               </span>
+            </td>
+            <td class="store-cell" *ngIf="isSuperAdmin">
+              <span class="store-name-text">{{ getStoreName(user.storeId) }}</span>
             </td>
             <td class="status-cell">
               <div class="status-indicator active">
@@ -130,6 +138,10 @@
             <span class="role-badge" [ngClass]="getRoleBadgeClass(user.role)">
               {{ user.role | titlecase }}
             </span>
+          </div>
+          <div class="info-row" *ngIf="isSuperAdmin">
+            <span class="material-icon">store</span>
+            <span class="info-text">{{ getStoreName(user.storeId) }}</span>
           </div>
           <div class="info-row">
             <span class="material-icon">location_on</span>
@@ -263,7 +275,7 @@
       <div class="form-group">
         <label for="role">Role *</label>
         <select id="role" [(ngModel)]="currentUser.role">
-          <option *ngFor="let role of availableRoles" [value]="role">{{ role | titlecase }}</option>
+          <option *ngFor="let role of availableRoles" [value]="role">{{ role.replace('-', ' ') | titlecase }}</option>
         </select>
       </div>
       <div class="form-group">
@@ -279,12 +291,13 @@
         <label>Account Expiration Date</label>
         <input type="date" [ngModel]="currentUser.accessExpiryDate | date:'yyyy-MM-dd'" (ngModelChange)="currentUser.accessExpiryDate=$event">
       </div>
-      <div class="form-group" *ngIf="availableStores.length > 0 && isSuperAdmin">
-        <label for="assignedStore">Default Store (Super Admin Only)</label>
-        <select id="assignedStore" [(ngModel)]="currentUser.storeId">
+      <div class="form-group" *ngIf="availableStores.length > 0 && (isAdmin || isSuperAdmin)">
+        <label for="assignedStore">Default Store Assignment</label>
+        <select id="assignedStore" [(ngModel)]="currentUser.storeId" [disabled]="!isSuperAdmin && !!currentUser.storeId">
           <option [value]="null">No Store assigned</option>
           <option *ngFor="let store of availableStores" [value]="store.id">{{ store.name }}</option>
         </select>
+        <small class="form-help" *ngIf="!isSuperAdmin">Admins can only manage users within their assigned store.</small>
       </div>
 
 

@@ -152,7 +152,7 @@
           <span class="nav-label" *ngIf="!isSidebarCollapsed">Ad Inventory</span>
         </a>
         <a 
-          *ngIf="userRole === 'super-admin'"
+          *ngIf="userRole === 'admin' || userRole === 'super-admin'"
           class="nav-item" 
           routerLink="/stores"
           routerLinkActive="active"

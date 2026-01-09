@@ -350,8 +350,8 @@ export class ProductFormComponent implements OnInit, OnDestroy {
           this.newCategoryName = '';
         },
         error: (err) => {
-          console.error('Error adding category:', err);
-          this.dialogService.error('Failed to add category');
+          const message = err.message || 'Failed to add category';
+          this.dialogService.error(message);
         },
       });
     }

@@ -28,6 +28,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
   searchQuery = '';
   roleFilter = 'all';
   statusFilter = 'all';
+  storeFilter = 'all';
   roles = ['all', 'super-admin', 'admin', 'editor', 'user'];
   availableRoles = ['user', 'editor', 'admin', 'super-admin'];
   isAdmin = false;
@@ -134,6 +135,10 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       result = result.filter((u) => u.role === this.roleFilter);
     }
 
+    if (this.storeFilter !== 'all') {
+      result = result.filter((u) => u.storeId === this.storeFilter);
+    }
+
     this.filteredUsers = result;
     this.currentPage = 1;
   }
@@ -188,11 +193,23 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       username: '',
       fullName: '',
       role: 'user',
+      storeId: !this.isSuperAdmin
+        ? localStorage.getItem('jjm_store_id') || undefined
+        : this.storeService.activeStoreId() || undefined,
     };
     this.isModalOpen = true;
   }
 
   openEditModal(user: User): void {
+    if (user.role === 'super-admin' && !this.isSuperAdmin) {
+      this.dialogService
+        .error(
+          'You do not have permission to edit a Super Admin account.',
+          'Security Error'
+        )
+        .subscribe();
+      return;
+    }
     this.isEditing = true;
     this.formPassword = '';
     this.currentUser = { ...user };
@@ -377,6 +394,12 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       default:
         return 'role-user';
     }
+  }
+
+  getStoreName(storeId?: string): string {
+    if (!storeId) return 'No Store Assigned';
+    const store = this.availableStores.find((s) => s.id === storeId);
+    return store ? store.name : 'Unknown Store';
   }
 
   getLastActive(user: User): string {

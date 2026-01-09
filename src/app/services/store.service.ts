@@ -13,6 +13,7 @@ import {
   deleteDoc,
   query,
   orderBy,
+  where,
   setDoc,
 } from 'firebase/firestore';
 
@@ -78,8 +79,16 @@ export class StoreService {
       return;
     }
 
+    const role = localStorage.getItem('jjm_role');
+    const assignedStoreId = localStorage.getItem('jjm_store_id');
+
     const storesRef = collection(this.db, 'stores');
-    const q = query(storesRef, orderBy('createdAt', 'desc'));
+    let q = query(storesRef, orderBy('createdAt', 'desc'));
+
+    // Security: Admins only see their assigned store
+    if (role === 'admin' && assignedStoreId) {
+      q = query(storesRef, where('id', '==', assignedStoreId));
+    }
 
     getDocs(q)
       .then((snapshot) => {

@@ -172,7 +172,7 @@ export const routes: Routes = [
       },
       {
         path: 'stores',
-        canActivate: [superAdminGuard],
+        canActivate: [adminGuard],
         loadComponent: () =>
           import(
             './components/store-management/store-management.component'

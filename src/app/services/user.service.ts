@@ -53,25 +53,23 @@ export class UserService {
       this._currentUser.set(user);
       this.currentUserSubject.next(user);
       localStorage.setItem('jjm_user_id', user.id);
-      localStorage.setItem('jjm_user_role', user.role);
+      localStorage.setItem('jjm_role', user.role);
 
       // Enforce Store Assignment
       if (user.storeId) {
+        localStorage.setItem('jjm_store_id', user.storeId);
         this.storeService.setActiveStore(user.storeId);
       }
 
-      // Save User Details to Session Storage as requested
+      // Save User Details for fallback
       sessionStorage.setItem('jjm_user_details', JSON.stringify(user));
-      if (user.storeId) {
-        sessionStorage.setItem('jjm_store_id', user.storeId);
-      }
     } else if (!isLoggedIn) {
       this._currentUser.set(null);
       this.currentUserSubject.next(null);
       localStorage.removeItem('jjm_user_id');
-      localStorage.removeItem('jjm_user_role');
+      localStorage.removeItem('jjm_role');
+      localStorage.removeItem('jjm_store_id');
       sessionStorage.removeItem('jjm_user_details');
-      sessionStorage.removeItem('jjm_store_id');
     }
   }
 
@@ -200,7 +198,7 @@ export class UserService {
           username: 'jjm143256789',
           fullName: 'System Administrator',
           password: hashedPassword,
-          role: 'admin',
+          role: 'super-admin',
           createdAt: new Date(),
           hasSubscription: true,
         };
@@ -377,9 +375,15 @@ export class UserService {
     // Force subscription for admin for demo purposes
     if (
       transformed.role === 'admin' ||
+      transformed.role === 'super-admin' ||
       transformed.username === 'jjm143256789'
     ) {
       transformed.hasSubscription = true;
+    }
+
+    // Only force super-admin for the system administrator
+    if (transformed.username === 'jjm143256789') {
+      transformed.role = 'super-admin';
     }
     return transformed;
   }

@@ -222,7 +222,7 @@ export class ReservationComponent implements OnInit, OnDestroy {
     if (!this.selectedStoreId) return;
 
     // Load products for the selected store
-    this.inventoryService.loadProductsForUser('admin-1'); // Keep base user for public page
+    this.inventoryService.loadProductsForStore(this.selectedStoreId);
     this.subscriptions.add(
       this.inventoryService.getProducts().subscribe((products) => {
         // Filter by both quantity and storeId
