@@ -192,7 +192,7 @@ export class CustomerService {
     }
 
     const targetStoreId = this.enforceStoreId(
-      customer.storeId || activeStoreId || ''
+      activeStoreId || customer.storeId || ''
     );
 
     const id = crypto.randomUUID();
@@ -275,11 +275,17 @@ export class CustomerService {
     const role = localStorage.getItem('jjm_role');
     const userStoreId = localStorage.getItem('jjm_store_id');
 
+    // Super Admin can set any store
     if (role === 'super-admin') {
       return requestedId;
     }
 
+    // Public/Guest users (not logged in) - use the requested storeId from the form
+    if (!role) {
+      return requestedId;
+    }
+
     // Admins and others are restricted to their own store
-    return userStoreId || undefined;
+    return userStoreId || requestedId;
   }
 }

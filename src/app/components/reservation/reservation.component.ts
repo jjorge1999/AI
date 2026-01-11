@@ -763,6 +763,7 @@ export class ReservationComponent implements OnInit, OnDestroy {
             phoneNumber: this.customerContact,
             deliveryAddress: this.customerAddress,
             gpsCoordinates: this.gpsCoordinates,
+            storeId: this.selectedStoreId || undefined,
             ...(targetUserId ? { userId: targetUserId } : {}),
           })
         );
