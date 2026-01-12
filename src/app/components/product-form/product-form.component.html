@@ -61,6 +61,23 @@
         <span class="trend-label">vs last month</span>
       </div>
     </div>
+
+    <div class="stat-card">
+      <div class="stat-content">
+        <div class="stat-info">
+          <p class="stat-label">Estimated Profit</p>
+          <h3 class="stat-value">{{ formatCurrency(stats.totalPotentialProfit) }}</h3>
+        </div>
+        <div class="stat-icon-container purple">
+          <span class="material-icon">payments</span>
+        </div>
+      </div>
+      <div class="stat-trend trend-up">
+        <span class="material-icon">trending_up</span>
+        <span class="trend-value">{{ stats.totalValue > 0 ? ((stats.totalPotentialProfit / stats.totalValue) * 100 | number:'1.0-0') : 0 }}%</span>
+        <span class="trend-label">avg. margin</span>
+      </div>
+    </div>
   </div>
 
   <!-- Filters and Actions -->
@@ -118,6 +135,8 @@
             <th>SKU</th>
             <th>Category</th>
             <th>Price</th>
+            <th>Cost</th>
+            <th>Profit</th>
             <th>Stock Level</th>
             <th>Status</th>
             <th class="text-right">Actions</th>
@@ -141,6 +160,16 @@
               <span class="category-badge">{{ p.category }}</span>
             </td>
             <td class="price-cell">{{ formatCurrency(p.price) }}</td>
+            <td class="cost-cell">
+              <span *ngIf="p.cost">{{ formatCurrency(p.cost) }}</span>
+              <span *ngIf="!p.cost" class="no-cost">—</span>
+            </td>
+            <td class="profit-cell">
+              <span *ngIf="p.cost" class="profit-badge" [class.positive]="p.price - p.cost > 0" [class.negative]="p.price - p.cost < 0">
+                {{ ((p.price - p.cost) / p.price * 100) | number:'1.0-0' }}%
+              </span>
+              <span *ngIf="!p.cost" class="no-profit">—</span>
+            </td>
             <td>
               <div class="stock-level">
                 <div class="stock-info">
@@ -185,7 +214,7 @@
             </td>
           </tr>
           <tr *ngIf="filteredProducts.length === 0">
-            <td colspan="7" class="empty-state">
+            <td colspan="9" class="empty-state">
               <div class="empty-content">
                 <span class="material-icon empty-icon">inventory_2</span>
                 <p>No products found</p>
@@ -273,6 +302,8 @@
         />
       </div>
 
+
+
       <!-- Category -->
       <div class="form-section">
         <label for="category" class="form-label">Category</label>
@@ -289,10 +320,10 @@
         </select>
       </div>
 
-      <!-- Price & Quantity -->
+      <!-- Pricing -->
       <div class="form-row">
         <div class="form-section">
-          <label for="price" class="form-label">Price</label>
+          <label for="price" class="form-label">Selling Price</label>
           <input
             type="number"
             id="price"
@@ -306,18 +337,103 @@
           />
         </div>
         <div class="form-section">
-          <label for="quantity" class="form-label">Quantity</label>
+          <label for="cost" class="form-label">Cost / Purchase Price</label>
           <input
             type="number"
-            id="quantity"
-            [(ngModel)]="product.quantity"
-            name="quantity"
-            placeholder="0"
+            id="cost"
+            [(ngModel)]="product.cost"
+            name="cost"
+            placeholder="0.00"
             min="0"
+            step="0.01"
             class="form-input"
-            required
           />
+          <span class="form-hint">For profit calculation</span>
         </div>
+      </div>
+
+      <!-- Recipe / Ingredients -->
+      <div class="form-section recipe-section">
+        <div class="section-header">
+          <label class="form-label">Ingredients / Raw Materials (Recipe)</label>
+          <button type="button" class="btn-manage-raw" (click)="openRawMaterialModal()">
+            <span class="material-icon">edit_note</span>
+            Manage Database
+          </button>
+        </div>
+        
+        <div class="flex-between align-center mb-sm">
+          <p class="recipe-info mb-0">
+            Define the items used to produce this product.
+          </p>
+          <button 
+            type="button" 
+            class="btn-ai-sparkle-mini" 
+            (click)="assumeIngredients()" 
+            [disabled]="isAiLoading"
+            title="AI: Auto-pick ingredients from your database"
+          >
+            <span class="material-icon" [class.rotating]="isAiLoading">{{ isAiLoading ? 'sync' : 'auto_awesome' }}</span>
+            {{ isAiLoading ? 'Assuming...' : 'AI Suggest Recipe' }}
+          </button>
+        </div>
+        
+        <div class="ingredient-adder">
+          <select 
+            [(ngModel)]="selectedIngredientId" 
+            name="selectedIngredientId" 
+            class="form-select ingredient-select"
+          >
+            <option value="">-- Select Material --</option>
+            <option *ngFor="let rm of rawMaterials" [value]="rm.id">
+              {{ rm.name }} ({{ formatCurrency(rm.cost || 0) }})
+            </option>
+          </select>
+          <input 
+            type="number" 
+            [(ngModel)]="ingredientQuantity" 
+            name="ingredientQuantity" 
+            placeholder="Qty" 
+            min="1" 
+            class="form-input qty-input"
+          />
+          <button type="button" class="btn-add-ingredient" (click)="addIngredient()" [disabled]="!selectedIngredientId">
+            <span class="material-icon">add</span>
+          </button>
+        </div>
+
+        <div class="ingredients-list" *ngIf="product.recipe && product.recipe.length > 0">
+          <div class="ingredient-item" *ngFor="let item of product.recipe; let i = index">
+            <span class="ingredient-name">{{ item.name }}</span>
+            <span class="ingredient-qty">x{{ item.quantity }} <small>({{ formatCurrency(item.unitCost) }}/u)</small></span>
+            <span class="ingredient-cost">{{ formatCurrency(item.unitCost * item.quantity) }}</span>
+            <button type="button" class="btn-remove-ingredient" (click)="removeIngredient(i)">
+              <span class="material-icon">delete</span>
+            </button>
+          </div>
+          <div class="recipe-total">
+            <span>Total Material Cost:</span>
+            <strong>{{ formatCurrency(product.cost) }}</strong>
+          </div>
+        </div>
+        <p class="form-hint" *ngIf="product.recipe && product.recipe.length > 0">
+          Cost price is auto-calculated based on ingredients.
+        </p>
+      </div>
+
+      <!-- Quantity -->
+      <div class="form-section">
+        <label for="quantity" class="form-label">Initial Quantity</label>
+        <input
+          type="number"
+          id="quantity"
+          [(ngModel)]="product.quantity"
+          name="quantity"
+          placeholder="0"
+          min="0"
+          class="form-input"
+          required
+        />
       </div>
 
       <!-- Submit -->
@@ -371,6 +487,98 @@
 
     <div class="modal-actions">
       <button class="btn-submit full-width" (click)="closeCategoryModal()">Done</button>
+    </div>
+  </div>
+</div>
+<!-- Raw Material Management Modal -->
+<div class="modal-overlay" *ngIf="showRawMaterialModal" (click)="closeRawMaterialModal()">
+  <div class="modal-content category-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3 class="modal-title">Manage Raw Materials</h3>
+      <button class="modal-close" (click)="closeRawMaterialModal()">
+        <span class="material-icon">close</span>
+      </button>
+    </div>
+    
+    <div class="category-manager">
+      <div class="raw-material-header-actions mb-md">
+        <button 
+          type="button" 
+          class="btn-ai-sparkle" 
+          (click)="suggestMaterials()" 
+          [disabled]="isAiLoading"
+          [title]="'Suggest ingredients for ' + (product.name || 'this product')"
+        >
+          <span class="material-icon" [class.rotating]="isAiLoading">{{ isAiLoading ? 'sync' : 'auto_awesome' }}</span>
+          {{ isAiLoading ? 'AI is Thinking...' : 'AI Suggest Ingredients' }}
+        </button>
+      </div>
+
+      <div class="raw-material-form-box">
+        <div class="raw-reminder-toast">
+          <span class="material-icon">info</span>
+          <p><strong>Reminder:</strong> Enter costs based on a single piece/unit.</p>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label-small">Material Name</label>
+            <input 
+              type="text" 
+              [(ngModel)]="rawMaterialForm.name" 
+              placeholder="e.g. Flour" 
+              class="form-input"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label-small">Cost Price (per unit)</label>
+            <div class="input-with-button">
+              <input type="number" [(ngModel)]="rawMaterialForm.cost" class="form-input" placeholder="0.00" />
+              <button class="btn-primary-sq" (click)="saveRawMaterial()" [disabled]="!rawMaterialForm.name">
+                <span class="material-icon">{{ editingRawId ? 'save' : 'add' }}</span>
+              </button>
+              <button *ngIf="editingRawId" class="btn-ghost-sq" (click)="resetRawForm()" title="Cancel Edit">
+                <span class="material-icon">close</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-suggestions-container" *ngIf="aiSuggestions.length > 0">
+        <label class="form-label-small">AI Suggestions for "{{ product.name }}"</label>
+        <div class="suggestions-grid">
+          <div *ngFor="let suggestion of aiSuggestions" class="suggestion-chip" (click)="addSuggestedMaterial(suggestion)">
+            <span class="suggestion-name">{{ suggestion.name }}</span>
+            <span class="suggestion-cost">₱{{ suggestion.cost }}</span>
+            <span class="material-icon">add</span>
+          </div>
+        </div>
+        <button class="btn-clear-suggestions" (click)="aiSuggestions = []">Clear Suggestions</button>
+      </div>
+
+      <div class="categories-list mt-lg">
+        <div *ngFor="let raw of rawMaterialsDb" class="category-item">
+          <div class="raw-info">
+            <span class="category-item-name">{{ raw.name }}</span>
+            <span class="raw-price-info">₱{{ raw.cost | number:'1.2-2' }}/u</span>
+          </div>
+          <div class="raw-actions">
+            <button class="btn-edit-cat" (click)="editRawMaterial(raw)" title="Edit Material">
+              <span class="material-icon">edit</span>
+            </button>
+            <button class="btn-delete-cat" (click)="deleteRawMaterialFromDb(raw.id)" title="Delete Material">
+              <span class="material-icon">delete</span>
+            </button>
+          </div>
+        </div>
+        <div *ngIf="rawMaterialsDb.length === 0" class="empty-categories">
+          <p>No raw materials added yet.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-submit full-width" (click)="closeRawMaterialModal()">Done</button>
     </div>
   </div>
 </div>

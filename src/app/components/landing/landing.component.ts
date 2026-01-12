@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
+import { FormsModule } from '@angular/forms';
 import { InventoryService } from '../../services/inventory.service';
 import { CustomerService } from '../../services/customer.service';
 import {
@@ -48,6 +49,7 @@ interface RecentOrder {
   productName: string;
   quantity: number;
   timestamp: Date;
+  saleId: string;
   discount?: number;
   discountType?: 'amount' | 'percent';
   cashReceived?: number;
@@ -96,7 +98,7 @@ interface QuickAction {
 @Component({
   selector: 'app-landing',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './landing.component.html',
   styleUrl: './landing.component.css',
 })
@@ -162,6 +164,8 @@ export class LandingComponent implements OnInit, OnDestroy {
       specialClass: 'btn-upgrade-glow',
     },
   ];
+
+  isActionProcessing = false;
 
   // Configurable widgets for the dashboard
   widgets: DashboardWidget[] = [
@@ -273,9 +277,12 @@ export class LandingComponent implements OnInit, OnDestroy {
     // Bridge Signals to side-effects
     effect(() => {
       // update dashboard data whenever sales or products change
-      this.sales();
-      this.products();
-      this.updateDashboardData();
+      // Only update if initialized to prevent flickering empty states
+      if (this.inventoryService.initialized()) {
+        this.sales();
+        this.products();
+        this.updateDashboardData();
+      }
     });
 
     effect(() => {
@@ -353,7 +360,7 @@ export class LandingComponent implements OnInit, OnDestroy {
     this.subscriptions.forEach((sub) => sub.unsubscribe());
   }
 
-  private updateDashboardData(): void {
+  updateDashboardData(): void {
     this.calculateKpis();
     this.calculateCategories();
     this.loadRecentOrders();
@@ -370,19 +377,19 @@ export class LandingComponent implements OnInit, OnDestroy {
     this.todaySummary = {
       ...this.todaySummary,
       totalOrders: stats.todayOrdersCount,
-      totalRevenue: stats.todayRevenue,
+      totalRevenue: stats.todayProfit, // Redefined as Actual Income
       averageOrderValue:
         stats.todayOrdersCount > 0
-          ? stats.todayRevenue / stats.todayOrdersCount
+          ? stats.todayProfit / stats.todayOrdersCount
           : 0,
     };
 
     // Find and update specific KPI cards if they match the aggregated stats
     this.kpiCards = this.kpiCards.map((card) => {
-      if (card.title.includes('Revenue (MTD)')) {
+      if (card.title.includes('Income (MTD)')) {
         return {
           ...card,
-          value: this.formatCurrency(stats.mtdRevenue),
+          value: this.formatCurrency(stats.mtdProfit),
           trendValue: 'Live Stats',
         };
       }
@@ -421,21 +428,8 @@ export class LandingComponent implements OnInit, OnDestroy {
       }));
     }
 
-    if (stats.recentOrders && stats.recentOrders.length > 0) {
-      this.recentOrders = stats.recentOrders.map((sale) => ({
-        id: `#ORD-${sale.id?.slice(-4) || '0000'}`,
-        customer: this.getCustomerDisplayName(sale),
-        status: this.getSaleStatus(sale),
-        amount: sale.total || 0,
-        productName: sale.productName || 'Unknown Product',
-        quantity: sale.quantitySold || 1,
-        timestamp: new Date(sale.timestamp),
-        discount: sale.discount,
-        discountType: sale.discountType,
-        cashReceived: sale.cashReceived,
-        change: sale.change,
-      }));
-    }
+    // Note: We no longer update recentOrders from stats to prevent flickering.
+    // Recent orders are loaded from raw sales data in loadRecentOrders().
 
     if (stats.topCustomers) {
       this.topCustomers = stats.topCustomers;
@@ -445,13 +439,15 @@ export class LandingComponent implements OnInit, OnDestroy {
   // ... (existing updateDashboardData calls)
 
   private loadPendingDeliveries(): void {
-    this.pendingDeliveries = this.sales()
-      .filter((s) => s.pending === true || (s as any).pending === 'true')
-      .sort((a, b) => {
-        const dateA = a.deliveryDate ? new Date(a.deliveryDate).getTime() : 0;
-        const dateB = b.deliveryDate ? new Date(b.deliveryDate).getTime() : 0;
-        return dateA - dateB;
-      });
+    const pending = this.sales().filter(
+      (s) => s.pending === true || (s as any).pending === 'true'
+    );
+
+    this.pendingDeliveries = pending.sort((a, b) => {
+      const dateA = a.deliveryDate ? new Date(a.deliveryDate).getTime() : 0;
+      const dateB = b.deliveryDate ? new Date(b.deliveryDate).getTime() : 0;
+      return dateA - dateB;
+    });
   }
 
   markAsDelivered(sale: Sale): void {
@@ -498,6 +494,28 @@ export class LandingComponent implements OnInit, OnDestroy {
     } else {
       this.dialogService.warning('No phone number available', 'Cannot Call');
     }
+  }
+
+  deleteRecentOrder(order: RecentOrder): void {
+    if (this.isActionProcessing) return;
+
+    this.dialogService
+      .confirm(
+        `Are you sure you want to delete the order for ${order.productName}? This will remove it from sales history and restore stock if it was a pending delivery.`,
+        'Delete Order'
+      )
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          this.isActionProcessing = true;
+          this.inventoryService.deleteSale(order.saleId);
+
+          // Re-enable after short delay to prevent double-clicks/spam
+          setTimeout(() => {
+            this.isActionProcessing = false;
+            this.dialogService.success('Order deleted successfully', 'Deleted');
+          }, 1000);
+        }
+      });
   }
 
   // ... (rest of methods)
@@ -560,13 +578,13 @@ export class LandingComponent implements OnInit, OnDestroy {
         trendLabel: 'vs yesterday',
       },
       {
-        title: 'Revenue (MTD)',
-        value: this.formatCurrency(mtdRevenue),
+        title: 'Income (MTD)',
+        value: this.formatCurrency(0), // Placeholder until stats load
         icon: 'payments',
         iconColor: '#a855f7',
-        trend: mtdRevenue > 0 ? 'up' : 'down',
-        trendValue: mtdRevenue > 0 ? '+5.2%' : '0%',
-        trendLabel: 'vs last month',
+        trend: 'up',
+        trendValue: 'Live',
+        trendLabel: 'Actual profit',
       },
     ];
   }
@@ -604,29 +622,78 @@ export class LandingComponent implements OnInit, OnDestroy {
   }
 
   private loadRecentOrders(): void {
-    // Get last 5 sales for more visibility
-    const recentSales = [...this.sales()]
-      .sort(
-        (a, b) =>
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      )
+    // Get all sales sorted by timestamp (newest first)
+    const allSales = [...this.sales()].sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    // Group sales by orderId
+    const groups = new Map<string, Sale[]>();
+    const singles: Sale[] = [];
+
+    allSales.forEach((sale) => {
+      if (sale.orderId) {
+        if (!groups.has(sale.orderId)) {
+          groups.set(sale.orderId, []);
+        }
+        groups.get(sale.orderId)!.push(sale);
+      } else {
+        singles.push(sale);
+      }
+    });
+
+    const groupedOrders: RecentOrder[] = [];
+
+    // Process grouped orders
+    groups.forEach((groupSales, orderId) => {
+      const first = groupSales[0];
+      const totalAmount = groupSales.reduce((sum, s) => sum + s.total, 0);
+      const totalQty = groupSales.reduce((sum, s) => sum + s.quantitySold, 0);
+
+      groupedOrders.push({
+        id: `#${orderId.slice(-8)}`,
+        customer: this.getCustomerDisplayName(first),
+        status: this.getSaleStatus(first),
+        amount: totalAmount,
+        productName:
+          groupSales.length > 1
+            ? `${groupSales.length} items`
+            : first.productName || 'Unknown Product',
+        quantity: totalQty,
+        timestamp: this.parseTimestamp(first.timestamp),
+        saleId: first.id,
+        discount: first.discount,
+        discountType: first.discountType,
+        cashReceived: first.cashReceived,
+        change: first.change,
+      });
+    });
+
+    // Process single (ungrouped) sales
+    singles.forEach((sale) => {
+      groupedOrders.push({
+        id: `#ORD-${sale.id?.slice(-4) || '0000'}`,
+        customer: this.getCustomerDisplayName(sale),
+        status: this.getSaleStatus(sale),
+        amount: sale.total || 0,
+        productName: sale.productName || 'Unknown Product',
+        quantity: sale.quantitySold || 1,
+        timestamp: this.parseTimestamp(sale.timestamp),
+        saleId: sale.id,
+        discount: sale.discount,
+        discountType: sale.discountType,
+        cashReceived: sale.cashReceived,
+        change: sale.change,
+      });
+    });
+
+    // Sort merged results by timestamp and take first 5
+    this.recentOrders = groupedOrders
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .slice(0, 5);
 
-    this.recentOrders = recentSales.map((sale) => ({
-      id: `#ORD-${sale.id?.slice(-4) || '0000'}`,
-      customer: this.getCustomerDisplayName(sale),
-      status: this.getSaleStatus(sale),
-      amount: sale.total || 0,
-      productName: sale.productName || 'Unknown Product',
-      quantity: sale.quantitySold || 1,
-      timestamp: new Date(sale.timestamp),
-      discount: sale.discount,
-      discountType: sale.discountType,
-      cashReceived: sale.cashReceived,
-      change: sale.change,
-    }));
-
-    // If no sales, show sample data
+    // If no orders, show sample placeholder
     if (this.recentOrders.length === 0) {
       this.recentOrders = [
         {
@@ -637,6 +704,7 @@ export class LandingComponent implements OnInit, OnDestroy {
           productName: 'N/A',
           quantity: 0,
           timestamp: new Date(),
+          saleId: 'sample',
         },
       ];
     }
@@ -878,7 +946,10 @@ export class LandingComponent implements OnInit, OnDestroy {
       return saleDate.getTime() === today.getTime();
     });
 
-    const totalRevenue = todaySales.reduce((sum, s) => sum + (s.total || 0), 0);
+    const totalProfit = todaySales.reduce((sum, s) => {
+      const cost = (s.costPrice || 0) * (s.quantitySold || 1);
+      return sum + ((s.total || 0) - cost);
+    }, 0);
     const itemsSold = todaySales.reduce(
       (sum, s) => sum + (s.quantitySold || 1),
       0
@@ -887,10 +958,10 @@ export class LandingComponent implements OnInit, OnDestroy {
 
     this.todaySummary = {
       totalOrders: todaySales.length,
-      totalRevenue: totalRevenue,
+      totalRevenue: totalProfit, // Redefined as Actual Income
       itemsSold: itemsSold,
       averageOrderValue:
-        todaySales.length > 0 ? totalRevenue / todaySales.length : 0,
+        todaySales.length > 0 ? totalProfit / todaySales.length : 0,
       pendingCount: pendingCount,
     };
   }
@@ -1112,5 +1183,48 @@ export class LandingComponent implements OnInit, OnDestroy {
       },
     ];
     localStorage.removeItem('jjm_widget_layout');
+  }
+
+  /**
+   * Safely parse a timestamp from various formats (Firestore Timestamp, Date, string, etc.)
+   */
+  private parseTimestamp(timestamp: any): Date {
+    if (!timestamp) return new Date();
+    if (timestamp instanceof Date) return timestamp;
+
+    // Handle Firestore Timestamp object (with toDate method)
+    if (
+      typeof timestamp === 'object' &&
+      typeof timestamp.toDate === 'function'
+    ) {
+      return timestamp.toDate();
+    }
+
+    // Handle serialized Timestamp (JSON) or internal representation
+    if (
+      typeof timestamp === 'object' &&
+      (timestamp.seconds !== undefined || timestamp._seconds !== undefined)
+    ) {
+      const seconds = timestamp.seconds ?? timestamp._seconds;
+      return new Date(seconds * 1000);
+    }
+
+    // String or number
+    const parsed = new Date(timestamp);
+    if (isNaN(parsed.getTime())) {
+      return new Date(); // Fallback to current date if invalid
+    }
+    return parsed;
+  }
+
+  /**
+   * Check if a date is valid for display in the template
+   */
+  isValidDate(date: any): boolean {
+    if (!date) return false;
+    if (date instanceof Date) {
+      return !isNaN(date.getTime());
+    }
+    return false;
   }
 }

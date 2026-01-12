@@ -40,12 +40,71 @@ export class PrintService {
   private deviceNameSubject = new BehaviorSubject<string | null>(null);
   public deviceName$ = this.deviceNameSubject.asObservable();
 
-  // Common Bluetooth printer service UUIDs
+  // Comprehensive Bluetooth printer service UUIDs for major brands
   private readonly PRINTER_SERVICE_UUIDS = [
-    '000018f0-0000-1000-8000-00805f9b34fb',
-    '49535343-fe7d-4ae5-8fa9-9fafd205e455',
-    '0000ff00-0000-1000-8000-00805f9b34fb',
-    'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+    // === Standard Bluetooth Profiles ===
+    '00001101-0000-1000-8000-00805f9b34fb', // Serial Port Profile (SPP) - Universal
+
+    // === Zebra (ZQ Series) ===
+    '38eb4a80-c570-11e3-9507-0002a5d5c51b', // Zebra BLE Parser Service
+
+    // === Goojprt / PT-210 / Generic Chinese Thermal ===
+    '000018f0-0000-1000-8000-00805f9b34fb', // Battery/Generic Service
+    'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // PT-210 Printer Service
+
+    // === ISSC / Microchip (used by many brands) ===
+    '49535343-fe7d-4ae5-8fa9-9fafd205e455', // ISSC UART Service
+
+    // === Common BLE UART Services ===
+    '0000ff00-0000-1000-8000-00805f9b34fb', // Generic Printer Service
+    '0000ffe0-0000-1000-8000-00805f9b34fb', // Common BLE UART (Xprinter, Munbyn, Netum)
+    '6e400001-b5a3-f393-e0a9-e50e24dcca9e', // Nordic UART Service (NUS)
+
+    // === Star Micronics ===
+    '00001101-0000-1000-8000-00805f9b34fb', // Star uses SPP
+
+    // === Bixolon SPP Series ===
+    // Uses standard SPP UUID (00001101...)
+
+    // === Brother RuggedJet ===
+    // Uses standard SPP UUID (00001101...)
+
+    // === HPRT / Cashino ===
+    '0000fff0-0000-1000-8000-00805f9b34fb', // HPRT Custom Service
+
+    // === Rongta / Milestone / Phomemo ===
+    '0000ae00-0000-1000-8000-00805f9b34fb', // Common Chinese Printer Service
+    '0000fee7-0000-1000-8000-00805f9b34fb', // Phomemo/Niimbot Service
+  ];
+
+  // Comprehensive write characteristic UUIDs for thermal printers
+  private readonly WRITE_CHARACTERISTIC_UUIDS = [
+    // === Zebra BLE ===
+    '38eb4a81-c570-11e3-9507-0002a5d5c51b', // Zebra BLE Parser Characteristic
+
+    // === Goojprt / PT-210 ===
+    '00002af1-0000-1000-8000-00805f9b34fb', // PT-210 Write Characteristic
+    'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f', // PT-210 Alternative
+
+    // === ISSC UART TX (Xprinter, Munbyn, many Chinese brands) ===
+    '49535343-8841-43f4-a8d4-ecbe34729bb3', // ISSC UART TX
+
+    // === Common BLE UART TX ===
+    '0000ff02-0000-1000-8000-00805f9b34fb', // Generic Write
+    '0000ffe1-0000-1000-8000-00805f9b34fb', // Common BLE UART TX (Most popular)
+    '6e400002-b5a3-f393-e0a9-e50e24dcca9e', // Nordic UART TX
+    '6e400003-b5a3-f393-e0a9-e50e24dcca9e', // Nordic UART RX (some use for write)
+
+    // === HPRT / Cashino ===
+    '0000fff2-0000-1000-8000-00805f9b34fb', // HPRT Write Characteristic
+
+    // === Rongta / Milestone ===
+    '0000ae01-0000-1000-8000-00805f9b34fb', // Write Characteristic
+    '0000ae02-0000-1000-8000-00805f9b34fb', // Alternative Write
+
+    // === Phomemo / Niimbot ===
+    '0000fee7-0000-1000-8000-00805f9b34fb', // Phomemo Write
+    '0000fec7-0000-1000-8000-00805f9b34fb', // Alternative
   ];
 
   constructor() {
@@ -63,7 +122,8 @@ export class PrintService {
   }
 
   /**
-   * Scan and connect to a Bluetooth printer
+   * Scan and connect to ANY Bluetooth printer
+   * Uses dynamic service discovery to support all ESC/POS compatible printers
    */
   async connectPrinter(): Promise<boolean> {
     if (!this.isBluetoothSupported()) {
@@ -74,6 +134,8 @@ export class PrintService {
 
     try {
       const bluetooth = (navigator as any).bluetooth;
+
+      // Accept ALL devices and request access to ALL possible printer services
       this.device = await bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: this.PRINTER_SERVICE_UUIDS,
@@ -82,6 +144,8 @@ export class PrintService {
       if (!this.device) {
         throw new Error('No device selected');
       }
+
+      console.log('Selected device:', this.device.name || 'Unknown Device');
 
       this.device.addEventListener(
         'gattserverdisconnected',
@@ -93,24 +157,96 @@ export class PrintService {
         throw new Error('Failed to connect to GATT server');
       }
 
-      const services = await server.getPrimaryServices();
+      // Get ALL primary services (not just the ones we specified)
+      let services: any[] = [];
+      try {
+        services = await server.getPrimaryServices();
+      } catch (err) {
+        console.warn('Could not get all services, trying known UUIDs...', err);
+        // Fallback: Try to get services by known UUIDs
+        for (const uuid of this.PRINTER_SERVICE_UUIDS) {
+          try {
+            const service = await server.getPrimaryService(uuid);
+            services.push(service);
+          } catch {
+            // Service not available on this device
+          }
+        }
+      }
+
+      console.log(
+        'Discovered services:',
+        services.map((s: any) => s.uuid)
+      );
+
+      // First pass: Try to find a known write characteristic
       for (const service of services) {
         try {
           const characteristics = await service.getCharacteristics();
+          console.log(
+            `Service ${service.uuid} characteristics:`,
+            characteristics.map((c: any) => ({
+              uuid: c.uuid,
+              write: c.properties.write,
+              writeNoResp: c.properties.writeWithoutResponse,
+            }))
+          );
+
+          // Prioritize known PT-210 characteristics
           for (const char of characteristics) {
-            if (char.properties.write || char.properties.writeWithoutResponse) {
+            const charUuid = char.uuid.toLowerCase();
+            if (
+              this.WRITE_CHARACTERISTIC_UUIDS.some((uuid) =>
+                charUuid.includes(uuid.toLowerCase())
+              )
+            ) {
+              console.log('Found known write characteristic:', charUuid);
               this.characteristic = char;
               break;
             }
           }
           if (this.characteristic) break;
-        } catch {
-          // Continue to next service
+        } catch (err) {
+          console.log(
+            'Error getting characteristics for service',
+            service.uuid,
+            err
+          );
+        }
+      }
+
+      // Second pass: If no known characteristic found, use any writable one
+      if (!this.characteristic) {
+        console.log(
+          'No known characteristic found, searching for any writable...'
+        );
+        for (const service of services) {
+          try {
+            const characteristics = await service.getCharacteristics();
+            for (const char of characteristics) {
+              if (
+                char.properties.write ||
+                char.properties.writeWithoutResponse
+              ) {
+                console.log(
+                  'Using fallback writable characteristic:',
+                  char.uuid
+                );
+                this.characteristic = char;
+                break;
+              }
+            }
+            if (this.characteristic) break;
+          } catch {
+            // Continue to next service
+          }
         }
       }
 
       if (!this.characteristic) {
-        throw new Error('No writable characteristic found on printer');
+        throw new Error(
+          'No writable characteristic found on printer. Please ensure the printer is turned on and in pairing mode.'
+        );
       }
 
       const printerName = this.device.name || 'Bluetooth Printer';

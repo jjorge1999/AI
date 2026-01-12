@@ -7,26 +7,32 @@ import {
   of,
   throwError,
   take,
+  forkJoin,
 } from 'rxjs';
 import {
   map,
   switchMap,
   catchError,
   distinctUntilChanged,
+  finalize,
 } from 'rxjs/operators';
 import {
   Product,
+  RawMaterial,
   Sale,
   Expense,
   Category,
   DashboardStats,
+  NotificationTypes,
 } from '../models/inventory.models';
 import { LoggingService } from './logging.service';
 import { CustomerService } from './customer.service';
 import { FirebaseService } from './firebase.service';
 import { StoreService } from './store.service';
 import { MaintenanceService } from './maintenance.service';
+import { LoadingService } from './loading.service';
 import { NotificationService } from './notification.service';
+import { IndexedDbService } from './indexed-db.service';
 import { FirebaseApp } from 'firebase/app';
 import {
   Firestore,
@@ -69,18 +75,27 @@ export class InventoryService {
   private readonly _categories = signal<Category[]>([]);
   public readonly categories = this._categories.asReadonly();
 
+  private readonly _rawMaterials = signal<RawMaterial[]>([]);
+  public readonly rawMaterials = this._rawMaterials.asReadonly();
+
   private readonly _stats = signal<DashboardStats | null>(null);
   public readonly stats = this._stats.asReadonly();
+
+  // Initialization state to prevent UI flickering
+  private readonly _initialized = signal<boolean>(false);
+  public readonly initialized = this._initialized.asReadonly();
 
   private productsSubject = new BehaviorSubject<Product[]>([]);
   private salesSubject = new BehaviorSubject<Sale[]>([]);
   private expensesSubject = new BehaviorSubject<Expense[]>([]);
   private categoriesSubject = new BehaviorSubject<Category[]>([]);
+  private rawMaterialsSubject = new BehaviorSubject<RawMaterial[]>([]);
 
   public products$ = this.productsSubject.asObservable();
   public sales$ = this.salesSubject.asObservable();
   public expenses$ = this.expensesSubject.asObservable();
   public categories$ = this.categoriesSubject.asObservable();
+  public rawMaterials$ = this.rawMaterialsSubject.asObservable();
 
   private statsSubject = new BehaviorSubject<DashboardStats | null>(null);
   public stats$ = this.statsSubject.asObservable();
@@ -98,18 +113,29 @@ export class InventoryService {
     private readonly firebaseService: FirebaseService,
     private readonly storeService: StoreService,
     private readonly maintenanceService: MaintenanceService,
-    private readonly notificationService: NotificationService
+    private readonly notificationService: NotificationService,
+    private readonly indexedDbService: IndexedDbService,
+    private readonly loadingService: LoadingService
   ) {
     this.app = this.firebaseService.app;
     this.db = this.firebaseService.db;
     this.auth = getAuth(this.app);
-    this.hydrateFromCache();
+    // Remove direct hydrateFromCache call in favor of reactive subscription
+    // this.hydrateFromCache();
+
+    // Reactively hydrate when active store changes
+    this.storeService.activeStoreId$.subscribe((storeId) => {
+      if (storeId) {
+        this.hydrateFromCache();
+      }
+    });
 
     // Auto-save to cache on changes
     effect(() => this.saveToCache('products', this._products()));
     effect(() => this.saveToCache('sales', this._sales()));
     effect(() => this.saveToCache('expenses', this._expenses()));
     effect(() => this.saveToCache('categories', this._categories()));
+    effect(() => this.saveToCache('rawMaterials', this._rawMaterials()));
     effect(() => this.saveToCache('stats', this._stats()));
   }
 
@@ -168,10 +194,14 @@ export class InventoryService {
     this._sales.set([]);
     this._expenses.set([]);
     this._categories.set([]);
+    this._rawMaterials.set([]);
     this._stats.set({
       totalRevenue: 0,
       mtdRevenue: 0,
       todayRevenue: 0,
+      totalProfit: 0,
+      mtdProfit: 0,
+      todayProfit: 0,
       todayOrdersCount: 0,
       totalProductsCount: 0,
       lowStockCount: 0,
@@ -184,6 +214,7 @@ export class InventoryService {
     this.salesSubject.next([]);
     this.expensesSubject.next([]);
     this.categoriesSubject.next([]);
+    this.rawMaterialsSubject.next([]);
     this.statsSubject.next(this._stats());
 
     // Clear Firebase user reference
@@ -191,64 +222,92 @@ export class InventoryService {
   }
 
   private hydrateFromCache(): void {
-    // SECURITY: Only hydrate cache if we have a valid store context
     const storeId = this.storeService.getActiveStoreId();
     if (!storeId) {
       console.log(
         'InventoryService: No store context - skipping cache hydration for security.'
       );
+      this._initialized.set(true);
       return;
     }
 
-    try {
-      const items = [
-        {
-          key: 'products',
-          signal: this._products,
-          subject: this.productsSubject,
-        },
-        { key: 'sales', signal: this._sales, subject: this.salesSubject },
-        {
-          key: 'expenses',
-          signal: this._expenses,
-          subject: this.expensesSubject,
-        },
-        {
-          key: 'categories',
-          signal: this._categories,
-          subject: this.categoriesSubject,
-        },
-        { key: 'stats', signal: this._stats, subject: this.statsSubject },
-      ];
+    this.loadingService.show('Loading data...');
 
-      items.forEach((item) => {
-        // Cache is now keyed by storeId for isolation
-        const cacheKey = `jjm_${storeId}_${item.key}`;
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          item.signal.set(parsed);
-          item.subject.next(parsed);
-          console.log(`Hydrated ${item.key} from cache for store ${storeId}`);
-        }
-      });
-    } catch (e) {
-      console.warn('InventoryService: Failed to hydrate from cache', e);
-    }
+    const items = [
+      {
+        key: 'products',
+        signal: this._products,
+        subject: this.productsSubject,
+      },
+      { key: 'sales', signal: this._sales, subject: this.salesSubject },
+      {
+        key: 'expenses',
+        signal: this._expenses,
+        subject: this.expensesSubject,
+      },
+      {
+        key: 'categories',
+        signal: this._categories,
+        subject: this.categoriesSubject,
+      },
+      {
+        key: 'rawMaterials',
+        signal: this._rawMaterials,
+        subject: this.rawMaterialsSubject,
+      },
+      { key: 'stats', signal: this._stats, subject: this.statsSubject },
+    ];
+
+    const observables = items.map((item) => {
+      const cacheKey = `jjm_${storeId}_${item.key}`;
+      return this.indexedDbService.get(cacheKey).pipe(
+        take(1),
+        tap((cached) => {
+          if (cached) {
+            item.signal.set(cached);
+            item.subject.next(cached);
+            console.log(
+              `Hydrated ${item.key} from IndexedDB for store ${storeId}`
+            );
+          }
+        }),
+        catchError((err) => {
+          console.warn(`Failed to hydrate ${item.key}`, err);
+          return of(null);
+        })
+      );
+    });
+
+    forkJoin(observables).subscribe({
+      next: () => {
+        this._initialized.set(true);
+        this.loadingService.hide();
+      },
+      error: (err) => {
+        console.error('InventoryService: Error during hydration', err);
+        this._initialized.set(true);
+        this.loadingService.hide();
+      },
+    });
   }
 
   private saveToCache(key: string, data: any): void {
     // SECURITY: Only save cache with store context
     const storeId = this.storeService.getActiveStoreId();
-    if (!storeId) return; // Don't cache without store context
+    if (!storeId || !data) return;
 
-    try {
-      // Cache is keyed by storeId for isolation
-      const cacheKey = `jjm_${storeId}_${key}`;
-      localStorage.setItem(cacheKey, JSON.stringify(data));
-    } catch (e) {
-      console.error(`InventoryService: Failed to save ${key} to cache`, e);
-    }
+    // Async save to IndexedDB (fire and forget)
+    const cacheKey = `jjm_${storeId}_${key}`;
+    this.indexedDbService
+      .set(cacheKey, data)
+      .pipe(take(1))
+      .subscribe({
+        error: (err) =>
+          console.error(
+            `InventoryService: Failed to save ${key} to cache`,
+            err
+          ),
+      });
   }
 
   private handleFirestoreError(err: any, context: string): void {
@@ -368,17 +427,28 @@ export class InventoryService {
 
     this.setupStatsListener(activeStoreId);
 
-    // Optimization: If NOT in Full Sync mode, skip raw data listeners to save quota/bandwidth.
-    const isFullSync = localStorage.getItem('jjm_force_full_load') === 'true';
+    // For Admin/Staff, always sync raw data for the active store
+    // (Old optimization was skipping these, leading to stale lists)
     const isCustomer = !!localStorage.getItem('customer_id');
 
-    if (!isFullSync && !isCustomer) {
-      console.log('Optimized Mode: Stats Only. Raw data listeners skipped.');
-      return;
-    }
+    this.setupProductsListener(
+      activeStoreId,
+      legacyId,
+      firestoreId,
+      isCustomer
+    );
+    this.setupSalesListener(activeStoreId, legacyId, firestoreId, isCustomer);
+    this.setupExpensesListener(activeStoreId, legacyId, firestoreId);
+    this.loadCategories(activeStoreId);
+    this.loadRawMaterials(activeStoreId);
+  }
 
-    // Products
-    // For customers, fetch ALL products so the AI can respond to inquiries
+  private setupProductsListener(
+    activeStoreId: string | null,
+    legacyId: string,
+    firestoreId: string,
+    isCustomer: boolean
+  ): void {
     let productsQuery;
 
     if (isCustomer) {
@@ -391,14 +461,12 @@ export class InventoryService {
         limit(100)
       );
     } else {
-      // Seller Mode: Query by storeId only
       if (activeStoreId) {
         productsQuery = query(
           collection(this.db, 'products'),
           where('storeId', '==', activeStoreId)
         );
       } else {
-        // No store context, return empty/nothing
         productsQuery = query(
           collection(this.db, 'products'),
           where('storeId', '==', 'none')
@@ -435,25 +503,26 @@ export class InventoryService {
         }
       )
     );
+  }
 
-    // Sales
-    // Determine if we are querying as a Seller or a Customer
+  private setupSalesListener(
+    activeStoreId: string | null,
+    legacyId: string,
+    firestoreId: string,
+    isCustomer: boolean
+  ): void {
     let salesQuery;
-    // isCustomer already declared above
 
     if (isCustomer) {
       console.log(
         'InventoryService: Customer Mode - Querying RECENT sales for fuzzy matching'
       );
-      // Fetch recent sales to find customer records even if unlinked (by Name)
-      // Note: This relies on Client-Side filtering in ChatComponent.
       salesQuery = query(
         collection(this.db, 'sales'),
         orderBy('timestamp', 'desc'),
         limit(100)
       );
     } else {
-      // Seller Mode: Query by storeId only
       if (activeStoreId) {
         salesQuery = query(
           collection(this.db, 'sales'),
@@ -477,7 +546,6 @@ export class InventoryService {
           );
           this._sales.set(sales);
           this.salesSubject.next(sales);
-          // Only migrate if we are Admin/Seller and empty?
           if (!isCustomer && sales.length === 0) {
             this.migrateSales(legacyId, firestoreId);
           }
@@ -485,8 +553,13 @@ export class InventoryService {
         (err) => this.handleFirestoreError(err, 'Sales Listener Error')
       )
     );
+  }
 
-    // Expenses - Filter by storeId only
+  private setupExpensesListener(
+    activeStoreId: string | null,
+    legacyId: string,
+    firestoreId: string
+  ): void {
     let expensesQuery;
     if (activeStoreId) {
       expensesQuery = query(
@@ -520,51 +593,107 @@ export class InventoryService {
         (err) => this.handleFirestoreError(err, 'Expenses Listener Error')
       )
     );
+  }
 
-    // Categories - Filter by storeId only
-    let categoriesQuery;
-    if (activeStoreId) {
-      categoriesQuery = query(
-        collection(this.db, 'categories'),
-        where('storeId', '==', activeStoreId)
+  private loadCategories(activeStoreId: string | null): void {
+    if (!activeStoreId) return;
+
+    // TTL Check: Use cached data if < 5 mins old
+    const CACHE_TTL = 5 * 60 * 1000;
+    const lastFetch = Number(
+      localStorage.getItem(`jjm_${activeStoreId}_categories_ts`) || 0
+    );
+    const now = Date.now();
+
+    if (now - lastFetch < CACHE_TTL) {
+      console.log(
+        'InventoryService: Categories cache is fresh. Skipping network fetch.'
       );
-    } else {
-      categoriesQuery = query(
-        collection(this.db, 'categories'),
-        where('storeId', '==', 'none')
-      );
+      // Data is already hydrated in constructor via hydrateFromCache
+      return;
     }
 
-    this.unsubscribes.push(
-      onSnapshot(
-        categoriesQuery,
-        (snapshot) => {
-          console.log('Categories Snapshot:', snapshot.docs.length);
-          const categories = snapshot.docs.map(
-            (doc) =>
-              ({
-                id: doc.id,
-                ...(doc.data() as any),
-              } as Category)
-          );
-          // Deduplicate by name (case-insensitive) to handle any existing dirty data
-          const uniqueCategories: Category[] = [];
-          const seenNames = new Set<string>();
-
-          categories.forEach((cat) => {
-            const normalized = cat.name.trim().toLowerCase();
-            if (!seenNames.has(normalized)) {
-              seenNames.add(normalized);
-              uniqueCategories.push(cat);
-            }
-          });
-
-          this._categories.set(uniqueCategories);
-          this.categoriesSubject.next(uniqueCategories);
-        },
-        (err) => this.handleFirestoreError(err, 'Categories Listener Error')
-      )
+    let categoriesQuery = query(
+      collection(this.db, 'categories'),
+      where('storeId', '==', activeStoreId)
     );
+
+    from(getDocs(categoriesQuery)).subscribe({
+      next: (snapshot) => {
+        console.log('Categories Fetched:', snapshot.docs.length);
+        const categories = snapshot.docs.map(
+          (doc) =>
+            ({
+              id: doc.id,
+              ...(doc.data() as any),
+            } as Category)
+        );
+        const uniqueCategories: Category[] = [];
+        const seenNames = new Set<string>();
+
+        categories.forEach((cat) => {
+          const normalized = cat.name.trim().toLowerCase();
+          if (!seenNames.has(normalized)) {
+            seenNames.add(normalized);
+            uniqueCategories.push(cat);
+          }
+        });
+
+        this._categories.set(uniqueCategories);
+        this.categoriesSubject.next(uniqueCategories);
+
+        // Update Timestamp
+        localStorage.setItem(
+          `jjm_${activeStoreId}_categories_ts`,
+          now.toString()
+        );
+      },
+      error: (err) => this.handleFirestoreError(err, 'Categories Fetch Error'),
+    });
+  }
+
+  private loadRawMaterials(activeStoreId: string | null): void {
+    if (!activeStoreId) return;
+
+    // TTL Check
+    const CACHE_TTL = 5 * 60 * 1000;
+    const lastFetch = Number(
+      localStorage.getItem(`jjm_${activeStoreId}_rawMaterials_ts`) || 0
+    );
+    const now = Date.now();
+
+    if (now - lastFetch < CACHE_TTL) {
+      console.log(
+        'InventoryService: RawMaterials cache is fresh. Skipping network fetch.'
+      );
+      return;
+    }
+
+    let rawMaterialsQuery = query(
+      collection(this.db, 'rawMaterials'),
+      where('storeId', '==', activeStoreId)
+    );
+
+    from(getDocs(rawMaterialsQuery)).subscribe({
+      next: (snapshot) => {
+        const rawMaterials = snapshot.docs.map(
+          (doc) =>
+            ({
+              id: doc.id,
+              ...(doc.data() as any),
+            } as RawMaterial)
+        );
+        this._rawMaterials.set(rawMaterials);
+        this.rawMaterialsSubject.next(rawMaterials);
+
+        localStorage.setItem(
+          `jjm_${activeStoreId}_rawMaterials_ts`,
+          now.toString()
+        );
+      },
+      error: (err) =>
+        this.handleFirestoreError(err, 'Raw Materials Fetch Error'),
+    });
   }
 
   private fallbackToLegacyPolling(): void {
@@ -744,21 +873,39 @@ export class InventoryService {
       userId: this.getCurrentUser(),
     };
 
+    this.loadingService.show('Adding category...');
     return from(addDoc(collection(this.db, 'categories'), baseData)).pipe(
       map((docRef) => ({ id: docRef.id, ...baseData } as Category)),
+      tap((newCategory) => {
+        // Optimistic Update
+        const current = this._categories();
+        const updated = [...current, newCategory];
+        this._categories.set(updated);
+        this.categoriesSubject.next(updated);
+      }),
       catchError((err) => {
         this.handleFirestoreError(err, 'Error adding category');
         return throwError(() => err);
-      })
+      }),
+      finalize(() => this.loadingService.hide())
     );
   }
 
   deleteCategory(categoryId: string): Observable<void> {
+    this.loadingService.show('Deleting category...');
     return from(deleteDoc(doc(this.db, 'categories', categoryId))).pipe(
+      tap(() => {
+        // Optimistic Update
+        const current = this._categories();
+        const updated = current.filter((c) => c.id !== categoryId);
+        this._categories.set(updated);
+        this.categoriesSubject.next(updated);
+      }),
       catchError((err) => {
         this.handleFirestoreError(err, 'Error deleting category');
         return throwError(() => err);
-      })
+      }),
+      finalize(() => this.loadingService.hide())
     );
   }
 
@@ -770,13 +917,14 @@ export class InventoryService {
       );
     }
 
-    const firestoreData = {
+    const firestoreData = this.sanitizeData({
       ...expense,
       timestamp: new Date(),
       storeId: activeStoreId,
       userId: this.getFirestoreUserId(),
-    };
+    });
 
+    this.loadingService.show('Adding expense...');
     return from(addDoc(collection(this.db, 'expenses'), firestoreData)).pipe(
       map((docRef) => ({ id: docRef.id, ...firestoreData } as Expense)),
       tap({
@@ -790,7 +938,8 @@ export class InventoryService {
           );
         },
         error: (err) => console.error('Error adding expense:', err),
-      })
+      }),
+      finalize(() => this.loadingService.hide())
     );
   }
 
@@ -802,6 +951,7 @@ export class InventoryService {
       );
     }
 
+    this.loadingService.show('Deleting expense...');
     return from(deleteDoc(doc(this.db, 'expenses', expenseId))).pipe(
       tap({
         next: () => {
@@ -819,7 +969,8 @@ export class InventoryService {
           }
         },
         error: (err) => console.error('Error deleting expense:', err),
-      })
+      }),
+      finalize(() => this.loadingService.hide())
     );
   }
 
@@ -831,6 +982,7 @@ export class InventoryService {
       );
     }
 
+    this.loadingService.show('Adding product...');
     return this.storeService.stores$.pipe(
       take(1),
       switchMap((stores) => {
@@ -855,12 +1007,12 @@ export class InventoryService {
           );
         }
 
-        const baseData = {
+        const baseData = this.sanitizeData({
           ...product,
           createdAt: new Date(),
           storeId: activeStoreId,
           userId: this.getFirestoreUserId(),
-        };
+        });
 
         return from(addDoc(collection(this.db, 'products'), baseData)).pipe(
           map((docRef) => ({ id: docRef.id, ...baseData } as Product)),
@@ -878,7 +1030,8 @@ export class InventoryService {
               this.handleFirestoreError(err, 'Error adding product'),
           })
         );
-      })
+      }),
+      finalize(() => this.loadingService.hide())
     );
   }
 
@@ -893,6 +1046,7 @@ export class InventoryService {
     const products = this.productsSubject.value;
     const product = products.find((p) => p.id === productId);
 
+    this.loadingService.show('Deleting product...');
     return from(deleteDoc(doc(this.db, 'products', productId))).pipe(
       tap({
         next: () => {
@@ -907,7 +1061,8 @@ export class InventoryService {
         error: (err) => {
           this.handleFirestoreError(err, 'Error deleting product');
         },
-      })
+      }),
+      finalize(() => this.loadingService.hide())
     );
   }
 
@@ -960,6 +1115,7 @@ export class InventoryService {
       );
     }
 
+    this.loadingService.show('Recording sale...');
     return this.storeService.stores$.pipe(
       take(1),
       switchMap((stores) => {
@@ -976,32 +1132,34 @@ export class InventoryService {
           );
         }
 
-        const baseData: Record<string, any> = {
+        const isImmediate = deliveryDate ? false : true;
+
+        // Debug: Log the pending status calculation
+        console.log('[recordSale] deliveryDate:', deliveryDate);
+        console.log('[recordSale] isImmediate:', isImmediate);
+        console.log('[recordSale] pending:', !isImmediate);
+
+        const firestoreData = this.sanitizeData({
           productId: product.id,
           productName: product.name,
           category: product.category,
           price: product.price,
+          costPrice: product.cost || 0,
           quantitySold,
           total,
           cashReceived,
           change,
-          pending: true,
+          pending: isImmediate ? false : true,
           discount,
           discountType,
           timestamp: new Date(),
           storeId: activeStoreId,
-        };
-
-        // Only add optional fields if they have values (Firebase doesn't accept undefined)
-        if (deliveryDate) baseData['deliveryDate'] = deliveryDate;
-        if (deliveryNotes) baseData['deliveryNotes'] = deliveryNotes;
-        if (customerId) baseData['customerId'] = customerId;
-        if (orderId) baseData['orderId'] = orderId;
-
-        const firestoreData = {
-          ...baseData,
+          deliveryDate,
+          deliveryNotes,
+          customerId,
+          orderId,
           userId: this.getFirestoreUserId(),
-        };
+        });
 
         return from(addDoc(collection(this.db, 'sales'), firestoreData)).pipe(
           map((docRef) => ({ id: docRef.id, ...firestoreData } as Sale)),
@@ -1010,13 +1168,25 @@ export class InventoryService {
               // Deduct Credit on Success (Client-side tracking)
               this.storeService.deductTransactionCredit(activeStoreId);
 
-              this.loggingService.logActivity(
-                'create',
-                'sale',
-                newSale.id,
-                product.name,
-                `Sold ${quantitySold} units (Pending Delivery)`
-              );
+              if (isImmediate) {
+                // Process delivery logic (inventory, expenses, etc.) immediately
+                this.processSaleDeliveryLogic(newSale);
+                this.loggingService.logActivity(
+                  'create',
+                  'sale',
+                  newSale.id,
+                  product.name,
+                  `Sold ${quantitySold} units (Delivered)`
+                );
+              } else {
+                this.loggingService.logActivity(
+                  'create',
+                  'sale',
+                  newSale.id,
+                  product.name,
+                  `Sold ${quantitySold} units (Pending Delivery)`
+                );
+              }
               this.recalculateAndSaveStats();
             },
             error: (err) => {
@@ -1024,12 +1194,12 @@ export class InventoryService {
             },
           })
         );
-      })
+      }),
+      finalize(() => this.loadingService.hide())
     );
   }
 
   completePendingSale(saleId: string): void {
-    // Determine sale details first to deduct stock
     const currentSales = this.salesSubject.value;
     const sale = currentSales.find((s) => s.id === saleId);
 
@@ -1039,69 +1209,129 @@ export class InventoryService {
     }
 
     const saleRef = doc(this.db, 'sales', saleId);
-    from(updateDoc(saleRef, { pending: false })).subscribe({
-      next: () => {
-        // Update local state (Optimistic or wait for listener)
-        const updatedSales = currentSales.map((s) =>
-          s.id === saleId ? { ...s, pending: false } : s
-        );
-        this.salesSubject.next(updatedSales);
-
-        // Deduct Inventory Now
-        const products = this.productsSubject.value;
-        const product = products.find((p) => p.id === sale.productId);
-        if (product) {
-          const updatedProduct = {
-            ...product,
-            quantity: product.quantity - sale.quantitySold,
-          };
-          this.updateProduct(updatedProduct).subscribe();
-        }
-
-        // Award Credits to Customer
-        if (sale.customerId) {
-          const customer = this.customerService.getCustomerById(
-            sale.customerId
+    this.loadingService.show('Completing sale...');
+    from(updateDoc(saleRef, { pending: false }))
+      .pipe(finalize(() => this.loadingService.hide()))
+      .subscribe({
+        next: () => {
+          // Update local state
+          const updatedSales = currentSales.map((s) =>
+            s.id === saleId ? { ...s, pending: false } : s
           );
-          if (customer) {
-            const creditsEarned = Math.floor(sale.total / 5000); // 1 credit per 10 pesos
-            if (creditsEarned > 0) {
-              const currentCredits = customer.credits || 0;
-              this.customerService.updateCustomer(customer.id, {
-                credits: currentCredits + creditsEarned,
-              });
+          this.salesSubject.next(updatedSales);
 
-              this.loggingService.logActivity(
-                'update',
-                'customer',
-                customer.id,
-                customer.name,
-                `Awarded ${creditsEarned} credits for purchase`
-              );
-            }
+          // Process inventory & expense logic
+          this.processSaleDeliveryLogic(sale);
+
+          this.loggingService.logActivity(
+            'complete',
+            'sale',
+            saleId,
+            sale.productName,
+            `Marked as delivered & Deducted ${sale.quantitySold} units`
+          );
+
+          this.notificationService.pushNotification(
+            'Delivery Confirmed! ✅',
+            `The order for ${
+              sale.customerName || 'a customer'
+            } has been delivered.`,
+            NotificationTypes.DELIVERY
+          );
+
+          this.recalculateAndSaveStats();
+        },
+        error: (err: any) => console.error('Error completing sale:', err),
+      });
+  }
+
+  /**
+   * Internal logic to handle deductions and automated expenses when a sale is Delivered
+   */
+  private processSaleDeliveryLogic(sale: Sale): void {
+    const products = this.productsSubject.value;
+    const product = products.find((p) => p.id === sale.productId);
+
+    if (!product) return;
+
+    // 1. Deduct the main product itself
+    const updatedProduct = {
+      ...product,
+      quantity: product.quantity - sale.quantitySold,
+    };
+    this.updateProduct(updatedProduct).subscribe();
+
+    // 2. Process Raw Materials / Recipe to add Expenses
+    if (product.recipe && product.recipe.length > 0) {
+      const rawMaterials = this.rawMaterials();
+
+      product.recipe.forEach((item) => {
+        const totalIngredientQty =
+          (Number(item.quantity) || 0) * sale.quantitySold;
+        const totalIngredientCost =
+          (Number(item.unitCost) || 0) * totalIngredientQty;
+
+        // Check dedicated DB first
+        const dedicatedRaw = rawMaterials.find(
+          (rm) => rm.id === item.productId
+        );
+        if (dedicatedRaw) {
+          this.addExpense({
+            productName: `[Recipe Use] ${dedicatedRaw.name} (for ${product.name})`,
+            price: totalIngredientCost,
+            notes: `Production: Sold ${sale.quantitySold} units of ${product.name}. Used ${totalIngredientQty} of ${dedicatedRaw.name}.`,
+          }).subscribe();
+        } else {
+          // Fallback: Check standard products list
+          const rawProduct = products.find((rp) => rp.id === item.productId);
+          if (rawProduct) {
+            const updatedRaw = {
+              ...rawProduct,
+              quantity: rawProduct.quantity - totalIngredientQty,
+            };
+            this.updateProduct(updatedRaw).subscribe();
+
+            this.addExpense({
+              productName: `[Recipe Use] ${rawProduct.name} (for ${product.name})`,
+              price: totalIngredientCost,
+              notes: `Production: Sold ${sale.quantitySold} units of ${product.name}. Deducted ${totalIngredientQty} from ${rawProduct.name} stock.`,
+            }).subscribe();
           }
         }
+      });
+    } else {
+      // 3. FALLBACK: If NO recipe, add a single expense for the product's COGS
+      const totalCost = (sale.costPrice || 0) * sale.quantitySold;
+      if (totalCost > 0) {
+        this.addExpense({
+          productName: `[COGS] ${product.name}`,
+          price: totalCost,
+          notes: `Automated Expense: Cost of goods sold for ${sale.quantitySold} units.`,
+        }).subscribe();
+      }
+    }
 
-        this.loggingService.logActivity(
-          'complete',
-          'sale',
-          saleId,
-          sale.productName,
-          `Marked as delivered & Deducted ${sale.quantitySold} units`
-        );
+    // 4. Award Credits to Customer
+    if (sale.customerId) {
+      const customer = this.customerService.getCustomerById(sale.customerId);
+      if (customer) {
+        const creditsEarned = Math.floor(sale.total / 5000);
+        if (creditsEarned > 0) {
+          const currentCredits = customer.credits || 0;
+          this.customerService.updateCustomer(customer.id, {
+            credits: currentCredits + creditsEarned,
+          });
 
-        this.notificationService.pushNotification(
-          'Delivery Confirmed! ✅',
-          `The order for ${
-            sale.customerName || 'a customer'
-          } has been delivered.`,
-          'delivery'
-        );
-
-        this.recalculateAndSaveStats();
-      },
-      error: (err: any) => console.error('Error completing sale:', err),
-    });
+          this.loggingService.logActivity(
+            'update',
+            'customer',
+            customer.id,
+            customer.name,
+            `Awarded ${creditsEarned} credits for purchase`
+          );
+        }
+      }
+    }
   }
 
   updateSale(sale: Sale): void {
@@ -1112,7 +1342,7 @@ export class InventoryService {
     }
 
     const saleRef = doc(this.db, 'sales', sale.id);
-    const updateData = { ...sale, storeId: activeStoreId };
+    const updateData = this.sanitizeData({ ...sale, storeId: activeStoreId });
 
     from(setDoc(saleRef, updateData, { merge: true })).subscribe({
       next: () => {
@@ -1138,27 +1368,30 @@ export class InventoryService {
     }
 
     const saleRef = doc(this.db, 'sales', sale.id);
-    from(updateDoc(saleRef, { reservationStatus: 'confirmed' })).subscribe({
-      next: () => {
-        // Optimistic update
-        const currentSales = this.salesSubject.value;
-        const newSales = currentSales.map((s) =>
-          s.id === sale.id
-            ? { ...s, reservationStatus: 'confirmed' as const }
-            : s
-        );
-        this.salesSubject.next(newSales);
+    this.loadingService.show('Confirming reservation...');
+    from(updateDoc(saleRef, { reservationStatus: 'confirmed' }))
+      .pipe(finalize(() => this.loadingService.hide()))
+      .subscribe({
+        next: () => {
+          // Optimistic update
+          const currentSales = this.salesSubject.value;
+          const newSales = currentSales.map((s) =>
+            s.id === sale.id
+              ? { ...s, reservationStatus: 'confirmed' as const }
+              : s
+          );
+          this.salesSubject.next(newSales);
 
-        this.loggingService.logActivity(
-          'update',
-          'sale',
-          sale.id,
-          sale.productName,
-          'Confirmed reservation (Stock deduction pending delivery)'
-        );
-      },
-      error: (err) => console.error('Error confirming reservation:', err),
-    });
+          this.loggingService.logActivity(
+            'update',
+            'sale',
+            sale.id,
+            sale.productName,
+            'Confirmed reservation (Stock deduction pending delivery)'
+          );
+        },
+        error: (err) => console.error('Error confirming reservation:', err),
+      });
   }
 
   private transformSale(sale: any): Sale {
@@ -1212,19 +1445,32 @@ export class InventoryService {
   }
 
   deleteSale(saleId: string): void {
-    from(deleteDoc(doc(this.db, 'sales', saleId))).subscribe({
-      next: () => {
-        this.loggingService.logActivity(
-          'delete',
-          'sale',
-          saleId,
-          'Reservation/Sale',
-          'Deleted sale record'
-        );
-        this.recalculateAndSaveStats();
-      },
-      error: (err) => console.error('Error deleting sale:', err),
-    });
+    const sale = this._sales().find((s) => s.id === saleId);
+
+    // If the sale was NOT pending, it means stock was already deducted.
+    // We should restore the stock upon deletion.
+    if (sale && !sale.pending) {
+      this.restockProduct(sale.productId, sale.quantitySold);
+    }
+
+    this.loadingService.show('Deleting sale...');
+    from(deleteDoc(doc(this.db, 'sales', saleId)))
+      .pipe(finalize(() => this.loadingService.hide()))
+      .subscribe({
+        next: () => {
+          this.loggingService.logActivity(
+            'delete',
+            'sale',
+            saleId,
+            sale?.productName || 'Sale',
+            `Deleted sale record ${
+              sale && !sale.pending ? '& Restored Stock' : ''
+            }`
+          );
+          this.recalculateAndSaveStats();
+        },
+        error: (err) => console.error('Error deleting sale:', err),
+      });
   }
 
   updateProduct(product: Product): Observable<Product> {
@@ -1235,12 +1481,13 @@ export class InventoryService {
       );
     }
 
-    const firestoreData = {
+    const firestoreData = this.sanitizeData({
       ...product,
       storeId: activeStoreId,
       userId: this.getFirestoreUserId(),
-    };
+    });
 
+    this.loadingService.show('Updating product...');
     return from(
       setDoc(doc(this.db, 'products', product.id), firestoreData, {
         merge: true,
@@ -1286,7 +1533,8 @@ export class InventoryService {
         error: (err) => {
           this.handleFirestoreError(err, 'Error updating product');
         },
-      })
+      }),
+      finalize(() => this.loadingService.hide())
     );
   }
 
@@ -1298,18 +1546,29 @@ export class InventoryService {
     const sales = this.salesSubject.value;
 
     const totalRevenue = sales.reduce((sum, s) => sum + (s.total || 0), 0);
+    const totalProfit = sales.reduce((sum, s) => {
+      const cost = (s.costPrice || 0) * (s.quantitySold || 1);
+      return sum + ((s.total || 0) - cost);
+    }, 0);
 
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const mtdRevenue = sales
-      .filter((s) => new Date(s.timestamp) >= startOfMonth)
-      .reduce((sum, s) => sum + (s.total || 0), 0);
+    const mtdSales = sales.filter((s) => new Date(s.timestamp) >= startOfMonth);
+    const mtdRevenue = mtdSales.reduce((sum, s) => sum + (s.total || 0), 0);
+    const mtdProfit = mtdSales.reduce((sum, s) => {
+      const cost = (s.costPrice || 0) * (s.quantitySold || 1);
+      return sum + ((s.total || 0) - cost);
+    }, 0);
 
     const todayStr = now.toISOString().split('T')[0];
     const todaySales = sales.filter(
       (s) => new Date(s.timestamp).toISOString().split('T')[0] === todayStr
     );
     const todayRevenue = todaySales.reduce((sum, s) => sum + (s.total || 0), 0);
+    const todayProfit = todaySales.reduce((sum, s) => {
+      const cost = (s.costPrice || 0) * (s.quantitySold || 1);
+      return sum + ((s.total || 0) - cost);
+    }, 0);
     const todayOrdersCount = todaySales.length;
 
     const totalProductsCount = products.length;
@@ -1375,6 +1634,9 @@ export class InventoryService {
       totalRevenue,
       mtdRevenue,
       todayRevenue,
+      totalProfit,
+      mtdProfit,
+      todayProfit,
       todayOrdersCount,
       totalProductsCount,
       lowStockCount,
@@ -1386,8 +1648,118 @@ export class InventoryService {
       topCustomers,
     };
 
-    setDoc(doc(this.db, 'stats', storeId), stats).catch((err) =>
+    // Sanitize data before sending to Firestore (remove undefined fields)
+    const sanitizedStats = this.sanitizeData(stats);
+
+    setDoc(doc(this.db, 'stats', storeId), sanitizedStats).catch((err) =>
       console.error('Error updating aggregation document:', err)
+    );
+  }
+
+  /**
+   * Recursively removes undefined values from an object to make it Firestore-compatible.
+   * Firestore throws errors if it encounters 'undefined' values.
+   */
+  private sanitizeData(data: any): any {
+    if (data === null || typeof data !== 'object') {
+      return data;
+    }
+
+    if (data instanceof Date) {
+      return data;
+    }
+
+    if (Array.isArray(data)) {
+      return data.map((v) => this.sanitizeData(v));
+    }
+
+    const result: any = {};
+    Object.keys(data).forEach((key) => {
+      const value = data[key];
+      if (value !== undefined) {
+        result[key] = this.sanitizeData(value);
+      }
+    });
+
+    return result;
+  }
+
+  // --- Raw Material CRUD ---
+
+  addRawMaterial(
+    raw: Omit<RawMaterial, 'id' | 'createdAt'>
+  ): Observable<RawMaterial> {
+    const storeId = this.storeService.getActiveStoreId();
+    if (!storeId) return throwError(() => new Error('Store ID required.'));
+
+    const baseData = {
+      ...raw,
+      createdAt: new Date(),
+      storeId,
+      userId: this.getFirestoreUserId(),
+    };
+
+    this.loadingService.show('Adding raw material...');
+    return from(addDoc(collection(this.db, 'rawMaterials'), baseData)).pipe(
+      map((docRef) => ({ id: docRef.id, ...baseData } as RawMaterial)),
+      tap({
+        next: (newRaw) => {
+          // Optimistic Update
+          const current = this._rawMaterials();
+          const updated = [...current, newRaw];
+          this._rawMaterials.set(updated);
+          this.rawMaterialsSubject.next(updated);
+          this.recalculateAndSaveStats();
+        },
+        error: (err) =>
+          this.handleFirestoreError(err, 'Error adding raw material'),
+      }),
+      finalize(() => this.loadingService.hide())
+    );
+  }
+
+  updateRawMaterial(raw: RawMaterial): Observable<void> {
+    this.loadingService.show('Updating raw material...');
+    return from(
+      updateDoc(doc(this.db, 'rawMaterials', raw.id), {
+        name: raw.name,
+        cost: raw.cost,
+      })
+    ).pipe(
+      tap(() => {
+        // Optimistic Update
+        const current = this._rawMaterials();
+        const updated = current.map((r) => (r.id === raw.id ? raw : r));
+        this._rawMaterials.set(updated);
+        this.rawMaterialsSubject.next(updated);
+        this.recalculateAndSaveStats();
+      }),
+      catchError((err) =>
+        throwError(() =>
+          this.handleFirestoreError(err, 'Error updating raw material')
+        )
+      ),
+      finalize(() => this.loadingService.hide())
+    );
+  }
+
+  deleteRawMaterial(id: string): Observable<void> {
+    this.loadingService.show('Deleting raw material...');
+    return from(deleteDoc(doc(this.db, 'rawMaterials', id))).pipe(
+      tap(() => {
+        // Optimistic Update
+        const current = this._rawMaterials();
+        const updated = current.filter((r) => r.id !== id);
+        this._rawMaterials.set(updated);
+        this.rawMaterialsSubject.next(updated);
+        this.recalculateAndSaveStats();
+      }),
+      catchError((err) =>
+        throwError(() =>
+          this.handleFirestoreError(err, 'Error deleting raw material')
+        )
+      ),
+      finalize(() => this.loadingService.hide())
     );
   }
 }

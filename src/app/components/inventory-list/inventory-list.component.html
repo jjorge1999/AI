@@ -9,7 +9,13 @@
       <div class="header-search">
         <div class="search-box">
           <span class="material-icon search-icon">search</span>
-          <input type="text" placeholder="Search SKU, product, or category..." class="search-input" />
+          <input 
+            type="text" 
+            placeholder="Search SKU, product, or category..." 
+            class="search-input" 
+            [(ngModel)]="globalSearchQuery"
+            (ngModelChange)="onHeaderSearchChange(globalSearchQuery)"
+          />
         </div>
       </div>
     </div>
@@ -78,6 +84,19 @@
             <span class="material-icon">grid_view</span>
           </button>
         </div>
+        <div class="table-search">
+          <div class="search-box miniature">
+            <span class="material-icon">search</span>
+            <input 
+            style="width: 180px;"
+              type="text" 
+              placeholder="Search stock..." 
+              [(ngModel)]="stockSearchQuery" 
+              (ngModelChange)="availableProductsPage = 1"
+              class="search-input" 
+            />
+          </div>
+        </div>
         <select class="filter-select" [(ngModel)]="availableProductsPageSize" (change)="onAvailablePageSizeChange()">
           <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }} / page</option>
         </select>
@@ -91,7 +110,9 @@
             <th>Product Name</th>
             <th>Category</th>
             <th>Stock Level</th>
+            <th>Cost</th>
             <th>Price</th>
+            <th>Profit</th>
             <th>Status</th>
             <th class="text-right">Actions</th>
           </tr>
@@ -103,7 +124,9 @@
                 <div class="product-image" [style.backgroundImage]="p.imageUrl ? 'url(' + p.imageUrl + ')' : 'none'">
                   <span *ngIf="!p.imageUrl" class="material-icon no-image">inventory_2</span>
                 </div>
-                <span class="product-name">{{ p.name }}</span>
+                <span class="product-name">
+                  {{ p.name }}
+                </span>
               </div>
             </td>
             <td>
@@ -120,13 +143,26 @@
                 </div>
               </div>
             </td>
+            <td class="cost-cell">
+              <span *ngIf="p.cost">₱{{ p.cost | number:'1.2-2' }}</span>
+              <span *ngIf="!p.cost" class="no-cost">—</span>
+            </td>
             <td class="price-cell">₱{{ p.price | number:'1.2-2' }}</td>
+            <td class="profit-cell">
+              <span *ngIf="p.cost" class="profit-badge" [class.positive]="p.price - p.cost > 0" [class.negative]="p.price - p.cost < 0">
+                {{ ((p.price - p.cost) / p.price * 100) | number:'1.0-0' }}%
+              </span>
+              <span *ngIf="!p.cost" class="no-profit">—</span>
+            </td>
             <td>
               <span class="status-badge active" *ngIf="p.quantity > 10">
                 <span class="status-dot"></span> In Stock
               </span>
               <span class="status-badge low-stock" *ngIf="p.quantity <= 10 && p.quantity > 0">
                 <span class="status-dot"></span> Low Stock
+              </span>
+              <span class="status-badge out-of-stock" *ngIf="p.quantity === 0">
+                <span class="status-dot"></span> Out of Stock
               </span>
             </td>
             <td class="text-right">
@@ -137,11 +173,14 @@
                 <button class="action-btn" (click)="onRestock(p)" title="Restock">
                   <span class="material-icon">add_circle</span>
                 </button>
+                <!-- <button class="action-btn breakdown" (click)="onBreakdown(p)" title="Breakdown & Track Expense">
+                  <span class="material-icon">shredder</span>
+                </button> -->
               </div>
             </td>
           </tr>
           <tr *ngIf="paginatedAvailableProducts.length === 0">
-            <td colspan="6" class="empty-row">
+            <td colspan="8" class="empty-row">
               <div class="empty-state">
                 <span class="material-icon">inventory_2</span>
                 <p>No available products</p>
@@ -163,7 +202,14 @@
         <div class="card-content">
           <div class="card-header">
             <h4 class="product-name">{{ p.name }}</h4>
-            <span class="price">₱{{ p.price | number:'1.2-2' }}</span>
+            <div class="card-pricing">
+              <span class="price">₱{{ p.price | number:'1.2-2' }}</span>
+              <div class="profit-indicator" *ngIf="p.cost">
+                <span class="profit-badge mini" [class.positive]="p.price - p.cost > 0" [class.negative]="p.price - p.cost < 0">
+                  {{ ((p.price - p.cost) / p.price * 100) | number:'1.0-0' }}% margin
+                </span>
+              </div>
+            </div>
           </div>
           
           <div class="stock-level">
@@ -210,34 +256,90 @@
     <div class="table-card">
       <div class="table-header">
         <h3 class="table-title">Sales History</h3>
-        <select class="filter-select" [(ngModel)]="selectedCategory" (change)="salesPage = 1">
-          <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
-        </select>
+        <div class="table-actions">
+          <button 
+            class="action-btn printer-connect-btn" 
+            *ngIf="(printerStatus$ | async) !== 'connected'"
+            (click)="connectPrinter()"
+            title="Connect Bluetooth Printer"
+          >
+            <span class="material-icon">bluetooth</span>
+            <span class="btn-label">Connect Printer</span>
+          </button>
+          <span class="printer-status connected" *ngIf="(printerStatus$ | async) === 'connected'">
+            <span class="material-icon">bluetooth_connected</span>
+            Printer Ready
+          </span>
+          <div class="table-search">
+            <div class="search-box miniature">
+              <span class="material-icon">search</span>
+              <input 
+                type="text" 
+                placeholder="Search orders..." 
+                [(ngModel)]="salesSearchQuery" 
+                (ngModelChange)="salesPage = 1"
+                class="search-input" 
+              />
+            </div>
+          </div>
+          <select class="filter-select" [(ngModel)]="selectedCategory" (change)="salesPage = 1">
+            <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+          </select>
+        </div>
       </div>
       <div class="table-wrapper">
         <table class="data-table compact">
           <thead>
             <tr>
+              <th>Order #</th>
               <th>Product</th>
               <th>Customer</th>
               <th>Qty</th>
               <th>Total</th>
               <th>Date</th>
+              <th class="text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let s of paginatedSales" class="table-row">
-              <td>{{ s.productName }}</td>
+              <td class="order-id-cell">
+                <span class="order-badge">{{ s.orderId?.slice(-8) || s.id?.slice(-6) }}</span>
+              </td>
+              <td>
+                <div class="product-name-cell">
+                  <span class="product-name">{{ s.productName }}</span>
+                  <span *ngIf="s.isGroup && s.sales.length > 1" class="items-tooltip" [title]="s.productNamesFull">
+                    ({{ s.sales.length }} items)
+                  </span>
+                </div>
+              </td>
               <td class="customer-cell">
-                <span *ngIf="getCustomerName(s)" class="customer-name">{{ getCustomerName(s) }}</span>
-                <span *ngIf="!getCustomerName(s)" class="no-customer">Walk-in</span>
+                <span *ngIf="s.customerName" class="customer-name">{{ s.customerName }}</span>
+                <span *ngIf="!s.customerName" class="no-customer">Walk-in</span>
               </td>
               <td>{{ s.quantitySold }}</td>
               <td class="price-cell">₱{{ s.total | number:'1.2-2' }}</td>
               <td class="date-cell">{{ s.timestamp | date:'short' }}</td>
+              <td class="actions-cell text-right">
+                <button 
+                  class="action-btn print-btn" 
+                  (click)="reprintReceipt(s.sales[0])" 
+                  [disabled]="isPrinting"
+                  title="Print Receipt"
+                >
+                  <span class="material-icon">receipt_long</span>
+                </button>
+                <button 
+                  class="action-btn cancel" 
+                  (click)="onDeleteGroupedSale(s)" 
+                  title="Delete Order"
+                >
+                  <span class="material-icon">delete</span>
+                </button>
+              </td>
             </tr>
             <tr *ngIf="paginatedSales.length === 0">
-              <td colspan="5" class="empty-row">
+              <td colspan="7" class="empty-row">
                 <div class="empty-state small">
                   <span class="material-icon">receipt_long</span>
                   <p>No sales yet</p>
@@ -260,7 +362,21 @@
     <div class="table-card">
       <div class="table-header">
         <h3 class="table-title">Pending Deliveries</h3>
-        <span class="badge">{{ pendingSales.length }}</span>
+        <div class="table-actions">
+          <div class="table-search">
+            <div class="search-box miniature">
+              <span class="material-icon">search</span>
+              <input 
+              type="text" 
+              placeholder="Search pending..." 
+              [(ngModel)]="pendingSearchQuery" 
+              (ngModelChange)="pendingPage = 1"
+              class="search-input" 
+            />
+            </div>
+          </div>
+          <span class="badge">{{ pendingSales.length }}</span>
+        </div>
       </div>
       <div class="delivery-list">
         <div *ngFor="let group of paginatedPendingSales" class="delivery-item" [class.reservation]="group.reservationStatus === 'pending_confirmation'">
@@ -349,9 +465,13 @@
           <input type="number" [(ngModel)]="editProductQuantity" min="0" />
         </div>
         <div class="form-group">
-          <label>Price</label>
+          <label>Selling Price</label>
           <input type="number" [(ngModel)]="editProductPrice" min="0" step="0.01" />
         </div>
+      </div>
+      <div class="form-group">
+        <label>Cost Price</label>
+        <input type="number" [(ngModel)]="editProductCost" min="0" step="0.01" placeholder="For profit calculation" />
       </div>
       <div class="form-group">
         <label>Product Image</label>
@@ -443,6 +563,155 @@
       <button class="btn-save" (click)="saveDeliveryEdit()">
         <span class="material-icon">save</span>
         Save Changes
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Breakdown Raw Material Modal -->
+<div class="modal-overlay" *ngIf="isBreakdownModalOpen" (click)="closeBreakdownModal()">
+  <div class="modal-content restock-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>
+        <span class="material-icon">shredder</span>
+        Breakdown Raw Material
+      </h3>
+      <button class="modal-close" (click)="closeBreakdownModal()">
+        <span class="material-icon">close</span>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="restock-product-info">
+        <p class="restock-product-name">{{ breakdownProduct?.name }}</p>
+        <p class="restock-current-stock">Current Stock: <strong>{{ breakdownProduct?.quantity || 0 }}</strong></p>
+      </div>
+      <div class="form-group">
+        <label>Quantity to Breakdown</label>
+        <input 
+          type="number" 
+          [(ngModel)]="breakdownQuantity" 
+          min="1" 
+          [max]="breakdownProduct?.quantity || 0"
+          placeholder="Enter quantity" 
+        />
+      </div>
+      <div class="form-group">
+        <label>Cost per Unit (Purchase Price)</label>
+        <input 
+          type="number" 
+          [(ngModel)]="breakdownCostPerUnit" 
+          placeholder="Unit cost" 
+        />
+        <p class="form-hint">Total expense: ₱{{ (breakdownQuantity * breakdownCostPerUnit) | number:'1.2-2' }}</p>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea [(ngModel)]="breakdownNotes" rows="2" placeholder="e.g. Broken down for production"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeBreakdownModal()">Cancel</button>
+      <button class="btn-save" (click)="confirmBreakdown()" [disabled]="breakdownQuantity <= 0 || breakdownQuantity > (breakdownProduct?.quantity || 0)">
+        <span class="material-icon">shredder</span>
+        Confirm Breakdown
+      </button>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Receipt Preview Modal -->
+<div class="modal-overlay" *ngIf="isReceiptPreviewOpen" (click)="closeReceiptPreview()">
+  <div class="modal-card receipt-preview-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>
+        <span class="material-icon">receipt_long</span>
+        Receipt Preview
+      </h3>
+      <button class="modal-close" (click)="closeReceiptPreview()">
+        <span class="material-icon">close</span>
+      </button>
+    </div>
+    <div class="modal-body receipt-preview-body">
+      <div class="receipt-paper" *ngIf="lastReceiptData">
+        <!-- Store Header -->
+        <div class="receipt-header">
+          <h2 class="store-name">{{ lastReceiptData.storeName }}</h2>
+          <p class="store-address" *ngIf="lastReceiptData.storeAddress">{{ lastReceiptData.storeAddress }}</p>
+          <p class="store-phone" *ngIf="lastReceiptData.storePhone">Tel: {{ lastReceiptData.storePhone }}</p>
+        </div>
+
+        <div class="receipt-divider">================================</div>
+
+        <!-- Order Info -->
+        <div class="receipt-order-info">
+          <p><strong>Order:</strong> {{ lastReceiptData.orderId }}</p>
+          <p><strong>Date:</strong> {{ lastReceiptData.date | date:'short' }}</p>
+          <p *ngIf="lastReceiptData.customerName"><strong>Customer:</strong> {{ lastReceiptData.customerName }}</p>
+          <p *ngIf="lastReceiptData.deliveryDate"><strong>Delivery:</strong> {{ lastReceiptData.deliveryDate | date:'short' }}</p>
+        </div>
+
+        <div class="receipt-divider">--------------------------------</div>
+
+        <!-- Items -->
+        <div class="receipt-items">
+          <div class="receipt-item" *ngFor="let item of lastReceiptData.items" style="margin-bottom: 8px;">
+            <div class="item-name" style="font-weight: 500;">{{ item.name }}</div>
+            <div class="item-detail" style="display: flex; justify-content: space-between; font-size: 0.9em;">
+              <span>{{ item.quantity }} x {{ formatCurrency(item.price) }}</span>
+              <span>{{ formatCurrency(item.total) }}</span>
+            </div>
+            <div class="item-discount" *ngIf="item.discount && item.discount > 0" style="font-size: 0.85em; color: #ef4444; font-style: italic;">
+              <span *ngIf="item.discountType === 'percent'">Discount: {{ item.discount }}%</span>
+              <span *ngIf="item.discountType === 'amount'">Discount: -{{ formatCurrency(item.discount) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="receipt-divider">--------------------------------</div>
+
+        <!-- Totals -->
+        <div class="receipt-totals">
+          <div class="total-row" *ngIf="lastReceiptData.totalDiscount > 0" style="display: flex; justify-content: space-between;">
+            <span>Total Discount</span>
+            <span>-{{ formatCurrency(lastReceiptData.totalDiscount) }}</span>
+          </div>
+          <div class="total-row grand-total" style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2em; margin-top: 5px; border-top: 1px dashed #ccc; padding-top: 5px;">
+            <span>TOTAL</span>
+            <span>{{ formatCurrency(lastReceiptData.total) }}</span>
+          </div>
+          <div class="total-row" style="display: flex; justify-content: space-between; margin-top: 5px;">
+            <span>Cash</span>
+            <span>{{ formatCurrency(lastReceiptData.cashReceived) }}</span>
+          </div>
+          <div class="total-row" style="display: flex; justify-content: space-between;">
+            <span>Change</span>
+            <span>{{ formatCurrency(lastReceiptData.change) }}</span>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="receipt-notes" *ngIf="lastReceiptData.notes">
+          <div class="receipt-divider">--------------------------------</div>
+          <p><strong>Notes:</strong> {{ lastReceiptData.notes }}</p>
+        </div>
+
+        <!-- Footer -->
+        <div class="receipt-divider">================================</div>
+        <div class="receipt-footer" style="text-align: center; font-size: 0.9em;">
+          <p>Thank you for your purchase!</p>
+          <p>Please come again</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Actions -->
+    <div class="modal-footer receipt-actions">
+      <button class="btn-cancel" (click)="closeReceiptPreview()">Close</button>
+      <button class="btn-save btn-print" (click)="printFromPreview()" [disabled]="isPrinting">
+        <span class="material-icon">print</span>
+        {{ (printerStatus$ | async) === 'connected' ? 'Print Receipt' : 'Connect & Print' }}
       </button>
     </div>
   </div>

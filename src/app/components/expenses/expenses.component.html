@@ -130,7 +130,7 @@
         </thead>
         <tbody>
           <tr *ngFor="let exp of paginatedExpenses" class="table-row">
-            <td class="date-cell">{{ formatDate(exp.timestamp) }}</td>
+            <td class="date-cell">{{ formatDateSafe(exp.timestamp) }}</td>
             <td class="merchant-cell">
               <div class="merchant-info">
                 <div class="merchant-avatar">{{ getMerchantInitials(exp.productName) }}</div>
@@ -167,7 +167,7 @@
             <div class="merchant-avatar-large">{{ getMerchantInitials(exp.productName) }}</div>
             <div class="merchant-details">
               <h3 class="merchant-name">{{ exp.productName }}</h3>
-              <p class="expense-date">{{ formatDate(exp.timestamp) | date:'MMM dd, yyyy' }}</p>
+              <p class="expense-date">{{ formatDateSafe(exp.timestamp) }}</p>
             </div>
           </div>
           <div class="expense-amount">{{ formatCurrency(exp.price) }}</div>

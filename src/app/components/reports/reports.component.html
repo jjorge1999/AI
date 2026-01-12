@@ -59,6 +59,21 @@
       </div>
     </div>
 
+    <!-- Cost of Goods Card -->
+    <div class="stat-card">
+      <div class="stat-header">
+        <p class="stat-label">Cost of Goods</p>
+        <span class="stat-icon purple">
+          <span class="material-icon">shopping_cart</span>
+        </span>
+      </div>
+      <p class="stat-value">{{ formatCurrency(totalCOGS) }}</p>
+      <div class="stat-trend neutral">
+        <span class="material-icon">info</span>
+        <span class="trend-value">Direct unit costs</span>
+      </div>
+    </div>
+
     <!-- Net Profit Card -->
     <div class="stat-card profit-card">
       <div class="stat-glow"></div>
@@ -160,6 +175,12 @@
   <div class="transactions-card">
     <div class="transactions-header">
       <h3 class="chart-title">Recent Transactions</h3>
+      <div class="table-search">
+        <div class="search-box miniature">
+          <span class="material-icon">search</span>
+          <input type="text" placeholder="Search..." [(ngModel)]="searchQuery" class="search-input" />
+        </div>
+      </div>
     </div>
     <div class="transactions-table-wrapper">
       <table class="transactions-table">
@@ -187,9 +208,19 @@
               {{ tx.type === 'income' ? '+' : '-' }}{{ formatCurrency(tx.amount) }}
             </td>
             <td class="status-cell">
-              <span class="status-badge" [class.completed]="tx.status === 'completed'" [class.pending]="tx.status === 'pending'">
-                {{ tx.status | titlecase }}
-              </span>
+              <div class="status-actions">
+                <span class="status-badge" [class.completed]="tx.status === 'completed'" [class.pending]="tx.status === 'pending'">
+                  {{ tx.status | titlecase }}
+                </span>
+                <button 
+                  *ngIf="tx.originalSale" 
+                  class="action-btn print-review-btn" 
+                  (click)="viewReceipt(tx)" 
+                  title="Print Review"
+                >
+                  <span class="material-icon">receipt_long</span>
+                </button>
+              </div>
             </td>
           </tr>
           <tr *ngIf="recentTransactions.length === 0">
@@ -202,6 +233,102 @@
           </tr>
         </tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- Receipt Preview Modal -->
+<div class="modal-overlay" *ngIf="isReceiptPreviewOpen" (click)="closeReceiptPreview()">
+  <div class="modal-card receipt-preview-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>
+        <span class="material-icon">receipt_long</span>
+        Receipt Preview
+      </h3>
+      <button class="modal-close" (click)="closeReceiptPreview()">
+        <span class="material-icon">close</span>
+      </button>
+    </div>
+    <div class="modal-body receipt-preview-body">
+      <div class="receipt-paper" *ngIf="lastReceiptData">
+        <!-- Store Header -->
+        <div class="receipt-header">
+          <h2 class="store-name">{{ lastReceiptData.storeName }}</h2>
+          <p class="store-address" *ngIf="lastReceiptData.storeAddress">{{ lastReceiptData.storeAddress }}</p>
+          <p class="store-phone" *ngIf="lastReceiptData.storePhone">Tel: {{ lastReceiptData.storePhone }}</p>
+        </div>
+
+        <div class="receipt-divider">================================</div>
+
+        <!-- Order Info -->
+        <div class="receipt-order-info">
+          <p><strong>Order:</strong> {{ lastReceiptData.orderId }}</p>
+          <p><strong>Date:</strong> {{ lastReceiptData.date | date:'short' }}</p>
+          <p *ngIf="lastReceiptData.customerName"><strong>Customer:</strong> {{ lastReceiptData.customerName }}</p>
+          <p *ngIf="lastReceiptData.deliveryDate"><strong>Delivery:</strong> {{ lastReceiptData.deliveryDate | date:'short' }}</p>
+        </div>
+
+        <div class="receipt-divider">--------------------------------</div>
+
+        <!-- Items -->
+        <div class="receipt-items">
+          <div class="receipt-item" *ngFor="let item of lastReceiptData.items" style="margin-bottom: 8px;">
+            <div class="item-name" style="font-weight: 500;">{{ item.name }}</div>
+            <div class="item-detail" style="display: flex; justify-content: space-between; font-size: 0.9em;">
+              <span>{{ item.quantity }} x {{ formatCurrency(item.price) }}</span>
+              <span>{{ formatCurrency(item.total) }}</span>
+            </div>
+            <div class="item-discount" *ngIf="item.discount && item.discount > 0" style="font-size: 0.85em; color: #ef4444; font-style: italic;">
+              <span *ngIf="item.discountType === 'percent'">Discount: {{ item.discount }}%</span>
+              <span *ngIf="item.discountType === 'amount'">Discount: -{{ formatCurrency(item.discount) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="receipt-divider">--------------------------------</div>
+
+        <!-- Totals -->
+        <div class="receipt-totals">
+          <div class="total-row" *ngIf="lastReceiptData.totalDiscount > 0" style="display: flex; justify-content: space-between;">
+            <span>Total Discount</span>
+            <span>-{{ formatCurrency(lastReceiptData.totalDiscount) }}</span>
+          </div>
+          <div class="total-row grand-total" style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2em; margin-top: 5px; border-top: 1px dashed #ccc; padding-top: 5px;">
+            <span>TOTAL</span>
+            <span>{{ formatCurrency(lastReceiptData.total) }}</span>
+          </div>
+          <div class="total-row" style="display: flex; justify-content: space-between; margin-top: 5px;">
+            <span>Cash</span>
+            <span>{{ formatCurrency(lastReceiptData.cashReceived) }}</span>
+          </div>
+          <div class="total-row" style="display: flex; justify-content: space-between;">
+            <span>Change</span>
+            <span>{{ formatCurrency(lastReceiptData.change) }}</span>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="receipt-notes" *ngIf="lastReceiptData.notes">
+          <div class="receipt-divider">--------------------------------</div>
+          <p><strong>Notes:</strong> {{ lastReceiptData.notes }}</p>
+        </div>
+
+        <!-- Footer -->
+        <div class="receipt-divider">================================</div>
+        <div class="receipt-footer" style="text-align: center; font-size: 0.9em;">
+          <p>Thank you for your purchase!</p>
+          <p>Please come again</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Actions -->
+    <div class="modal-footer receipt-actions">
+      <button class="btn-cancel" (click)="closeReceiptPreview()">Close</button>
+      <button class="btn-print" (click)="printFromPreview()" [disabled]="isPrinting">
+        <span class="material-icon">print</span>
+        {{ (printerStatus$ | async) === 'connected' ? 'Print Receipt' : 'Connect & Print' }}
+      </button>
     </div>
   </div>
 </div>

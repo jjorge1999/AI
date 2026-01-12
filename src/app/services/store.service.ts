@@ -1,8 +1,10 @@
 import { Injectable, signal, WritableSignal, computed } from '@angular/core';
 import { BehaviorSubject, Observable, from, of, throwError } from 'rxjs';
-import { map, tap, catchError } from 'rxjs/operators';
+import { map, tap, catchError, take, finalize } from 'rxjs/operators';
 import { Store } from '../models/inventory.models';
 import { FirebaseService } from './firebase.service';
+import { IndexedDbService } from './indexed-db.service';
+import { LoadingService } from './loading.service';
 import {
   collection,
   getDocs,
@@ -42,26 +44,42 @@ export class StoreService {
     return this.firebaseService.db;
   }
 
-  constructor(private readonly firebaseService: FirebaseService) {
+  constructor(
+    private readonly firebaseService: FirebaseService,
+    private readonly indexedDbService: IndexedDbService,
+    private readonly loadingService: LoadingService
+  ) {
     this.hydrateFromCache();
   }
 
   private hydrateFromCache(): void {
-    const cached = localStorage.getItem('jjm_cached_stores');
-    if (cached) {
-      try {
-        const stores = JSON.parse(cached);
-        this._stores.set(stores);
-        this.storesSubject.next(stores);
-        console.log('Hydrated Stores from cache');
-      } catch (e) {
-        console.warn('Failed to hydrate stores from cache', e);
-      }
-    }
+    this.indexedDbService
+      .get('jjm_cached_stores')
+      .pipe(take(1))
+      .subscribe({
+        next: (cached) => {
+          if (cached) {
+            try {
+              this._stores.set(cached);
+              this.storesSubject.next(cached);
+              console.log('Hydrated Stores from IndexedDB');
+            } catch (e) {
+              console.warn('Failed to parse cached stores', e);
+            }
+          }
+        },
+        error: (err) =>
+          console.warn('Failed to hydrate stores from IndexedDB', err),
+      });
   }
 
   private saveToCache(stores: Store[]): void {
-    localStorage.setItem('jjm_cached_stores', JSON.stringify(stores));
+    this.indexedDbService
+      .set('jjm_cached_stores', stores)
+      .pipe(take(1))
+      .subscribe({
+        error: (err) => console.error('Failed to save stores to cache', err),
+      });
   }
 
   reset(): void {
@@ -69,7 +87,7 @@ export class StoreService {
     this.storesSubject.next([]);
     this.activeStoreIdSubject.next(null);
     this.activeStoreId.set(null);
-    localStorage.removeItem('jjm_cached_stores');
+    this.indexedDbService.delete('jjm_cached_stores').pipe(take(1)).subscribe();
   }
 
   loadStores(force = false): void {
@@ -140,9 +158,12 @@ export class StoreService {
       createdAt: new Date(),
     } as Store;
 
+    const sanitized = this.sanitizeData(newStore);
+
     const docRef = doc(this.db, 'stores', id);
-    return from(setDoc(docRef, newStore)).pipe(
-      map(() => newStore),
+    this.loadingService.show('Creating store...');
+    return from(setDoc(docRef, sanitized)).pipe(
+      map(() => sanitized),
       tap((created) => {
         const current = this._stores();
         const updated = [...current, created];
@@ -156,13 +177,16 @@ export class StoreService {
       catchError((err) => {
         console.error('Error creating store:', err);
         return throwError(() => err);
-      })
+      }),
+      finalize(() => this.loadingService.hide())
     );
   }
 
   updateStore(id: string, store: Partial<Store>): Observable<Store> {
+    const sanitized = this.sanitizeData(store);
     const docRef = doc(this.db, 'stores', id);
-    return from(updateDoc(docRef, store as Record<string, any>)).pipe(
+    this.loadingService.show('Updating store...');
+    return from(updateDoc(docRef, sanitized)).pipe(
       map(() => {
         const current = this._stores();
         const existing = current.find((s) => s.id === id);
@@ -180,12 +204,14 @@ export class StoreService {
       catchError((err) => {
         console.error('Error updating store:', err);
         return throwError(() => err);
-      })
+      }),
+      finalize(() => this.loadingService.hide())
     );
   }
 
   deleteStore(id: string): Observable<void> {
     const docRef = doc(this.db, 'stores', id);
+    this.loadingService.show('Deleting store...');
     return from(deleteDoc(docRef)).pipe(
       tap(() => {
         const current = this._stores();
@@ -201,7 +227,8 @@ export class StoreService {
       catchError((err) => {
         console.error('Error deleting store:', err);
         return throwError(() => err);
-      })
+      }),
+      finalize(() => this.loadingService.hide())
     );
   }
 
@@ -355,5 +382,29 @@ export class StoreService {
     return (
       plan === 'Pro' || plan.includes('Pro') || plan.includes('Enterprise')
     );
+  }
+
+  private sanitizeData(data: any): any {
+    if (data === null || typeof data !== 'object') {
+      return data;
+    }
+
+    if (data instanceof Date) {
+      return data;
+    }
+
+    if (Array.isArray(data)) {
+      return data.map((v) => this.sanitizeData(v));
+    }
+
+    const result: any = {};
+    Object.keys(data).forEach((key) => {
+      const value = data[key];
+      if (value !== undefined) {
+        result[key] = this.sanitizeData(value);
+      }
+    });
+
+    return result;
   }
 }

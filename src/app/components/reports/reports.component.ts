@@ -3,7 +3,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { InventoryService } from '../../services/inventory.service';
-import { Sale, Expense } from '../../models/inventory.models';
+import { PrintService } from '../../services/print.service';
+import { StoreService } from '../../services/store.service';
+import { DialogService } from '../../services/dialog.service';
+import { CustomerService } from '../../services/customer.service';
+import { Product, Sale, Expense } from '../../models/inventory.models';
 
 interface MonthlyData {
   month: string;
@@ -18,6 +22,7 @@ interface Transaction {
   type: 'income' | 'expense';
   amount: number;
   status: 'completed' | 'pending';
+  originalSale?: Sale;
 }
 
 @Component({
@@ -30,7 +35,13 @@ interface Transaction {
 export class ReportsComponent implements OnInit, OnDestroy {
   sales: Sale[] = [];
   expenses: Expense[] = [];
+  products: Product[] = [];
   private subscriptions: Subscription[] = [];
+
+  // Receipt Preview State
+  isReceiptPreviewOpen = false;
+  lastReceiptData: any = null;
+  isPrinting = false;
 
   // Date range filter
   dateRange = '30days';
@@ -41,7 +52,15 @@ export class ReportsComponent implements OnInit, OnDestroy {
     { value: 'year', label: 'This Year' },
   ];
 
-  constructor(private inventoryService: InventoryService) {}
+  searchQuery = '';
+
+  constructor(
+    private inventoryService: InventoryService,
+    private printService: PrintService,
+    private storeService: StoreService,
+    private dialogService: DialogService,
+    private customerService: CustomerService
+  ) {}
 
   ngOnInit(): void {
     this.subscriptions.push(
@@ -53,6 +72,12 @@ export class ReportsComponent implements OnInit, OnDestroy {
     this.subscriptions.push(
       this.inventoryService.getExpenses().subscribe((expenses) => {
         this.expenses = expenses;
+      })
+    );
+
+    this.subscriptions.push(
+      this.inventoryService.getProducts().subscribe((products) => {
+        this.products = products;
       })
     );
   }
@@ -85,59 +110,170 @@ export class ReportsComponent implements OnInit, OnDestroy {
   get filteredSales(): Sale[] {
     const start = this.getDateRangeStart();
     return this.sales.filter(
-      (s) => new Date(s.timestamp) >= start && !s.pending
+      (s) => this.parseTimestamp(s.timestamp) >= start && !s.pending
     );
   }
 
   get filteredExpenses(): Expense[] {
     const start = this.getDateRangeStart();
-    return this.expenses.filter((e) => new Date(e.timestamp) >= start);
+    const result = this.expenses.filter(
+      (e) => this.parseTimestamp(e.timestamp) >= start
+    );
+    console.log('Filtered expenses:', {
+      total: this.expenses.length,
+      filtered: result.length,
+      dateRange: this.dateRange,
+    });
+    return result;
   }
 
-  get totalIncome(): number {
+  get grossRevenue(): number {
     return this.filteredSales.reduce((sum, s) => sum + s.total, 0);
   }
 
+  get totalIncome(): number {
+    // Redefined as "Actual Income" (Net Income) per user request
+    // This is Revenue - Cost of Goods
+    return this.filteredSales.reduce((sum, s) => {
+      const costPerUnit =
+        s.costPrice !== undefined
+          ? s.costPrice
+          : this.products.find((p) => p.id === s.productId)?.cost || 0;
+      return sum + (s.total - costPerUnit * s.quantitySold);
+    }, 0);
+  }
+
   get totalExpenses(): number {
-    return this.filteredExpenses.reduce((sum, e) => sum + e.price, 0);
+    return this.filteredExpenses.reduce((sum, e) => sum + (e.price || 0), 0);
+  }
+
+  get totalCOGS(): number {
+    return this.filteredSales.reduce((sum, s) => {
+      // Use recorded cost at time of sale, or current product cost as fallback, or 0
+      const costPerUnit =
+        s.costPrice !== undefined
+          ? s.costPrice
+          : this.products.find((p) => p.id === s.productId)?.cost || 0;
+      return sum + costPerUnit * s.quantitySold;
+    }, 0);
   }
 
   get netProfit(): number {
+    // Net Profit = (Revenue - COGS) - Operational Expenses
+    // Since totalIncome is now Net (Revenue - COGS), we just minus operational expenses
     return this.totalIncome - this.totalExpenses;
   }
 
   get profitMargin(): number {
-    return this.totalIncome > 0 ? (this.netProfit / this.totalIncome) * 100 : 0;
+    // Margin is traditionally (Net Profit / Gross Revenue)
+    return this.grossRevenue > 0
+      ? (this.netProfit / this.grossRevenue) * 100
+      : 0;
   }
 
-  // Get monthly data for chart
+  // Get data for chart based on selected date range
   get monthlyData(): MonthlyData[] {
     const months: MonthlyData[] = [];
     const now = new Date();
+    const rangeStart = this.getDateRangeStart();
 
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthName = date.toLocaleDateString('en-US', { month: 'short' });
-      const nextMonth = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+    // Determine how many periods to show based on selected range
+    let periods: { start: Date; end: Date; label: string }[] = [];
 
-      const monthIncome = this.sales
+    switch (this.dateRange) {
+      case '7days':
+        // Show daily data for last 7 days
+        for (let i = 6; i >= 0; i--) {
+          const dayStart = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() - i
+          );
+          const dayEnd = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() - i + 1
+          );
+          periods.push({
+            start: dayStart,
+            end: dayEnd,
+            label: dayStart.toLocaleDateString('en-US', { weekday: 'short' }),
+          });
+        }
+        break;
+      case '30days':
+        // Show weekly data for last 30 days (4-5 weeks)
+        for (let i = 4; i >= 0; i--) {
+          const weekStart = new Date(
+            now.getTime() - (i + 1) * 7 * 24 * 60 * 60 * 1000
+          );
+          const weekEnd = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
+          periods.push({
+            start: weekStart,
+            end: weekEnd,
+            label: `Week ${5 - i}`,
+          });
+        }
+        break;
+      case 'quarter':
+        // Show monthly data for current quarter (3 months)
+        const quarterStart = Math.floor(now.getMonth() / 3) * 3;
+        for (let i = 0; i < 3; i++) {
+          const monthStart = new Date(now.getFullYear(), quarterStart + i, 1);
+          const monthEnd = new Date(now.getFullYear(), quarterStart + i + 1, 1);
+          periods.push({
+            start: monthStart,
+            end: monthEnd,
+            label: monthStart.toLocaleDateString('en-US', { month: 'short' }),
+          });
+        }
+        break;
+      case 'year':
+      default:
+        // Show monthly data for 6 months
+        for (let i = 5; i >= 0; i--) {
+          const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const monthEnd = new Date(
+            now.getFullYear(),
+            now.getMonth() - i + 1,
+            1
+          );
+          periods.push({
+            start: monthStart,
+            end: monthEnd,
+            label: monthStart.toLocaleDateString('en-US', { month: 'short' }),
+          });
+        }
+        break;
+    }
+
+    for (const period of periods) {
+      const periodIncome = this.sales
         .filter((s) => {
-          const saleDate = new Date(s.timestamp);
-          return saleDate >= date && saleDate < nextMonth && !s.pending;
+          const saleDate = this.parseTimestamp(s.timestamp);
+          return (
+            saleDate >= period.start && saleDate < period.end && !s.pending
+          );
         })
-        .reduce((sum, s) => sum + s.total, 0);
+        .reduce((sum, s) => {
+          const costPerUnit =
+            s.costPrice !== undefined
+              ? s.costPrice
+              : this.products.find((p) => p.id === s.productId)?.cost || 0;
+          return sum + (s.total - costPerUnit * s.quantitySold);
+        }, 0);
 
-      const monthExpense = this.expenses
+      const periodExpense = this.expenses
         .filter((e) => {
-          const expDate = new Date(e.timestamp);
-          return expDate >= date && expDate < nextMonth;
+          const expDate = this.parseTimestamp(e.timestamp);
+          return expDate >= period.start && expDate < period.end;
         })
         .reduce((sum, e) => sum + e.price, 0);
 
       months.push({
-        month: monthName,
-        income: monthIncome,
-        expense: monthExpense,
+        month: period.label,
+        income: periodIncome,
+        expense: periodExpense,
       });
     }
 
@@ -175,44 +311,44 @@ export class ReportsComponent implements OnInit, OnDestroy {
     }));
   }
 
-  // Recent transactions
+  // Recent transactions - respects date filter
   get recentTransactions(): Transaction[] {
     const transactions: Transaction[] = [];
+    const start = this.getDateRangeStart();
 
-    // Add sales as income
-    this.sales
-      .filter((s) => !s.pending)
-      .slice(0, 10)
-      .forEach((s) => {
-        transactions.push({
-          date: new Date(s.timestamp),
-          description: s.productName,
-          category: 'Sales',
-          type: 'income',
-          amount: s.total,
-          status: 'completed',
-        });
+    // Add completed sales as income (filtered by date range)
+    this.filteredSales.slice(0, 15).forEach((s) => {
+      transactions.push({
+        date: this.parseTimestamp(s.timestamp),
+        description: s.productName,
+        category: 'Sales',
+        type: 'income',
+        amount: s.total,
+        status: 'completed',
+        originalSale: s,
       });
+    });
 
-    // Add pending sales
+    // Add pending sales (always show these regardless of filter)
     this.sales
       .filter((s) => s.pending)
       .slice(0, 5)
       .forEach((s) => {
         transactions.push({
-          date: new Date(s.timestamp),
+          date: this.parseTimestamp(s.timestamp),
           description: s.productName,
           category: 'Pending Sale',
           type: 'income',
           amount: s.total,
           status: 'pending',
+          originalSale: s,
         });
       });
 
-    // Add expenses
-    this.expenses.slice(0, 10).forEach((e) => {
+    // Add expenses (filtered by date range)
+    this.filteredExpenses.slice(0, 15).forEach((e) => {
       transactions.push({
-        date: new Date(e.timestamp),
+        date: this.parseTimestamp(e.timestamp),
         description: e.productName,
         category: 'Expense',
         type: 'expense',
@@ -221,10 +357,25 @@ export class ReportsComponent implements OnInit, OnDestroy {
       });
     });
 
-    // Sort by date descending and take top 10
-    return transactions
-      .sort((a, b) => b.date.getTime() - a.date.getTime())
-      .slice(0, 10);
+    // Sort by date descending
+    let sorted = transactions.sort(
+      (a, b) => b.date.getTime() - a.date.getTime()
+    );
+
+    // Apply search filter
+    if (this.searchQuery) {
+      const query = this.searchQuery.toLowerCase();
+      sorted = sorted.filter(
+        (t) =>
+          t.description.toLowerCase().includes(query) ||
+          t.category.toLowerCase().includes(query) ||
+          t.originalSale?.orderId?.toLowerCase().includes(query) ||
+          t.originalSale?.customerName?.toLowerCase().includes(query)
+      );
+    }
+
+    // Return top 10
+    return sorted.slice(0, 10);
   }
 
   // Helpers
@@ -243,5 +394,127 @@ export class ReportsComponent implements OnInit, OnDestroy {
       day: 'numeric',
       year: 'numeric',
     });
+  }
+
+  /**
+   * Safely parse a timestamp from various formats (Firestore Timestamp, Date, string, etc.)
+   */
+  private parseTimestamp(timestamp: any): Date {
+    if (!timestamp) return new Date(0);
+    if (timestamp instanceof Date) return timestamp;
+
+    // Handle Firestore Timestamp object (with toDate method)
+    if (
+      typeof timestamp === 'object' &&
+      typeof timestamp.toDate === 'function'
+    ) {
+      return timestamp.toDate();
+    }
+
+    // Handle serialized Timestamp (JSON) or internal representation
+    if (
+      typeof timestamp === 'object' &&
+      (timestamp.seconds !== undefined || timestamp._seconds !== undefined)
+    ) {
+      const seconds = timestamp.seconds ?? timestamp._seconds;
+      return new Date(seconds * 1000);
+    }
+
+    // String or number
+    const parsed = new Date(timestamp);
+    if (isNaN(parsed.getTime())) {
+      return new Date(0); // Return epoch if invalid (won't match date range)
+    }
+    return parsed;
+  }
+
+  // Printing & Preview
+  get printerStatus$() {
+    return this.printService.connectionStatus$;
+  }
+
+  closeReceiptPreview(): void {
+    this.isReceiptPreviewOpen = false;
+  }
+
+  async viewReceipt(tx: Transaction): Promise<void> {
+    const sale = tx.originalSale;
+    if (!sale) return;
+
+    // Find all items in the same order if orderId exists
+    let orderItems: Sale[] = [sale];
+    if (sale.orderId) {
+      orderItems = this.sales.filter((s) => s.orderId === sale.orderId);
+    }
+
+    const store = this.storeService
+      .stores()
+      .find((s: any) => s.id === sale.storeId);
+
+    // Build receipt data
+    this.lastReceiptData = {
+      storeName: store?.name || 'JJM Store',
+      storeAddress: store?.address,
+      storePhone: store?.phoneNumber,
+      orderId: sale.orderId || sale.id?.slice(-8) || 'N/A',
+      date: this.parseTimestamp(sale.timestamp),
+      items: orderItems.map((s) => ({
+        name: s.productName,
+        quantity: s.quantitySold,
+        price: s.price || s.total / s.quantitySold,
+        discount: s.discount,
+        discountType: s.discountType,
+        total: s.total,
+      })),
+      totalDiscount: orderItems.reduce((sum, s) => sum + (s.discount || 0), 0),
+      total: orderItems.reduce((sum, s) => sum + (s.total || 0), 0),
+      cashReceived: sale.cashReceived || 0,
+      change: sale.change || 0,
+      customerName: this.getCustomerName(sale) || undefined,
+      deliveryDate: sale.deliveryDate ? new Date(sale.deliveryDate) : undefined,
+      notes: sale.deliveryNotes,
+    };
+
+    this.isReceiptPreviewOpen = true;
+  }
+
+  private getCustomerName(sale: Sale): string {
+    if (sale.customerName) return sale.customerName;
+    if (sale.customerId) {
+      const customer = this.customerService
+        .customers()
+        .find((c: any) => c.id === sale.customerId);
+      if (customer) return customer.name;
+    }
+    return '';
+  }
+
+  async printFromPreview(): Promise<void> {
+    if (!this.printService.isConnected()) {
+      try {
+        const connected = await this.printService.connectPrinter();
+        if (!connected) return;
+      } catch (error) {
+        // User probably cancelled or bluetooth failed
+        return;
+      }
+    }
+
+    this.isPrinting = true;
+    try {
+      await this.printService.printReceipt(this.lastReceiptData);
+      this.isReceiptPreviewOpen = false;
+      this.dialogService.success(
+        'Receipt printed successfully!',
+        'Print Complete'
+      );
+    } catch (error: any) {
+      this.dialogService.error(
+        error.message || 'Failed to print receipt',
+        'Print Error'
+      );
+    } finally {
+      this.isPrinting = false;
+    }
   }
 }

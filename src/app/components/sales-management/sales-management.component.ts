@@ -38,6 +38,7 @@ export class SalesManagementComponent implements OnInit, OnDestroy {
   showModal = false;
   isEditing = false;
   currentSale: Partial<SaleEvent> = {};
+  searchQuery = '';
 
   // Form fields
   monthNames = [
@@ -291,28 +292,57 @@ export class SalesManagementComponent implements OnInit, OnDestroy {
     return Math.abs(hash);
   }
 
-  // Pagination getters & methods
-  get paginatedProducts(): any[] {
-    const startIndex = (this.currentPage - 1) * this.pageSize;
-    return this.discountedProducts.slice(
-      startIndex,
-      startIndex + this.pageSize
+  get filteredSales(): SaleEvent[] {
+    if (!this.searchQuery) return this.sales;
+    const query = this.searchQuery.toLowerCase();
+    return this.sales.filter(
+      (s) =>
+        s.name.toLowerCase().includes(query) ||
+        s.bannerTitle?.toLowerCase().includes(query)
     );
   }
 
+  // Pagination getters & methods
+  get paginatedProducts(): any[] {
+    let list = this.discountedProducts;
+    if (this.searchQuery) {
+      const query = this.searchQuery.toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(query) ||
+          p.category?.toLowerCase().includes(query) ||
+          p.saleName?.toLowerCase().includes(query)
+      );
+    }
+
+    const startIndex = (this.currentPage - 1) * this.pageSize;
+    return list.slice(startIndex, startIndex + this.pageSize);
+  }
+
+  get totalFilteredDiscountedCount(): number {
+    if (!this.searchQuery) return this.discountedProducts.length;
+    const query = this.searchQuery.toLowerCase();
+    return this.discountedProducts.filter(
+      (p) =>
+        p.name.toLowerCase().includes(query) ||
+        p.category?.toLowerCase().includes(query) ||
+        p.saleName?.toLowerCase().includes(query)
+    ).length;
+  }
+
   get totalPages(): number {
-    return Math.ceil(this.discountedProducts.length / this.pageSize);
+    return Math.ceil(this.totalFilteredDiscountedCount / this.pageSize);
   }
 
   get startRange(): number {
-    if (this.discountedProducts.length === 0) return 0;
+    if (this.totalFilteredDiscountedCount === 0) return 0;
     return (this.currentPage - 1) * this.pageSize + 1;
   }
 
   get endRange(): number {
     return Math.min(
       this.currentPage * this.pageSize,
-      this.discountedProducts.length
+      this.totalFilteredDiscountedCount
     );
   }
 

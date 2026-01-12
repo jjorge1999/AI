@@ -213,7 +213,7 @@ export class AiService {
         body: JSON.stringify({
           model: model,
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 150,
+          max_tokens: 500,
           temperature: 0.7,
         }),
       })
@@ -351,7 +351,7 @@ export class AiService {
         body: JSON.stringify({
           model: model,
           messages: messages,
-          max_tokens: 200,
+          max_tokens: 600,
           temperature: 0.7,
         }),
       })

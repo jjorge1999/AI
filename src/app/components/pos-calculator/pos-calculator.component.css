@@ -211,6 +211,15 @@
   color: var(--color-text-muted);
 }
 
+.product-cost {
+  font-size: 0.7rem;
+  color: #f97316;
+  font-weight: 500;
+  background: rgba(249, 115, 22, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
 .empty-products {
   grid-column: 1 / -1;
   display: flex;
@@ -375,6 +384,34 @@
 
 .cart-item-price.discount-applied {
   color: #10b981;
+}
+
+/* Cost Row Styling */
+.cart-item-row.cost-row {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--color-border);
+  font-size: 0.7rem;
+}
+
+.cart-item-cost {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #f97316;
+  font-weight: 500;
+}
+
+.cart-item-cost .material-icon {
+  font-size: 14px;
+}
+
+.cart-item-profit {
+  color: #10b981;
+  font-weight: 600;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 2px 8px;
+  border-radius: 9999px;
 }
 
 .qty-controls {
@@ -605,6 +642,46 @@
 .total-amount {
   font-size: 1.5rem;
   font-weight: 700;
+}
+
+/* Cost & Profit Summary Rows */
+.summary-row.cost-summary,
+.summary-row.profit-summary {
+  font-size: 0.8rem;
+  padding: 4px 0;
+}
+
+.cost-label,
+.profit-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cost-label .material-icon,
+.profit-label .material-icon {
+  font-size: 16px;
+}
+
+.cost-label {
+  color: #f97316;
+}
+
+.cost-value {
+  color: #f97316;
+  font-weight: 600;
+}
+
+.profit-label {
+  color: #10b981;
+}
+
+.profit-value {
+  color: #10b981;
+  font-weight: 700;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 2px 10px;
+  border-radius: 9999px;
 }
 
 /* Payment Section */
@@ -1917,4 +1994,104 @@
 
 .receipt-actions .btn-print .material-icon {
   font-size: 20px;
+}
+
+/* Delivery Info Notice */
+.delivery-info-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: var(--radius-lg);
+  margin-top: var(--space-md);
+}
+
+.delivery-info-notice .material-icon {
+  color: #3b82f6;
+  font-size: 20px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.delivery-info-notice .notice-content {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+.delivery-info-notice .notice-content strong {
+  color: #3b82f6;
+}
+
+/* Fee Inputs in Modal */
+.fee-inputs-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+.fee-inputs-row .form-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.fee-inputs-row .form-group label .material-icon {
+  font-size: 16px;
+  color: var(--color-primary);
+}
+
+.fee-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-sm);
+  transition: all 0.2s;
+}
+
+.fee-input-wrapper:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(19, 127, 236, 0.1);
+}
+
+.fee-input-wrapper .currency-symbol {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.fee-input-wrapper input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: var(--space-sm);
+  font-size: 0.9rem;
+  color: var(--color-text);
+  width: 100%;
+}
+
+.fee-input-wrapper input:focus {
+  outline: none;
+}
+
+/* Fee Row in Summary */
+.summary-row.fee-row {
+  font-size: 0.85rem;
+  color: var(--color-text);
+}
+
+.fee-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fee-label .material-icon {
+  font-size: 16px;
+  color: var(--color-primary);
 }

@@ -240,13 +240,16 @@ export class UserService {
       storeId: this.enforceStoreId(user.storeId),
     } as User;
 
+    // Remove undefined fields which Firestore rejects
+    const sanitized = this.sanitizeData(newUserTemplate);
+
     return this.hashPassword(user.password || '').pipe(
       switchMap((hashed) => {
-        newUserTemplate.password = hashed;
+        sanitized.password = hashed;
         const docRef = doc(this.db, 'users', id);
-        return from(setDoc(docRef, newUserTemplate)).pipe(
+        return from(setDoc(docRef, sanitized)).pipe(
           map(() => {
-            const transformed = this.transformUser(newUserTemplate);
+            const transformed = this.transformUser(sanitized);
             const current = this._users();
             const updated = [...current, transformed];
             this._users.set(updated);
@@ -264,19 +267,12 @@ export class UserService {
   }
 
   updateUser(updatedUser: Partial<User> & { id: string }): Observable<User> {
-    const payload = { ...updatedUser };
+    const payload = this.sanitizeData({ ...updatedUser });
 
     // Enforce Store ID restrictions for non-super-admins
     if (payload.storeId) {
       payload.storeId = this.enforceStoreId(payload.storeId);
     }
-
-    // Remove undefined fields which Firestore rejects
-    Object.keys(payload).forEach((key) => {
-      if ((payload as any)[key] === undefined) {
-        delete (payload as any)[key];
-      }
-    });
 
     const passwordStream$: Observable<string | undefined> = payload.password
       ? this.hashPassword(payload.password)
@@ -412,5 +408,29 @@ export class UserService {
 
     // Admins and others are restricted to their own store
     return userStoreId || undefined;
+  }
+
+  private sanitizeData(data: any): any {
+    if (data === null || typeof data !== 'object') {
+      return data;
+    }
+
+    if (data instanceof Date) {
+      return data;
+    }
+
+    if (Array.isArray(data)) {
+      return data.map((v) => this.sanitizeData(v));
+    }
+
+    const result: any = {};
+    Object.keys(data).forEach((key) => {
+      const value = data[key];
+      if (value !== undefined) {
+        result[key] = this.sanitizeData(value);
+      }
+    });
+
+    return result;
   }
 }

@@ -59,6 +59,7 @@ export const routes: Routes = [
       import('./components/login/login.component').then(
         (m) => m.LoginComponent
       ),
+    data: { breadcrumb: 'Login' },
   },
   {
     path: 'reservation',
@@ -66,6 +67,7 @@ export const routes: Routes = [
       import('./components/reservation/reservation.component').then(
         (m) => m.ReservationComponent
       ),
+    data: { breadcrumb: 'Reservation' },
   },
   {
     path: 'play',
@@ -73,6 +75,7 @@ export const routes: Routes = [
       import('./components/color-game/color-game.component').then(
         (m) => m.ColorGameComponent
       ),
+    data: { breadcrumb: 'Color Game' },
   },
 
   // Protected routes (require login)
@@ -82,6 +85,7 @@ export const routes: Routes = [
       import(
         './components/subscription-pricing/subscription-pricing.component'
       ).then((m) => m.SubscriptionPricingComponent),
+    data: { breadcrumb: 'Pricing' },
   },
   {
     path: '',
@@ -98,6 +102,7 @@ export const routes: Routes = [
           import('./components/landing/landing.component').then(
             (m) => m.LandingComponent
           ),
+        data: { breadcrumb: 'Home' },
       },
       {
         path: 'add-product',
@@ -105,6 +110,7 @@ export const routes: Routes = [
           import('./components/product-form/product-form.component').then(
             (m) => m.ProductFormComponent
           ),
+        data: { breadcrumb: 'Add Product' },
       },
       {
         path: 'sell',
@@ -112,6 +118,7 @@ export const routes: Routes = [
           import('./components/pos-calculator/pos-calculator.component').then(
             (m) => m.PosCalculatorComponent
           ),
+        data: { breadcrumb: 'Point of Sale' },
       },
       {
         path: 'inventory',
@@ -119,6 +126,7 @@ export const routes: Routes = [
           import('./components/inventory-list/inventory-list.component').then(
             (m) => m.InventoryListComponent
           ),
+        data: { breadcrumb: 'Inventory' },
       },
       {
         path: 'customers',
@@ -126,6 +134,7 @@ export const routes: Routes = [
           import('./components/customer-form/customer-form.component').then(
             (m) => m.CustomerFormComponent
           ),
+        data: { breadcrumb: 'Customers' },
       },
       {
         path: 'expenses',
@@ -133,6 +142,7 @@ export const routes: Routes = [
           import('./components/expenses/expenses.component').then(
             (m) => m.ExpensesComponent
           ),
+        data: { breadcrumb: 'Expenses' },
       },
       {
         path: 'reports',
@@ -140,6 +150,7 @@ export const routes: Routes = [
           import('./components/reports/reports.component').then(
             (m) => m.ReportsComponent
           ),
+        data: { breadcrumb: 'Analytics' },
       },
       {
         path: 'logs',
@@ -147,6 +158,7 @@ export const routes: Routes = [
           import('./components/activity-logs/activity-logs.component').then(
             (m) => m.ActivityLogsComponent
           ),
+        data: { breadcrumb: 'Activity Logs' },
       },
       {
         path: 'users',
@@ -155,6 +167,7 @@ export const routes: Routes = [
           import('./components/user-management/user-management.component').then(
             (m) => m.UserManagementComponent
           ),
+        data: { breadcrumb: 'Users' },
       },
       {
         path: 'sales',
@@ -162,6 +175,7 @@ export const routes: Routes = [
           import(
             './components/sales-management/sales-management.component'
           ).then((m) => m.SalesManagementComponent),
+        data: { breadcrumb: 'Sales & Promos' },
       },
       {
         path: 'ads',
@@ -169,6 +183,7 @@ export const routes: Routes = [
           import('./components/ads-management/ads-management.component').then(
             (m) => m.AdsManagementComponent
           ),
+        data: { breadcrumb: 'Ad Inventory' },
       },
       {
         path: 'stores',
@@ -177,6 +192,7 @@ export const routes: Routes = [
           import(
             './components/store-management/store-management.component'
           ).then((m) => m.StoreManagementComponent),
+        data: { breadcrumb: 'Stores' },
       },
     ],
   },

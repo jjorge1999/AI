@@ -251,6 +251,21 @@
     <!-- Scrollable Content Area -->
     <div class="content-area">
       <div class="content-wrapper">
+        <!-- Breadcrumbs (Moved from header to content area) -->
+        <div class="breadcrumbs-container" *ngIf="breadcrumbs.length > 0">
+          <div class="breadcrumbs">
+            <a routerLink="/home" class="breadcrumb-link">
+              <span class="material-icon">home</span>
+            </a>
+            <ng-container *ngFor="let breadcrumb of breadcrumbs; let last = last">
+              <span class="material-icon breadcrumb-separator">chevron_right</span>
+              <a *ngIf="!last" [routerLink]="breadcrumb.url" class="breadcrumb-link">
+                {{ breadcrumb.label }}
+              </a>
+              <span *ngIf="last" class="breadcrumb-current">{{ breadcrumb.label }}</span>
+            </ng-container>
+          </div>
+        </div>
         <router-outlet></router-outlet>
       </div>
     </div>

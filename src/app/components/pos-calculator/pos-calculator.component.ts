@@ -101,6 +101,8 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
   deliveryDate: string = '';
   deliveryTime: string = '';
   deliveryNotes: string = '';
+  deliveryFee: number = 0;
+  serviceFee: number = 0;
   minDate: string = '';
 
   // Filter for pending deliveries
@@ -190,8 +192,8 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
     this.minDate = `${year}-${month}-${day}`;
-    this.deliveryDate = this.minDate;
-    this.deliveryTime = '10:00'; // Default to 10:00 AM
+    this.deliveryDate = ''; // DEFAULT: Immediate sale
+    this.deliveryTime = '';
 
     // Set up logic for Signal changes
     effect(() => {
@@ -520,8 +522,19 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     this.cart.splice(index, 1);
   }
 
-  get total(): number {
+  get subtotal(): number {
     return this.cart.reduce((sum, item) => sum + item.total, 0);
+  }
+
+  get total(): number {
+    return this.subtotal + this.deliveryFee + this.serviceFee;
+  }
+
+  get totalCost(): number {
+    return this.cart.reduce((sum, item) => {
+      const cost = item.product.cost || 0;
+      return sum + cost * item.quantity;
+    }, 0);
   }
 
   get change(): number {
@@ -689,6 +702,10 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
       }
     }
 
+    // Debug: Log whether this will be a pending or immediate sale
+    console.log('[POS Checkout] Delivery Date:', this.deliveryDate);
+    console.log('[POS Checkout] Will be PENDING:', !!deliveryDateObj);
+
     const saleObservables = this.cart.map((item, index) => {
       let itemCashReceived = item.total;
       if (index === 0) {
@@ -749,9 +766,11 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
         this.cart = [];
         this.cashReceived = 0;
         this.cashDisplayValue = '';
-        this.deliveryDate = this.minDate;
+        this.deliveryDate = '';
         this.deliveryTime = '';
         this.deliveryNotes = '';
+        this.deliveryFee = 0;
+        this.serviceFee = 0;
         this.selectedCustomerId = '';
         this.errorMessage = '';
 
@@ -759,6 +778,11 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
           'Sale completed successfully!',
           'Checkout Complete'
         );
+
+        // Force refresh pending sales after a short delay to ensure Firestore listener has updated
+        setTimeout(() => {
+          this.updateGroupedSales();
+        }, 500);
       },
       error: (error) => {
         this.errorMessage = error.message || 'Error processing sales';
@@ -1281,6 +1305,8 @@ export class PosCalculatorComponent implements OnInit, OnDestroy {
     this.deliveryDate = '';
     this.deliveryTime = '';
     this.deliveryNotes = '';
+    this.deliveryFee = 0;
+    this.serviceFee = 0;
   }
 
   // Quantity Modal Methods

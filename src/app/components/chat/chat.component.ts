@@ -30,6 +30,7 @@ import {
   Customer,
   WebRTCCall,
   User,
+  NotificationTypes,
 } from '../../models/inventory.models';
 import { InventoryService } from '../../services/inventory.service';
 import { StoreService } from '../../services/store.service';
@@ -715,7 +716,7 @@ Thank you for your reservation! A staff member will contact you to confirm.`;
     this.notificationService.pushNotification(
       `New message from ${message.senderName}`,
       message.text || 'Received a new attachment or audio message',
-      'message'
+      NotificationTypes.MESSAGE
     );
 
     // 3. System notification if app is hidden

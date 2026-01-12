@@ -108,13 +108,13 @@ export class LoggingService {
       return;
     }
 
-    const logData = {
-      action,
-      entityType,
-      entityId,
-      entityName,
-      details,
-      userId: this.getCurrentUserId(),
+    const logData: any = {
+      action: action || 'unknown',
+      entityType: entityType || 'unknown',
+      entityId: entityId || '',
+      entityName: entityName || '',
+      details: details || '',
+      userId: this.getCurrentUserId() || 'system',
       storeId: activeStoreId,
       timestamp: new Date(),
     };

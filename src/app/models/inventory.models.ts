@@ -1,9 +1,44 @@
+export enum SubscriptionPlans {
+  FREE = 'Free',
+  STARTER = 'Starter',
+  PRO = 'Pro',
+  ENTERPRISE = 'Enterprise',
+  EARLY_ADOPTER = 'EarlyAdopter',
+}
+
+export enum NotificationTypes {
+  MESSAGE = 'message',
+  RESERVATION = 'reservation',
+  DELIVERY = 'delivery',
+  SYSTEM = 'system',
+  REMINDER = 'reminder',
+}
+
+export interface RawMaterial {
+  id: string;
+  name: string;
+  cost: number;
+  userId?: string;
+  storeId?: string;
+  createdAt: Date;
+}
+
+export interface RecipeItem {
+  productId: string;
+  name: string;
+  quantity: number;
+  unitCost: number;
+}
+
 export interface Product {
   id: string;
   name: string;
   category: string;
-  price: number;
+  price: number; // Selling price
+  cost?: number; // Cost price (for profit calculation)
   quantity: number;
+  isRawMaterial?: boolean; // Flag for raw materials
+  recipe?: RecipeItem[]; // Ingredients/Components
   imageUrl?: string;
   createdAt: Date;
   userId?: string;
@@ -29,7 +64,7 @@ export interface Store {
   description?: string;
   createdAt: Date;
   createdBy?: string;
-  subscriptionPlan?: 'Free' | 'Starter' | 'Pro' | 'Enterprise' | 'EarlyAdopter';
+  subscriptionPlan?: SubscriptionPlans | string;
   subscriptionExpiryDate?: Date | string;
   credits?: {
     ai: number;
@@ -52,6 +87,7 @@ export interface Sale {
   productName: string;
   category: string;
   price: number;
+  costPrice?: number; // Unit cost at time of sale
   quantitySold: number;
   total: number;
   cashReceived: number;
@@ -169,6 +205,9 @@ export interface DashboardStats {
   totalRevenue: number;
   mtdRevenue: number;
   todayRevenue: number;
+  totalProfit: number;
+  mtdProfit: number;
+  todayProfit: number;
   todayOrdersCount: number;
   totalProductsCount: number;
   lowStockCount: number;

@@ -381,10 +381,51 @@ body.dark-theme .theme-btn:hover {
 }
 
 .page-title {
-  font-size: 1.125rem;
-  font-weight: 600;
+  font-size: 1.25rem;
+  font-weight: 700;
   color: var(--color-text);
   margin: 0;
+  line-height: 1.2;
+}
+
+.breadcrumbs-container {
+  margin-bottom: var(--space-md);
+  padding: 0 var(--space-xs);
+}
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.breadcrumb-link {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+
+.breadcrumb-link:hover {
+  color: var(--color-primary);
+}
+
+.breadcrumb-link .material-icon {
+  font-size: 14px;
+}
+
+.breadcrumb-separator {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  opacity: 0.5;
+}
+
+.breadcrumb-current {
+  color: var(--color-text-muted);
+  font-weight: 500;
 }
 
 .header-right {

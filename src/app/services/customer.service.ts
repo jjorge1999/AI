@@ -1,9 +1,11 @@
 import { Injectable, signal, WritableSignal, computed } from '@angular/core';
 import { BehaviorSubject, Observable, of, throwError, from } from 'rxjs';
-import { map, tap, catchError } from 'rxjs/operators';
+import { map, tap, catchError, take, finalize } from 'rxjs/operators';
 import { Customer } from '../models/inventory.models';
 import { StoreService } from './store.service';
 import { FirebaseService } from './firebase.service';
+import { LoadingService } from './loading.service';
+import { IndexedDbService } from './indexed-db.service';
 import {
   collection,
   getDocs,
@@ -34,7 +36,9 @@ export class CustomerService {
 
   constructor(
     private firebaseService: FirebaseService,
-    private storeService: StoreService
+    private storeService: StoreService,
+    private indexedDbService: IndexedDbService,
+    private loadingService: LoadingService
   ) {
     this.hydrateFromCache();
 
@@ -50,21 +54,33 @@ export class CustomerService {
   }
 
   private hydrateFromCache(): void {
-    const cached = localStorage.getItem('jjm_cached_customers');
-    if (cached) {
-      try {
-        const customers = JSON.parse(cached);
-        this._customers.set(customers);
-        this.customersSubject.next(customers);
-        console.log('Hydrated Customers from cache');
-      } catch (e) {
-        console.warn('Failed to hydrate customers from cache', e);
-      }
-    }
+    this.indexedDbService
+      .get('jjm_cached_customers')
+      .pipe(take(1))
+      .subscribe({
+        next: (cached) => {
+          if (cached) {
+            try {
+              this._customers.set(cached);
+              this.customersSubject.next(cached);
+              console.log('Hydrated Customers from IndexedDB');
+            } catch (e) {
+              console.warn('Failed to parse cached customers', e);
+            }
+          }
+        },
+        error: (err) =>
+          console.warn('Failed to hydrate customers from IndexedDB', err),
+      });
   }
 
   private saveToCache(customers: Customer[]): void {
-    localStorage.setItem('jjm_cached_customers', JSON.stringify(customers));
+    this.indexedDbService
+      .set('jjm_cached_customers', customers)
+      .pipe(take(1))
+      .subscribe({
+        error: (err) => console.error('Failed to save customers to cache', err),
+      });
   }
 
   public loadCustomers(force = false): void {
@@ -204,9 +220,12 @@ export class CustomerService {
       createdAt: new Date(),
     } as Customer;
 
+    const sanitized = this.sanitizeData(newCustomer);
+
     const docRef = doc(this.db, 'customers', id);
-    return from(setDoc(docRef, newCustomer)).pipe(
-      map(() => newCustomer),
+    this.loadingService.show('Adding customer...');
+    return from(setDoc(docRef, sanitized)).pipe(
+      map(() => sanitized),
       tap((created) => {
         const current = this._customers();
         const updated = [...current, created];
@@ -217,18 +236,20 @@ export class CustomerService {
       catchError((err) => {
         console.error('Error adding customer:', err);
         return throwError(() => err);
-      })
+      }),
+      finalize(() => this.loadingService.hide())
     );
   }
 
   updateCustomer(id: string, updates: Partial<Customer>): Observable<Customer> {
-    const payload = { ...updates };
+    const payload = this.sanitizeData({ ...updates });
     if (payload.storeId) {
       payload.storeId = this.enforceStoreId(payload.storeId);
     }
 
     const docRef = doc(this.db, 'customers', id);
-    return from(updateDoc(docRef, payload as Record<string, any>)).pipe(
+    this.loadingService.show('Updating customer...');
+    return from(updateDoc(docRef, payload)).pipe(
       map(() => {
         const current = this._customers();
         const existing = current.find((c) => c.id === id);
@@ -246,12 +267,14 @@ export class CustomerService {
       catchError((err) => {
         console.error('Error updating customer:', err);
         return throwError(() => err);
-      })
+      }),
+      finalize(() => this.loadingService.hide())
     );
   }
 
   deleteCustomer(id: string): Observable<void> {
     const docRef = doc(this.db, 'customers', id);
+    this.loadingService.show('Deleting customer...');
     return from(deleteDoc(docRef)).pipe(
       tap(() => {
         const current = this._customers();
@@ -263,7 +286,8 @@ export class CustomerService {
       catchError((err) => {
         console.error('Error deleting customer:', err);
         return throwError(() => err);
-      })
+      }),
+      finalize(() => this.loadingService.hide())
     );
   }
 
@@ -287,5 +311,29 @@ export class CustomerService {
 
     // Admins and others are restricted to their own store
     return userStoreId || requestedId;
+  }
+
+  private sanitizeData(data: any): any {
+    if (data === null || typeof data !== 'object') {
+      return data;
+    }
+
+    if (data instanceof Date) {
+      return data;
+    }
+
+    if (Array.isArray(data)) {
+      return data.map((v) => this.sanitizeData(v));
+    }
+
+    const result: any = {};
+    Object.keys(data).forEach((key) => {
+      const value = data[key];
+      if (value !== undefined) {
+        result[key] = this.sanitizeData(value);
+      }
+    });
+
+    return result;
   }
 }

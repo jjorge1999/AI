@@ -44,6 +44,7 @@
             <p class="product-name">{{ product.name }}</p>
             <div class="product-meta">
               <span class="product-price">{{ formatCurrency(product.price) }}</span>
+              <span class="product-cost" *ngIf="product.cost">Cost: {{ formatCurrency(product.cost) }}</span>
               <span class="product-stock">Qty: {{ product.quantity }}</span>
             </div>
           </div>
@@ -142,10 +143,6 @@
           <span class="material-icon">local_shipping</span>
           <span class="action-label">Delivery</span>
         </button>
-        <button class="action-btn" (click)="openNotesModal()">
-          <span class="material-icon">edit_note</span>
-          <span class="action-label">Notes</span>
-        </button>
         <button class="action-btn" (click)="openReceiptPreview()">
           <span class="material-icon">receipt_long</span>
           <span class="action-label">Print View</span>
@@ -169,7 +166,38 @@
       <div class="order-summary">
         <div class="summary-row">
           <span>Subtotal</span>
-          <span>{{ formatCurrency(total) }}</span>
+          <span>{{ formatCurrency(subtotal) }}</span>
+        </div>
+        <!-- Delivery Fee -->
+        <div class="summary-row fee-row" *ngIf="deliveryFee > 0">
+          <span class="fee-label">
+            <span class="material-icon">local_shipping</span>
+            Delivery Fee
+          </span>
+          <span>{{ formatCurrency(deliveryFee) }}</span>
+        </div>
+        <!-- Service Fee -->
+        <div class="summary-row fee-row" *ngIf="serviceFee > 0">
+          <span class="fee-label">
+            <span class="material-icon">room_service</span>
+            Service Fee
+          </span>
+          <span>{{ formatCurrency(serviceFee) }}</span>
+        </div>
+        <!-- Cost & Profit Summary -->
+        <div class="summary-row cost-summary" *ngIf="totalCost > 0">
+          <span class="cost-label">
+            <span class="material-icon">payments</span>
+            Total Cost
+          </span>
+          <span class="cost-value">{{ formatCurrency(totalCost) }}</span>
+        </div>
+        <div class="summary-row profit-summary" *ngIf="totalCost > 0">
+          <span class="profit-label">
+            <span class="material-icon">trending_up</span>
+            Est. Profit
+          </span>
+          <span class="profit-value">{{ formatCurrency(total - totalCost) }}</span>
         </div>
         <div class="summary-row total-row">
           <span>Total</span>
@@ -377,6 +405,37 @@
       <div class="form-group">
         <label>Notes</label>
         <textarea [(ngModel)]="deliveryNotes" rows="3" placeholder="Special instructions..."></textarea>
+      </div>
+      
+      <!-- Fee Inputs -->
+      <div class="fee-inputs-row">
+        <div class="form-group">
+          <label>
+            <span class="material-icon">local_shipping</span>
+            Delivery Fee
+          </label>
+          <div class="fee-input-wrapper">
+            <span class="currency-symbol">₱</span>
+            <input type="number" [(ngModel)]="deliveryFee" min="0" step="10" placeholder="0" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>
+            <span class="material-icon">room_service</span>
+            Service Fee
+          </label>
+          <div class="fee-input-wrapper">
+            <span class="currency-symbol">₱</span>
+            <input type="number" [(ngModel)]="serviceFee" min="0" step="10" placeholder="0" />
+          </div>
+        </div>
+      </div>
+      <!-- Info Notice -->
+      <div class="delivery-info-notice">
+        <span class="material-icon">info</span>
+        <div class="notice-content">
+          <strong>Note:</strong> Setting delivery date to <strong>today</strong> or leaving it empty will treat this as a <strong>direct sale</strong> and mark it as completed immediately. Set a <strong>future date</strong> for pending deliveries.
+        </div>
       </div>
     </div>
     <div class="modal-actions">

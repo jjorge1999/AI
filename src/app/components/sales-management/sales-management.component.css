@@ -693,11 +693,10 @@
   box-shadow: var(--shadow-md);
 }
 
-/* Search Box Placeholder */
+/* Search Box */
 .search-box {
   position: relative;
   width: 250px;
-  opacity: 0.6;
 }
 
 .search-box input {
@@ -706,7 +705,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-bg);
-  cursor: not-allowed;
+  cursor: text;
 }
 
 .search-box .material-symbols-outlined {

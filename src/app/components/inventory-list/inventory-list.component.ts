@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { InventoryService } from '../../services/inventory.service';
 import { CustomerService } from '../../services/customer.service';
 import { DialogService } from '../../services/dialog.service';
+import { PrintService, ReceiptData } from '../../services/print.service';
+import { StoreService } from '../../services/store.service';
 import { Product, Sale, Customer } from '../../models/inventory.models';
 import { Subscription } from 'rxjs';
 import { DeviceService } from '../../services/device.service';
@@ -66,12 +68,19 @@ export class InventoryListComponent implements OnInit, OnDestroy {
   pendingPage = 1;
   pendingPageSize = 10;
 
+  // Search Queries for tables
+  globalSearchQuery = '';
+  stockSearchQuery = '';
+  salesSearchQuery = '';
+  pendingSearchQuery = '';
+
   // Edit Modal State
   isEditModalOpen = false;
   editingProduct: Product | null = null;
   editProductName: string = '';
   editProductQuantity: number = 0;
   editProductPrice: number = 0;
+  editProductCost: number = 0;
   editProductImage: string = '';
   editImagePreview: string | null = null;
 
@@ -80,11 +89,27 @@ export class InventoryListComponent implements OnInit, OnDestroy {
   restockingProduct: Product | null = null;
   restockQuantity: number = 0;
 
+  // Breakdown Modal State
+  isBreakdownModalOpen = false;
+  breakdownProduct: Product | null = null;
+  breakdownQuantity: number = 0;
+  breakdownCostPerUnit: number = 0;
+  breakdownNotes: string = '';
+
+  // Receipt Preview State
+  isReceiptPreviewOpen = false;
+  lastReceiptData: any = null;
+  isPrinting = false;
+  printerStatus$ = this.printService.connectionStatus$;
+  printerName$ = this.printService.deviceName$;
+
   constructor(
     private inventoryService: InventoryService,
     private customerService: CustomerService,
     private dialogService: DialogService,
-    private deviceService: DeviceService
+    private deviceService: DeviceService,
+    private printService: PrintService,
+    private storeService: StoreService
   ) {}
 
   ngOnInit(): void {
@@ -95,6 +120,13 @@ export class InventoryListComponent implements OnInit, OnDestroy {
     if (this.isMobile()) {
       this.inventoryViewMode = 'grid';
     }
+  }
+
+  onHeaderSearchChange(query: string): void {
+    this.globalSearchQuery = query;
+    this.availableProductsPage = 1;
+    this.salesPage = 1;
+    this.pendingPage = 1;
   }
 
   ngOnDestroy(): void {
@@ -162,7 +194,7 @@ export class InventoryListComponent implements OnInit, OnDestroy {
       });
     });
 
-    return result.sort((a, b) => {
+    let sorted = result.sort((a, b) => {
       const aTime = a.deliveryDate
         ? new Date(a.deliveryDate).getTime()
         : Infinity;
@@ -171,6 +203,28 @@ export class InventoryListComponent implements OnInit, OnDestroy {
         : Infinity;
       return aTime - bTime;
     });
+
+    // Apply search filter (Global and specific)
+    if (this.globalSearchQuery) {
+      const q = this.globalSearchQuery.toLowerCase().trim();
+      sorted = sorted.filter(
+        (s) =>
+          s.productName?.toLowerCase().includes(q) ||
+          s.customerName?.toLowerCase().includes(q) ||
+          s.orderId?.toLowerCase().includes(q)
+      );
+    }
+    if (this.pendingSearchQuery) {
+      const q = this.pendingSearchQuery.toLowerCase().trim();
+      sorted = sorted.filter(
+        (s) =>
+          s.productName?.toLowerCase().includes(q) ||
+          s.customerName?.toLowerCase().includes(q) ||
+          s.orderId?.toLowerCase().includes(q)
+      );
+    }
+
+    return sorted;
   }
 
   get filteredSales(): Sale[] {
@@ -184,8 +238,133 @@ export class InventoryListComponent implements OnInit, OnDestroy {
     return completed.filter((s: Sale) => s.category === this.selectedCategory);
   }
 
+  /**
+   * Groups completed sales by orderId to show unique orders.
+   * Returns an array of grouped order objects.
+   */
+  get groupedCompletedSales(): any[] {
+    const sales = this.filteredSales;
+    const groups = new Map<string, Sale[]>();
+    const singles: Sale[] = [];
+
+    sales.forEach((sale) => {
+      if (sale.orderId) {
+        if (!groups.has(sale.orderId)) {
+          groups.set(sale.orderId, []);
+        }
+        groups.get(sale.orderId)!.push(sale);
+      } else {
+        // Sales without orderId are treated as single-item orders
+        singles.push(sale);
+      }
+    });
+
+    const result: any[] = [];
+
+    // Process grouped orders
+    groups.forEach((groupSales, orderId) => {
+      const first = groupSales[0];
+      const totalAmount = groupSales.reduce((sum, s) => sum + s.total, 0);
+      const totalQty = groupSales.reduce((sum, s) => sum + s.quantitySold, 0);
+      const productNames = groupSales.map((s) => s.productName).join(', ');
+
+      result.push({
+        isGroup: true,
+        orderId,
+        sales: groupSales,
+        productName:
+          groupSales.length > 1
+            ? `${groupSales.length} items`
+            : first.productName,
+        productNamesFull: productNames,
+        customerName: this.getCustomerName(first),
+        quantitySold: totalQty,
+        total: totalAmount,
+        timestamp: first.timestamp,
+        category: first.category,
+        id: first.id,
+      });
+    });
+
+    // Process single sales
+    singles.forEach((sale) => {
+      result.push({
+        isGroup: false,
+        orderId: sale.id,
+        sales: [sale],
+        productName: sale.productName,
+        productNamesFull: sale.productName,
+        customerName: this.getCustomerName(sale),
+        quantitySold: sale.quantitySold,
+        total: sale.total,
+        timestamp: sale.timestamp,
+        category: sale.category,
+        id: sale.id,
+      });
+    });
+
+    // Sort by timestamp descending (newest first)
+    let sorted = result.sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    // Apply search filter (Global and specific)
+    if (this.globalSearchQuery) {
+      const q = this.globalSearchQuery.toLowerCase().trim();
+      sorted = sorted.filter(
+        (s) =>
+          s.productName?.toLowerCase().includes(q) ||
+          s.productNamesFull?.toLowerCase().includes(q) ||
+          s.customerName?.toLowerCase().includes(q) ||
+          s.orderId?.toLowerCase().includes(q)
+      );
+    }
+    if (this.salesSearchQuery) {
+      const q = this.salesSearchQuery.toLowerCase().trim();
+      sorted = sorted.filter(
+        (s) =>
+          s.productName?.toLowerCase().includes(q) ||
+          s.productNamesFull?.toLowerCase().includes(q) ||
+          s.customerName?.toLowerCase().includes(q) ||
+          s.orderId?.toLowerCase().includes(q)
+      );
+    }
+
+    return sorted;
+  }
+
+  get paginatedSales(): any[] {
+    const start = (this.salesPage - 1) * this.salesPageSize;
+    const end = start + this.salesPageSize;
+    return this.groupedCompletedSales.slice(start, end);
+  }
+
+  get salesTotalPages(): number {
+    return Math.ceil(this.groupedCompletedSales.length / this.salesPageSize);
+  }
+
   get availableProducts(): Product[] {
-    return this.productsSignal().filter((p: Product) => p.quantity > 0);
+    let products = this.productsSignal();
+
+    if (this.globalSearchQuery) {
+      const q = this.globalSearchQuery.toLowerCase().trim();
+      products = products.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.category?.toLowerCase().includes(q)
+      );
+    }
+    if (this.stockSearchQuery) {
+      const q = this.stockSearchQuery.toLowerCase().trim();
+      products = products.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.category?.toLowerCase().includes(q)
+      );
+    }
+
+    return products;
   }
 
   get paginatedAvailableProducts(): Product[] {
@@ -202,7 +381,28 @@ export class InventoryListComponent implements OnInit, OnDestroy {
   }
 
   get outOfStockProducts(): Product[] {
-    return this.productsSignal().filter((p: Product) => p.quantity === 0);
+    let products = this.productsSignal().filter(
+      (p: Product) => p.quantity === 0
+    );
+
+    if (this.globalSearchQuery) {
+      const q = this.globalSearchQuery.toLowerCase().trim();
+      products = products.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.category?.toLowerCase().includes(q)
+      );
+    }
+    if (this.stockSearchQuery) {
+      const q = this.stockSearchQuery.toLowerCase().trim();
+      products = products.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.category?.toLowerCase().includes(q)
+      );
+    }
+
+    return products;
   }
 
   get paginatedOutOfStockProducts(): Product[] {
@@ -213,16 +413,6 @@ export class InventoryListComponent implements OnInit, OnDestroy {
 
   get outOfStockTotalPages(): number {
     return Math.ceil(this.outOfStockProducts.length / this.outOfStockPageSize);
-  }
-
-  get paginatedSales(): Sale[] {
-    const start = (this.salesPage - 1) * this.salesPageSize;
-    const end = start + this.salesPageSize;
-    return this.filteredSales.slice(start, end);
-  }
-
-  get salesTotalPages(): number {
-    return Math.ceil(this.filteredSales.length / this.salesPageSize);
   }
 
   get salesByCategory(): { category: string; total: number; count: number }[] {
@@ -389,11 +579,67 @@ export class InventoryListComponent implements OnInit, OnDestroy {
     }
   }
 
+  // Breakdown Methods
+  onBreakdown(product: Product): void {
+    this.breakdownProduct = product;
+    this.breakdownQuantity = 1; // Default to 1
+    this.breakdownCostPerUnit = product.cost || 0;
+    this.breakdownNotes = `Breakdown of ${product.name}`;
+    this.isBreakdownModalOpen = true;
+  }
+
+  closeBreakdownModal(): void {
+    this.isBreakdownModalOpen = false;
+    this.breakdownProduct = null;
+    this.breakdownQuantity = 0;
+    this.breakdownCostPerUnit = 0;
+    this.breakdownNotes = '';
+  }
+
+  confirmBreakdown(): void {
+    if (this.breakdownProduct && this.breakdownQuantity > 0) {
+      if (this.breakdownQuantity > this.breakdownProduct.quantity) {
+        this.dialogService.warning(
+          `Only ${this.breakdownProduct.quantity} items available for breakdown.`,
+          'Insufficient Quantity'
+        );
+        return;
+      }
+
+      const totalCost = this.breakdownQuantity * this.breakdownCostPerUnit;
+
+      // 1. Deduct from inventory
+      this.inventoryService
+        .updateProduct({
+          ...this.breakdownProduct,
+          quantity: this.breakdownProduct.quantity - this.breakdownQuantity,
+        })
+        .subscribe();
+
+      // 2. Record as expense
+      this.inventoryService
+        .addExpense({
+          productName: `[Breakdown] ${this.breakdownProduct.name}`,
+          price: totalCost,
+          notes: this.breakdownNotes || `Used for production/breakdown`,
+        })
+        .subscribe();
+
+      this.dialogService.success(
+        `${this.breakdownQuantity} items of ${this.breakdownProduct.name} broken down and tracked as ₱${totalCost} expense.`,
+        'Breakdown Successful'
+      );
+
+      this.closeBreakdownModal();
+    }
+  }
+
   openEditModal(product: Product): void {
     this.editingProduct = product;
     this.editProductName = product.name;
     this.editProductQuantity = product.quantity;
     this.editProductPrice = product.price;
+    this.editProductCost = product.cost || 0;
     this.editProductImage = product.imageUrl || '';
     this.editImagePreview = product.imageUrl || null;
     this.isEditModalOpen = true;
@@ -405,6 +651,7 @@ export class InventoryListComponent implements OnInit, OnDestroy {
     this.editProductName = '';
     this.editProductQuantity = 0;
     this.editProductPrice = 0;
+    this.editProductCost = 0;
     this.editProductImage = '';
     this.editImagePreview = null;
   }
@@ -495,6 +742,7 @@ export class InventoryListComponent implements OnInit, OnDestroy {
       name: this.editProductName,
       quantity: this.editProductQuantity,
       price: this.editProductPrice,
+      cost: this.editProductCost,
       imageUrl: this.editProductImage,
     };
 
@@ -613,5 +861,142 @@ export class InventoryListComponent implements OnInit, OnDestroy {
     });
 
     this.closeEditDeliveryModal();
+  }
+
+  // Print/Reprint receipt for a completed sale
+  closeReceiptPreview(): void {
+    this.isReceiptPreviewOpen = false;
+  }
+
+  async reprintReceipt(sale: Sale): Promise<void> {
+    // 1. Find all items in the same order if orderId exists
+    let orderItems: Sale[] = [sale];
+    if (sale.orderId) {
+      orderItems = this.salesSignal().filter((s) => s.orderId === sale.orderId);
+    }
+
+    const store = this.storeService.stores().find((s) => s.id === sale.storeId);
+
+    // 2. Build receipt data
+    this.lastReceiptData = {
+      storeName: store?.name || 'JJM Store',
+      storeAddress: store?.address,
+      storePhone: store?.phoneNumber,
+      orderId: sale.orderId || sale.id?.slice(-8) || 'N/A',
+      date:
+        sale.timestamp instanceof Date
+          ? sale.timestamp
+          : new Date(sale.timestamp),
+      items: orderItems.map((s) => ({
+        name: s.productName,
+        quantity: s.quantitySold,
+        price: s.price || s.total / s.quantitySold,
+        discount: s.discount,
+        discountType: s.discountType,
+        total: s.total,
+      })),
+      totalDiscount: orderItems.reduce((sum, s) => sum + (s.discount || 0), 0),
+      total: orderItems.reduce((sum, s) => sum + (s.total || 0), 0),
+      cashReceived: sale.cashReceived || 0,
+      change: sale.change || 0,
+      customerName: this.getCustomerName(sale) || undefined,
+      deliveryDate: sale.deliveryDate ? new Date(sale.deliveryDate) : undefined,
+      notes: sale.deliveryNotes,
+    };
+
+    // 3. Open preview modal
+    this.isReceiptPreviewOpen = true;
+  }
+
+  onDeleteSale(sale: Sale): void {
+    this.dialogService
+      .confirm(
+        `Are you sure you want to delete the sale for ${sale.productName}? This will remove it from history and restore stock.`,
+        'Delete Sale'
+      )
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          this.inventoryService.deleteSale(sale.id);
+          this.dialogService.success('Sale deleted successfully', 'Deleted');
+        }
+      });
+  }
+
+  /**
+   * Delete all sales in a grouped order
+   */
+  onDeleteGroupedSale(group: any): void {
+    const itemCount = group.sales?.length || 1;
+    const message =
+      itemCount > 1
+        ? `Are you sure you want to delete this order with ${itemCount} items? This will remove all items and restore stock.`
+        : `Are you sure you want to delete this sale? This will remove it from history and restore stock.`;
+
+    this.dialogService
+      .confirm(message, 'Delete Order')
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          // Delete all sales in the group
+          group.sales.forEach((sale: Sale) => {
+            this.inventoryService.deleteSale(sale.id);
+          });
+          this.dialogService.success(
+            itemCount > 1
+              ? `Order with ${itemCount} items deleted`
+              : 'Sale deleted successfully',
+            'Deleted'
+          );
+        }
+      });
+  }
+
+  async printFromPreview(): Promise<void> {
+    if (!this.printService.isConnected()) {
+      this.dialogService.warning(
+        'Printer not connected. Please connect a Bluetooth printer first.',
+        'Printer Not Connected'
+      );
+      return;
+    }
+
+    this.isPrinting = true;
+    try {
+      await this.printService.printReceipt(this.lastReceiptData);
+      this.isReceiptPreviewOpen = false;
+      this.dialogService.success(
+        'Receipt printed successfully!',
+        'Print Complete'
+      );
+    } catch (error: any) {
+      this.dialogService.error(
+        error.message || 'Failed to print receipt',
+        'Print Error'
+      );
+    } finally {
+      this.isPrinting = false;
+    }
+  }
+
+  async connectPrinter(): Promise<void> {
+    try {
+      await this.printService.connectPrinter();
+      this.dialogService.success(
+        'Printer connected successfully!',
+        'Connected'
+      );
+    } catch (error: any) {
+      this.dialogService.error(
+        error.message || 'Failed to connect printer',
+        'Connection Error'
+      );
+    }
+  }
+
+  formatCurrency(value: number): string {
+    return new Intl.NumberFormat('en-PH', {
+      style: 'currency',
+      currency: 'PHP',
+      minimumFractionDigits: 2,
+    }).format(value);
   }
 }

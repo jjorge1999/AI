@@ -68,7 +68,7 @@
     </div>
     
     <div class="campaigns-grid">
-      <div *ngFor="let sale of sales" class="campaign-card" [class.active]="isSaleActive(sale)">
+      <div *ngFor="let sale of filteredSales" class="campaign-card" [class.active]="isSaleActive(sale)">
         <div class="card-header">
           <div class="campaign-info">
             <div class="campaign-icon">{{ sale.bannerIcon || '🎉' }}</div>
@@ -108,7 +108,7 @@
       </div>
       
       <!-- Empty State -->
-      <div *ngIf="sales.length === 0" class="empty-campaigns">
+      <div *ngIf="filteredSales.length === 0" class="empty-campaigns">
         <p>No campaigns found.</p>
       </div>
     </div>
@@ -140,7 +140,7 @@
         <!-- Search placeholder -->
         <div class="search-box">
           <span class="material-symbols-outlined">search</span>
-          <input type="text" placeholder="Search..." disabled title="Search coming soon">
+          <input type="text" placeholder="Search..." [(ngModel)]="searchQuery" (ngModelChange)="currentPage = 1">
         </div>
       </div>
     </div>
@@ -202,14 +202,14 @@
     </div>
 
     <!-- Empty State -->
-    <div *ngIf="discountedProducts.length === 0" class="empty-state-card">
-      <p class="text-center text-muted">No products currently on sale.</p>
+    <div *ngIf="totalFilteredDiscountedCount === 0" class="empty-state-card">
+      <p class="text-center text-muted">No products found for this search.</p>
     </div>
     
     <!-- Pagination Controls -->
-    <div class="pagination" *ngIf="discountedProducts.length > 0">
+    <div class="pagination" *ngIf="totalFilteredDiscountedCount > 0">
       <div class="pagination-size">
-        Showing {{ startRange }}-{{ endRange }} of {{ discountedProducts.length }} results
+        Showing {{ startRange }}-{{ endRange }} of {{ totalFilteredDiscountedCount }} results
       </div>
       <div class="pagination-controls">
         <button class="pagination-btn" [disabled]="currentPage === 1" (click)="prevPage()">

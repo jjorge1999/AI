@@ -17,7 +17,7 @@ import { UserService } from './services/user.service';
 import { InventoryService } from './services/inventory.service';
 import { ChatService } from './services/chat.service';
 import { StoreService } from './services/store.service';
-import { Store, User } from './models/inventory.models';
+import { Store, User, NotificationTypes } from './models/inventory.models';
 import { DialogComponent } from './components/dialog/dialog.component';
 import { LoadingComponent } from './components/loading/loading.component';
 import { ChatComponent } from './components/chat/chat.component';
@@ -25,6 +25,7 @@ import { MaintenanceComponent } from './components/maintenance/maintenance.compo
 import { MaintenanceService } from './services/maintenance.service';
 import { Subscription } from 'rxjs';
 import { filter, take } from 'rxjs/operators';
+import { BreadcrumbService, Breadcrumb } from './services/breadcrumb.service';
 import {
   NotificationService,
   AdminNotification,
@@ -68,6 +69,7 @@ export class AppComponent implements OnInit, OnDestroy {
   isVisionAid = false;
   isLoginPage = false;
   isReservationPage = false;
+  breadcrumbs: Breadcrumb[] = [];
 
   // Store state
   stores: Store[] = [];
@@ -92,9 +94,13 @@ export class AppComponent implements OnInit, OnDestroy {
     private deviceService: DeviceService,
     private storeService: StoreService,
     private maintenanceService: MaintenanceService,
+    private breadcrumbService: BreadcrumbService,
     private router: Router,
     private ngZone: NgZone
   ) {
+    this.breadcrumbService.breadcrumbs$.subscribe((breadcrumbs) => {
+      this.breadcrumbs = breadcrumbs;
+    });
     // Check login status via service for reactivity
     this.userService.isLoggedIn$.subscribe((loggedIn) => {
       this.isLoggedIn = loggedIn;
@@ -549,7 +555,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const isNew = this.notificationService.pushNotification(
       title,
       message,
-      'reminder',
+      NotificationTypes.REMINDER,
       sale.storeId
     );
 

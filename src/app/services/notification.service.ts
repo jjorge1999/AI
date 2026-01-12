@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { IndexedDbService } from './indexed-db.service';
 import { FirebaseService } from './firebase.service';
 import { StoreService } from './store.service';
 import {
@@ -7,7 +8,9 @@ import {
   onMessage,
   Messaging,
 } from 'firebase/messaging';
-import { BehaviorSubject, Observable, Subscription } from 'rxjs';
+import { BehaviorSubject, Observable, Subscription, from } from 'rxjs';
+import { take, finalize } from 'rxjs/operators';
+import { LoadingService } from './loading.service';
 import {
   doc,
   updateDoc,
@@ -19,13 +22,14 @@ import {
   where,
   arrayUnion,
 } from 'firebase/firestore';
+import { NotificationTypes } from '../models/inventory.models';
 
 export interface AdminNotification {
   id: string;
   title: string;
   body: string;
   timestamp: Date;
-  type: 'message' | 'reservation' | 'delivery' | 'system' | 'reminder';
+  type: NotificationTypes | string;
   read: boolean;
   storeId?: string; // Store-specific notifications
 }
@@ -51,7 +55,9 @@ export class NotificationService {
 
   constructor(
     private firebaseService: FirebaseService,
-    private storeService: StoreService
+    private storeService: StoreService,
+    private indexedDbService: IndexedDbService,
+    private loadingService: LoadingService
   ) {
     this.db = this.firebaseService.db;
     this.messaging = getMessaging(this.firebaseService.app);
@@ -74,13 +80,13 @@ export class NotificationService {
     );
   }
 
-  private migrateOldNotifications(): void {
+  private async migrateOldNotifications(): Promise<void> {
     // Clear old non-store-specific notifications to prevent cross-store leakage
     const oldKey = 'jjm_admin_notifications';
     if (localStorage.getItem(oldKey)) {
       localStorage.removeItem(oldKey);
       console.log(
-        'NotificationService: Cleared old non-store-specific notifications'
+        'NotificationService: Cleared old non-store-specific notifications (LocalStorage)'
       );
     }
   }
@@ -92,36 +98,54 @@ export class NotificationService {
   }
 
   private loadPersistedNotifications() {
-    const saved = localStorage.getItem(this.getStorageKey());
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // Convert string dates back to Date objects
-        const formatted = parsed.map((n: any) => ({
-          ...n,
-          timestamp: new Date(n.timestamp),
-        }));
-        this.notificationsSubject.next(formatted);
-
-        // Recalculate unread count
-        const unreadCount = formatted.filter((n: any) => !n.read).length;
-        this.notificationCountSubject.next(unreadCount);
-      } catch (e) {
-        console.error('Failed to load persisted notifications', e);
-        this.notificationsSubject.next([]);
-        this.notificationCountSubject.next(0);
-      }
-    } else {
-      this.notificationsSubject.next([]);
-      this.notificationCountSubject.next(0);
-    }
+    this.indexedDbService
+      .get(this.getStorageKey())
+      .pipe(take(1))
+      .subscribe({
+        next: (saved) => {
+          if (saved) {
+            try {
+              // Convert string dates back to Date objects
+              const notifications = saved.map((n: AdminNotification) => ({
+                ...n,
+                timestamp: new Date(n.timestamp),
+              }));
+              this.notificationsSubject.next(notifications);
+              this.updateUnreadCount(notifications);
+            } catch (e) {
+              console.warn('Failed to parse saved notifications', e);
+              this.notificationsSubject.next([]);
+              this.updateUnreadCount([]);
+            }
+          } else {
+            this.notificationsSubject.next([]);
+            this.updateUnreadCount([]);
+          }
+        },
+        error: (err) => {
+          console.warn('Failed to load notifications from cache', err);
+          this.notificationsSubject.next([]);
+          this.updateUnreadCount([]);
+        },
+      });
   }
 
-  private persistNotifications() {
-    localStorage.setItem(
-      this.getStorageKey(),
-      JSON.stringify(this.notificationsSubject.value)
-    );
+  private persistNotifications(notifications: AdminNotification[]) {
+    // Only persist if we have a valid store context
+    if (!this.activeStoreId) {
+      return;
+    }
+    this.indexedDbService
+      .set(this.getStorageKey(), notifications)
+      .pipe(take(1))
+      .subscribe({
+        error: (err) => console.error('Failed to persist notifications', err),
+      });
+  }
+
+  private updateUnreadCount(notifications: AdminNotification[]): void {
+    const unreadCount = notifications.filter((n) => !n.read).length;
+    this.notificationCountSubject.next(unreadCount);
   }
 
   async requestPermission() {
@@ -191,13 +215,13 @@ export class NotificationService {
     });
   }
 
-  private determineType(payload: any): AdminNotification['type'] {
+  private determineType(payload: any): NotificationTypes {
     const data = payload.data || {};
-    if (data.type === 'chat_message') return 'message';
-    if (data.type === 'new_reservation') return 'reservation';
-    if (data.type === 'delivery_update') return 'delivery';
-    if (data.type === 'delivery_reminder') return 'reminder';
-    return 'system';
+    if (data.type === 'chat_message') return NotificationTypes.MESSAGE;
+    if (data.type === 'new_reservation') return NotificationTypes.RESERVATION;
+    if (data.type === 'delivery_update') return NotificationTypes.DELIVERY;
+    if (data.type === 'delivery_reminder') return NotificationTypes.REMINDER;
+    return NotificationTypes.SYSTEM;
   }
 
   /**
@@ -210,7 +234,7 @@ export class NotificationService {
   public pushNotification(
     title: string,
     body: string,
-    type: AdminNotification['type'] = 'system',
+    type: NotificationTypes = NotificationTypes.SYSTEM,
     targetStoreId?: string
   ): boolean {
     console.log(
@@ -260,48 +284,68 @@ export class NotificationService {
   private saveNotificationToStore(
     title: string,
     body: string,
-    type: AdminNotification['type'],
+    type: NotificationTypes,
     storeId: string
   ): void {
     const storageKey = `jjm_admin_notifications_${storeId}`;
     let notifications: AdminNotification[] = [];
 
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try {
-        notifications = JSON.parse(saved).map((n: any) => ({
-          ...n,
-          timestamp: new Date(n.timestamp),
-        }));
-      } catch (e) {
-        console.error(
-          'Failed to parse stored notifications for store',
-          storeId
-        );
-      }
-    }
+    this.indexedDbService
+      .get(storageKey)
+      .pipe(take(1))
+      .subscribe({
+        next: (saved) => {
+          if (saved) {
+            try {
+              notifications = saved.map((n: any) => ({
+                ...n,
+                timestamp: new Date(n.timestamp),
+              }));
+            } catch (e) {
+              console.error(
+                'Failed to parse stored notifications for store',
+                storeId,
+                e
+              );
+            }
+          }
 
-    // Check for duplicates
-    const exists = notifications.some(
-      (n) => n.title === title && n.body === body
-    );
-    if (exists) return;
+          const newNotification: AdminNotification = {
+            id: Date.now().toString(),
+            title,
+            body,
+            timestamp: new Date(),
+            type,
+            read: false,
+            storeId,
+          };
 
-    const notification: AdminNotification = {
-      id: Date.now().toString(),
-      title,
-      body,
-      timestamp: new Date(),
-      type,
-      read: false,
-      storeId,
-    };
+          const updatedNotifications = [
+            newNotification,
+            ...notifications,
+          ].slice(0, 15);
 
-    notifications = [notification, ...notifications].slice(0, 15);
-    localStorage.setItem(storageKey, JSON.stringify(notifications));
-    console.log(
-      `NotificationService: Saved notification to store ${storeId} storage`
-    );
+          this.indexedDbService
+            .set(storageKey, updatedNotifications)
+            .pipe(take(1))
+            .subscribe({
+              error: (err) =>
+                console.error(
+                  'Failed to save updated notifications for store',
+                  storeId,
+                  err
+                ),
+            });
+
+          if (this.activeStoreId === storeId) {
+            this.notificationsSubject.next(updatedNotifications);
+            this.updateUnreadCount(updatedNotifications);
+          }
+        },
+        error: (err) => {
+          console.error('Failed to get notifications for store', storeId, err);
+        },
+      });
   }
 
   private addNotification(notif: AdminNotification) {
@@ -309,7 +353,7 @@ export class NotificationService {
     const updated = [notif, ...current].slice(0, 15); // Keep last 15
     this.notificationsSubject.next(updated);
     this.notificationCountSubject.next(this.notificationCountSubject.value + 1);
-    this.persistNotifications();
+    this.persistNotifications(updated);
   }
 
   resetNotificationCount() {
@@ -319,12 +363,12 @@ export class NotificationService {
       read: true,
     }));
     this.notificationsSubject.next(updated);
-    this.persistNotifications();
+    this.persistNotifications(updated);
   }
 
   clearNotifications() {
     this.notificationsSubject.next([]);
     this.notificationCountSubject.next(0);
-    this.persistNotifications();
+    this.persistNotifications([]);
   }
 }

@@ -68,7 +68,8 @@ export class ExpensesComponent implements OnInit, OnDestroy {
       this.inventoryService.getExpenses().subscribe((expenses) => {
         this.expenses = expenses.sort(
           (a, b) =>
-            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+            this.parseTimestamp(b.timestamp).getTime() -
+            this.parseTimestamp(a.timestamp).getTime()
         );
       })
     );
@@ -119,7 +120,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     return this.expenses
-      .filter((e) => new Date(e.timestamp) >= startOfMonth)
+      .filter((e) => this.parseTimestamp(e.timestamp) >= startOfMonth)
       .reduce((sum, e) => sum + e.price, 0);
   }
 
@@ -312,5 +313,46 @@ export class ExpensesComponent implements OnInit, OnDestroy {
       Other: 'gray',
     };
     return colors[category] || 'gray';
+  }
+
+  /**
+   * Safely parse a timestamp from various formats (Firestore Timestamp, Date, string, etc.)
+   */
+  private parseTimestamp(timestamp: any): Date {
+    if (!timestamp) return new Date();
+    if (timestamp instanceof Date) return timestamp;
+
+    // Handle Firestore Timestamp object (with toDate method)
+    if (
+      typeof timestamp === 'object' &&
+      typeof timestamp.toDate === 'function'
+    ) {
+      return timestamp.toDate();
+    }
+
+    // Handle serialized Timestamp (JSON) or internal representation
+    if (
+      typeof timestamp === 'object' &&
+      (timestamp.seconds !== undefined || timestamp._seconds !== undefined)
+    ) {
+      const seconds = timestamp.seconds ?? timestamp._seconds;
+      return new Date(seconds * 1000);
+    }
+
+    // String or number
+    const parsed = new Date(timestamp);
+    if (isNaN(parsed.getTime())) {
+      return new Date(); // Fallback to current date if invalid
+    }
+    return parsed;
+  }
+
+  formatDateSafe(timestamp: any): string {
+    const date = this.parseTimestamp(timestamp);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
   }
 }
