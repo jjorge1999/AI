@@ -34,7 +34,7 @@
       "!{projectRoot}/cypress.config.[jt]s"
     ]
   },
-  "nxCloudId": "695e29e414607c2b9a0d9aeb",
+
   "plugins": [
     {
       "plugin": "@nx/cypress/plugin",
