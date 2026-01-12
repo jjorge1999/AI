@@ -44,7 +44,8 @@
         "assets": [
           "src/favicon.ico",
           "src/assets",
-          "src/firebase-messaging-sw.js"
+          "src/firebase-messaging-sw.js",
+          "src/_redirects"
         ],
         "styles": [
           "src/styles.css"
