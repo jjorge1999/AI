@@ -111,6 +111,6 @@ export class ReservationService {
     }
 
     await batch.commit();
-    console.log('Reservation submitted successfully:', orderId);
+    // console.log('Reservation submitted successfully:', orderId);
   }
 }

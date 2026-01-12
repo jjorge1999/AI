@@ -227,7 +227,7 @@ export class SaleService {
 
         // Seed default sales if none exist
         if (sales.length === 0) {
-          console.log('No sales found, seeding defaults...');
+          // console.log('No sales found, seeding defaults...');
           this.seedDefaultSales();
         }
       },
@@ -235,7 +235,7 @@ export class SaleService {
         console.error('Error listening to sales:', err);
         // Fallback to default sales if permission denied or other error
         if (this.salesSubject.value.length === 0) {
-          console.warn('Falling back to default sales data due to error');
+          // console.warn('Falling back to default sales data due to error');
           this.salesSubject.next(this.defaultSales as SaleEvent[]);
         }
       }
@@ -306,7 +306,7 @@ export class SaleService {
 
     return from(addDoc(collection(this.db, 'sales_events'), saleData)).pipe(
       map((docRef) => docRef.id),
-      tap((id) => console.log('Sale added with ID:', id)),
+      tap((id) => {}), // console.log('Sale added with ID:', id)),
       catchError((err) => {
         console.error('Error adding sale:', err);
         throw err;
@@ -324,7 +324,7 @@ export class SaleService {
     };
 
     return from(updateDoc(doc(this.db, 'sales_events', id), updateData)).pipe(
-      tap(() => console.log('Sale updated:', id)),
+      tap(() => {}), // console.log('Sale updated:', id)),
       catchError((err) => {
         console.error('Error updating sale:', err);
         throw err;
@@ -337,7 +337,7 @@ export class SaleService {
    */
   deleteSale(id: string): Observable<void> {
     return from(deleteDoc(doc(this.db, 'sales_events', id))).pipe(
-      tap(() => console.log('Sale deleted:', id)),
+      tap(() => {}), // console.log('Sale deleted:', id)),
       catchError((err) => {
         console.error('Error deleting sale:', err);
         throw err;
@@ -367,7 +367,7 @@ export class SaleService {
           createdAt: new Date(),
           updatedAt: new Date(),
         });
-        console.log('Seeded sale:', sale.name);
+        // console.log('Seeded sale:', sale.name);
       } catch (err) {
         console.error('Error seeding sale:', sale.name, err);
       }

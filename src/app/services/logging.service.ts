@@ -53,12 +53,12 @@ export class LoggingService {
     // Security: Fetch logs if we have a valid store context.
     // Auth security is handled by Firestore Rules (request.auth).
     if (!storeId) {
-      console.log('LoggingService: No storeId available, skipping fetch.');
+      // console.log('LoggingService: No storeId available, skipping fetch.');
       this.logsSubject.next([]);
       return;
     }
 
-    console.log('LoggingService: Fetching logs for storeId:', storeId);
+    // console.log('LoggingService: Fetching logs for storeId:', storeId);
 
     const logsRef = collection(this.db, 'activityLogs');
     // Note: Removing orderBy('timestamp') to avoid requiring a composite index immediately.
@@ -67,7 +67,7 @@ export class LoggingService {
 
     from(getDocs(q)).subscribe({
       next: (snapshot) => {
-        console.log('LoggingService: Received', snapshot.docs.length, 'logs');
+        // console.log('LoggingService: Received', snapshot.docs.length, 'logs');
         const logs: ActivityLog[] = snapshot.docs
           .map((docSnap) => {
             const data = docSnap.data();
@@ -87,10 +87,10 @@ export class LoggingService {
         this.logsSubject.next(logs);
       },
       error: (err) => {
-        console.error('LoggingService: Error fetching logs:', err);
-        console.error(
-          'LoggingService: This may be a Firestore permissions issue. Check Security Rules for /logs collection.'
-        );
+        // console.error('LoggingService: Error fetching logs:', err);
+        // console.error(
+        //   'LoggingService: This may be a Firestore permissions issue. Check Security Rules for /logs collection.'
+        // );
       },
     });
   }
@@ -104,7 +104,7 @@ export class LoggingService {
   ): void {
     const activeStoreId = this.storeService.getActiveStoreId();
     if (!activeStoreId) {
-      console.warn('Logging skipped: No active store selected.');
+      // console.warn('Logging skipped: No active store selected.');
       return;
     }
 
@@ -119,7 +119,7 @@ export class LoggingService {
       timestamp: new Date(),
     };
 
-    console.log('Logging activity:', logData);
+    // console.log('Logging activity:', logData);
 
     const logsRef = collection(this.db, 'activityLogs');
     from(addDoc(logsRef, logData)).subscribe({
@@ -128,13 +128,13 @@ export class LoggingService {
           id: docRef.id,
           ...logData,
         } as ActivityLog;
-        console.log('Activity logged successfully:', newLog);
+        // console.log('Activity logged successfully:', newLog);
         const currentLogs = this.logsSubject.value;
         this.logsSubject.next([newLog, ...currentLogs]);
       },
       error: (err) => {
-        console.error('Error logging activity:', err);
-        console.error('Failed log data:', logData);
+        // console.error('Error logging activity:', err);
+        // console.error('Failed log data:', logData);
       },
     });
   }

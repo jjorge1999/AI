@@ -383,7 +383,7 @@ export class AdsManagementComponent implements OnInit, OnDestroy {
     // Show context menu with options
     const options = ['Change Status', 'Edit', 'Delete'];
     // TODO: Implement context menu or modal with these options
-    console.log('Ad options for:', ad.title);
+    // console.log('Ad options for:', ad.title);
   }
 
   // ===== File Handlers =====

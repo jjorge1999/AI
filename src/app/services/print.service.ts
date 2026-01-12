@@ -145,7 +145,7 @@ export class PrintService {
         throw new Error('No device selected');
       }
 
-      console.log('Selected device:', this.device.name || 'Unknown Device');
+      // console.log('Selected device:', this.device.name || 'Unknown Device');
 
       this.device.addEventListener(
         'gattserverdisconnected',
@@ -162,7 +162,7 @@ export class PrintService {
       try {
         services = await server.getPrimaryServices();
       } catch (err) {
-        console.warn('Could not get all services, trying known UUIDs...', err);
+        // console.warn('Could not get all services, trying known UUIDs...', err);
         // Fallback: Try to get services by known UUIDs
         for (const uuid of this.PRINTER_SERVICE_UUIDS) {
           try {
@@ -174,23 +174,23 @@ export class PrintService {
         }
       }
 
-      console.log(
-        'Discovered services:',
-        services.map((s: any) => s.uuid)
-      );
+      // console.log(
+      //   'Discovered services:',
+      //   services.map((s: any) => s.uuid)
+      // );
 
       // First pass: Try to find a known write characteristic
       for (const service of services) {
         try {
           const characteristics = await service.getCharacteristics();
-          console.log(
-            `Service ${service.uuid} characteristics:`,
-            characteristics.map((c: any) => ({
-              uuid: c.uuid,
-              write: c.properties.write,
-              writeNoResp: c.properties.writeWithoutResponse,
-            }))
-          );
+          // console.log(
+          //   `Service ${service.uuid} characteristics:`,
+          //   characteristics.map((c: any) => ({
+          //     uuid: c.uuid,
+          //     write: c.properties.write,
+          //     writeNoResp: c.properties.writeWithoutResponse,
+          //   }))
+          // );
 
           // Prioritize known PT-210 characteristics
           for (const char of characteristics) {
@@ -200,26 +200,26 @@ export class PrintService {
                 charUuid.includes(uuid.toLowerCase())
               )
             ) {
-              console.log('Found known write characteristic:', charUuid);
+              // console.log('Found known write characteristic:', charUuid);
               this.characteristic = char;
               break;
             }
           }
           if (this.characteristic) break;
         } catch (err) {
-          console.log(
-            'Error getting characteristics for service',
-            service.uuid,
-            err
-          );
+          // console.log(
+          //   'Error getting characteristics for service',
+          //   service.uuid,
+          //   err
+          // );
         }
       }
 
       // Second pass: If no known characteristic found, use any writable one
       if (!this.characteristic) {
-        console.log(
-          'No known characteristic found, searching for any writable...'
-        );
+        // console.log(
+        //   'No known characteristic found, searching for any writable...'
+        // );
         for (const service of services) {
           try {
             const characteristics = await service.getCharacteristics();
@@ -228,10 +228,10 @@ export class PrintService {
                 char.properties.write ||
                 char.properties.writeWithoutResponse
               ) {
-                console.log(
-                  'Using fallback writable characteristic:',
-                  char.uuid
-                );
+                // console.log(
+                //   'Using fallback writable characteristic:',
+                //   char.uuid
+                // );
                 this.characteristic = char;
                 break;
               }

@@ -85,9 +85,9 @@ export class NotificationService {
     const oldKey = 'jjm_admin_notifications';
     if (localStorage.getItem(oldKey)) {
       localStorage.removeItem(oldKey);
-      console.log(
-        'NotificationService: Cleared old non-store-specific notifications (LocalStorage)'
-      );
+      // console.log(
+      //   'NotificationService: Cleared old non-store-specific notifications (LocalStorage)'
+      // );
     }
   }
 
@@ -113,7 +113,7 @@ export class NotificationService {
               this.notificationsSubject.next(notifications);
               this.updateUnreadCount(notifications);
             } catch (e) {
-              console.warn('Failed to parse saved notifications', e);
+              // console.warn('Failed to parse saved notifications', e);
               this.notificationsSubject.next([]);
               this.updateUnreadCount([]);
             }
@@ -123,7 +123,7 @@ export class NotificationService {
           }
         },
         error: (err) => {
-          console.warn('Failed to load notifications from cache', err);
+          // console.warn('Failed to load notifications from cache', err);
           this.notificationsSubject.next([]);
           this.updateUnreadCount([]);
         },
@@ -139,7 +139,9 @@ export class NotificationService {
       .set(this.getStorageKey(), notifications)
       .pipe(take(1))
       .subscribe({
-        error: (err) => console.error('Failed to persist notifications', err),
+        error: (err) => {
+          // console.error('Failed to persist notifications', err)
+        },
       });
   }
 
@@ -152,13 +154,13 @@ export class NotificationService {
     try {
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
-        console.log('Notification permission granted.');
+        // console.log('Notification permission granted.');
         await this.saveToken();
       } else {
-        console.warn('Notification permission denied.');
+        // console.warn('Notification permission denied.');
       }
     } catch (error) {
-      console.error('Error requesting notification permission:', error);
+      // console.error('Error requesting notification permission:', error);
     }
   }
 
@@ -170,7 +172,7 @@ export class NotificationService {
       });
 
       if (token) {
-        console.log('FCM Token:', token);
+        // console.log('FCM Token:', token);
         this.currentTokenSubject.next(token);
 
         const userId = localStorage.getItem('jjm_user_id');
@@ -179,21 +181,23 @@ export class NotificationService {
           const userRef = doc(this.db, 'users', userId);
           await updateDoc(userRef, {
             fcmTokens: arrayUnion(token),
-          }).catch((e) => console.warn('Firestore direct update failed:', e));
+          }).catch((e) => {
+            // console.warn('Firestore direct update failed:', e)
+          });
         }
       } else {
-        console.log(
-          'No registration token available. Request permission to generate one.'
-        );
+        // console.log(
+        //   'No registration token available. Request permission to generate one.'
+        // );
       }
     } catch (err) {
-      console.error('An error occurred while retrieving token. ', err);
+      // console.error('An error occurred while retrieving token. ', err);
     }
   }
 
   listenForMessages() {
     onMessage(this.messaging, (payload: any) => {
-      console.log('Message received in foreground: ', payload);
+      // console.log('Message received in foreground: ', payload);
 
       // Extract storeId from payload data if available
       const storeId = payload.data?.storeId;
@@ -237,17 +241,17 @@ export class NotificationService {
     type: NotificationTypes = NotificationTypes.SYSTEM,
     targetStoreId?: string
   ): boolean {
-    console.log(
-      `NotificationService: Pushing "${title}" for store: ${
-        targetStoreId || this.activeStoreId || 'all'
-      }`
-    );
+    // console.log(
+    //   `NotificationService: Pushing "${title}" for store: ${
+    //     targetStoreId || this.activeStoreId || 'all'
+    //   }`
+    // );
 
     // If targetStoreId is specified, only add if it matches current active store
     if (targetStoreId && targetStoreId !== this.activeStoreId) {
-      console.log(
-        `NotificationService: Skipping - notification is for store ${targetStoreId}, but active store is ${this.activeStoreId}`
-      );
+      // console.log(
+      //   `NotificationService: Skipping - notification is for store ${targetStoreId}, but active store is ${this.activeStoreId}`
+      // );
       // Save to the target store's storage instead
       this.saveNotificationToStore(title, body, type, targetStoreId);
       return false;
@@ -258,9 +262,9 @@ export class NotificationService {
       (n) => n.title === title && n.body === body
     );
     if (exists) {
-      console.log(
-        `NotificationService: "${title}" already exists, skipping duplicate.`
-      );
+      // console.log(
+      //   `NotificationService: "${title}" already exists, skipping duplicate.`
+      // );
       return false;
     }
 
@@ -274,7 +278,7 @@ export class NotificationService {
       storeId: targetStoreId || this.activeStoreId || undefined,
     };
     this.addNotification(notification);
-    console.log('NotificationService: Notification added successfully.');
+    // console.log('NotificationService: Notification added successfully.');
     return true;
   }
 

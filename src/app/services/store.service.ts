@@ -62,7 +62,7 @@ export class StoreService {
             try {
               this._stores.set(cached);
               this.storesSubject.next(cached);
-              console.log('Hydrated Stores from IndexedDB');
+              // console.log('Hydrated Stores from IndexedDB');
             } catch (e) {
               console.warn('Failed to parse cached stores', e);
             }

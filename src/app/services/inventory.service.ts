@@ -151,9 +151,9 @@ export class InventoryService {
       return this.getCurrentUser();
     }
 
-    console.warn(
-      'Firestore User ID requested but not authenticated. Using legacy fallback.'
-    );
+    // console.warn(
+    //   'Firestore User ID requested but not authenticated. Using legacy fallback.'
+    // );
     return this.getCurrentUser();
   }
 
@@ -162,7 +162,7 @@ export class InventoryService {
   }
 
   public enableFullSync(): void {
-    console.log('Enabling Full Firestore Sync...');
+    // console.log('Enabling Full Firestore Sync...');
     localStorage.setItem('jjm_force_full_load', 'true');
     this.reloadData();
   }
@@ -181,7 +181,7 @@ export class InventoryService {
    * Call this on logout to ensure clean state.
    */
   public clearAllData(): void {
-    console.log('InventoryService: Clearing all data...');
+    // console.log('InventoryService: Clearing all data...');
 
     // Stop all listeners
     this.stopRealtimeListeners();
@@ -224,9 +224,9 @@ export class InventoryService {
   private hydrateFromCache(): void {
     const storeId = this.storeService.getActiveStoreId();
     if (!storeId) {
-      console.log(
-        'InventoryService: No store context - skipping cache hydration for security.'
-      );
+      // console.log(
+      //   'InventoryService: No store context - skipping cache hydration for security.'
+      // );
       this._initialized.set(true);
       return;
     }
@@ -266,13 +266,13 @@ export class InventoryService {
           if (cached) {
             item.signal.set(cached);
             item.subject.next(cached);
-            console.log(
-              `Hydrated ${item.key} from IndexedDB for store ${storeId}`
-            );
+            // console.log(
+            //   `Hydrated ${item.key} from IndexedDB for store ${storeId}`
+            // );
           }
         }),
         catchError((err) => {
-          console.warn(`Failed to hydrate ${item.key}`, err);
+          // console.warn(`Failed to hydrate ${item.key}`, err);
           return of(null);
         })
       );
@@ -302,20 +302,20 @@ export class InventoryService {
       .set(cacheKey, data)
       .pipe(take(1))
       .subscribe({
-        error: (err) =>
-          console.error(
-            `InventoryService: Failed to save ${key} to cache`,
-            err
-          ),
+        error: (err) => {},
+        // console.error(
+        //   `InventoryService: Failed to save ${key} to cache`,
+        //   err
+        // ),
       });
   }
 
   private handleFirestoreError(err: any, context: string): void {
-    console.error(`${context}:`, err);
+    // console.error(`${context}:`, err);
     if (err.code === 'permission-denied') {
-      console.warn(
-        `PERMISSIONS ERROR in ${context}: The client is blocked from accessing this data. Please update Firestore Security Rules to allow access.`
-      );
+      // console.warn(
+      //   `PERMISSIONS ERROR in ${context}: The client is blocked from accessing this data. Please update Firestore Security Rules to allow access.`
+      // );
     }
 
     const isQuotaError =
@@ -345,7 +345,7 @@ export class InventoryService {
     const isAuthDisabled =
       localStorage.getItem('firebase_auth_disabled') === 'true';
     if (isAuthDisabled) {
-      console.log('Auth previously failed. Skipping to Public/Fallback Mode.');
+      // console.log('Auth previously failed. Skipping to Public/Fallback Mode.');
       this.setupFirestoreListeners(legacyUserId, legacyUserId);
       return;
     }
@@ -353,7 +353,7 @@ export class InventoryService {
     // 1. Check if we already have a user
     const currentUser = this.auth.currentUser;
     if (currentUser) {
-      console.log('Already Authenticated. Starting Secure Listeners.');
+      // console.log('Already Authenticated. Starting Secure Listeners.');
       this.firebaseUser = currentUser;
       this.setupFirestoreListeners(currentUser.uid, legacyUserId);
       return;
@@ -362,14 +362,14 @@ export class InventoryService {
     // 2. Try to Sign In
     from(signInAnonymously(this.auth)).subscribe({
       next: (cred) => {
-        console.log('Signed In Anonymously. Starting Secure Listeners.');
+        // console.log('Signed In Anonymously. Starting Secure Listeners.');
         this.firebaseUser = cred.user;
         this.setupFirestoreListeners(cred.user.uid, legacyUserId);
       },
       error: (err) => {
-        console.warn(
-          'Anonymous Auth unavailable. Attempting Public Realtime Mode with Legacy ID.'
-        );
+        // console.warn(
+        //   'Anonymous Auth unavailable. Attempting Public Realtime Mode with Legacy ID.'
+        // );
         // Cache the failure so we don't spam 400 errors on reload
         localStorage.setItem('firebase_auth_disabled', 'true');
 
@@ -452,9 +452,9 @@ export class InventoryService {
     let productsQuery;
 
     if (isCustomer) {
-      console.log(
-        'InventoryService: Customer Mode - Fetching ALL products for AI'
-      );
+      // console.log(
+      //   'InventoryService: Customer Mode - Fetching ALL products for AI'
+      // );
       productsQuery = query(
         collection(this.db, 'products'),
         orderBy('name', 'asc'),
@@ -478,7 +478,7 @@ export class InventoryService {
       onSnapshot(
         productsQuery,
         (snapshot) => {
-          console.log('Products Snapshot:', snapshot.docs.length);
+          // console.log('Products Snapshot:', snapshot.docs.length);
           const products = snapshot.docs.map(
             (doc) =>
               ({
@@ -495,7 +495,7 @@ export class InventoryService {
         },
         (err) => {
           if (err.code === 'permission-denied') {
-            console.warn('Permission Denied. Falling back to Legacy Polling.');
+            // console.warn('Permission Denied. Falling back to Legacy Polling.');
             this.fallbackToLegacyPolling();
           } else {
             this.handleFirestoreError(err, 'Products Listener Error');
@@ -514,9 +514,9 @@ export class InventoryService {
     let salesQuery;
 
     if (isCustomer) {
-      console.log(
-        'InventoryService: Customer Mode - Querying RECENT sales for fuzzy matching'
-      );
+      // console.log(
+      //   'InventoryService: Customer Mode - Querying RECENT sales for fuzzy matching'
+      // );
       salesQuery = query(
         collection(this.db, 'sales'),
         orderBy('timestamp', 'desc'),
@@ -540,7 +540,7 @@ export class InventoryService {
       onSnapshot(
         salesQuery,
         (snapshot) => {
-          console.log('Sales Snapshot:', snapshot.docs.length);
+          // console.log('Sales Snapshot:', snapshot.docs.length);
           const sales = snapshot.docs.map((doc) =>
             this.transformSale({ id: doc.id, ...doc.data() })
           );
@@ -576,7 +576,7 @@ export class InventoryService {
       onSnapshot(
         expensesQuery,
         (snapshot) => {
-          console.log('Expenses Snapshot:', snapshot.docs.length);
+          // console.log('Expenses Snapshot:', snapshot.docs.length);
           const expenses = snapshot.docs.map(
             (doc) =>
               ({
@@ -606,9 +606,9 @@ export class InventoryService {
     const now = Date.now();
 
     if (now - lastFetch < CACHE_TTL) {
-      console.log(
-        'InventoryService: Categories cache is fresh. Skipping network fetch.'
-      );
+      // console.log(
+      //   'InventoryService: Categories cache is fresh. Skipping network fetch.'
+      // );
       // Data is already hydrated in constructor via hydrateFromCache
       return;
     }
@@ -620,7 +620,7 @@ export class InventoryService {
 
     from(getDocs(categoriesQuery)).subscribe({
       next: (snapshot) => {
-        console.log('Categories Fetched:', snapshot.docs.length);
+        // console.log('Categories Fetched:', snapshot.docs.length);
         const categories = snapshot.docs.map(
           (doc) =>
             ({
@@ -663,9 +663,9 @@ export class InventoryService {
     const now = Date.now();
 
     if (now - lastFetch < CACHE_TTL) {
-      console.log(
-        'InventoryService: RawMaterials cache is fresh. Skipping network fetch.'
-      );
+      // console.log(
+      //   'InventoryService: RawMaterials cache is fresh. Skipping network fetch.'
+      // );
       return;
     }
 
@@ -698,7 +698,7 @@ export class InventoryService {
 
   private fallbackToLegacyPolling(): void {
     if (this.pollingInterval) return; // Already polling
-    console.log('Starting Legacy Polling (Fallback Mode)...');
+    // console.log('Starting Legacy Polling (Fallback Mode)...');
 
     this.fetchAllLegacyData();
     this.pollingInterval = setInterval(
@@ -733,7 +733,7 @@ export class InventoryService {
             this._stats.set(stats);
             this.statsSubject.next(stats);
           } else {
-            console.log('No aggregation document found for this store.');
+            // console.log('No aggregation document found for this store.');
             this._stats.set(null);
             this.statsSubject.next(null);
 
@@ -748,12 +748,12 @@ export class InventoryService {
             // Only enable Full Sync if NO cached data exists AND not already in Full Sync
             // This preserves quota optimization while ensuring dashboard has data
             if (!isFullSync && !hasCachedProducts && !hasCachedSales) {
-              console.log(
-                'No cached data found for this store. Enabling Full Sync to fetch raw data...'
-              );
+              // console.log(
+              //   'No cached data found for this store. Enabling Full Sync to fetch raw data...'
+              // );
               this.enableFullSync();
             } else if (hasCachedProducts || hasCachedSales) {
-              console.log('Using cached data for this store. Quota preserved.');
+              // console.log('Using cached data for this store. Quota preserved.');
             }
           }
         },
@@ -764,32 +764,32 @@ export class InventoryService {
 
   // Migration methods are deprecated - data is already in Firestore
   private migrateProducts(legacyId: string, firestoreId: string): void {
-    console.log(
-      'Migration deprecated - data should already exist in Firestore'
-    );
+    // console.log(
+    //   'Migration deprecated - data should already exist in Firestore'
+    // );
   }
 
   private migrateChat(legacyId: string, firestoreId: string): void {
-    console.log(
-      'Migration deprecated - data should already exist in Firestore'
-    );
+    // console.log(
+    //   'Migration deprecated - data should already exist in Firestore'
+    // );
   }
 
   private migrateSales(legacyId: string, firestoreId: string): void {
-    console.log(
-      'Migration deprecated - data should already exist in Firestore'
-    );
+    // console.log(
+    //   'Migration deprecated - data should already exist in Firestore'
+    // );
   }
 
   private migrateExpenses(legacyId: string, firestoreId: string): void {
-    console.log(
-      'Migration deprecated - data should already exist in Firestore'
-    );
+    // console.log(
+    //   'Migration deprecated - data should already exist in Firestore'
+    // );
   }
 
   public loadProducts(): void {
     // Products are loaded via realtime listeners, no separate fetch needed
-    console.log('Products loading handled by realtime listeners');
+    // console.log('Products loading handled by realtime listeners');
   }
 
   /**
@@ -812,24 +812,24 @@ export class InventoryService {
         );
         this.productsSubject.next(products);
       },
-      error: (err: any) =>
-        console.error('Error fetching products for store:', err),
+      error: (err: any) => {},
+      // console.error('Error fetching products for store:', err),
     });
   }
 
   private fetchProducts(): void {
     // Products are fetched via realtime listeners in doSetupFirestoreListeners
-    console.log('fetchProducts - data loaded via realtime listeners');
+    // console.log('fetchProducts - data loaded via realtime listeners');
   }
 
   private fetchSales(): void {
     // Sales are fetched via realtime listeners in doSetupFirestoreListeners
-    console.log('fetchSales - data loaded via realtime listeners');
+    // console.log('fetchSales - data loaded via realtime listeners');
   }
 
   private fetchExpenses(): void {
     // Expenses are fetched via realtime listeners in doSetupFirestoreListeners
-    console.log('fetchExpenses - data loaded via realtime listeners');
+    // console.log('fetchExpenses - data loaded via realtime listeners');
   }
 
   getProducts(): Observable<Product[]> {
@@ -937,7 +937,9 @@ export class InventoryService {
             `$${newExpense.price.toFixed(2)}`
           );
         },
-        error: (err) => console.error('Error adding expense:', err),
+        error: (err) => {
+          // console.error('Error adding expense:', err)
+        },
       }),
       finalize(() => this.loadingService.hide())
     );
@@ -968,7 +970,9 @@ export class InventoryService {
             );
           }
         },
-        error: (err) => console.error('Error deleting expense:', err),
+        error: (err) => {
+          // console.error('Error deleting expense:', err)
+        },
       }),
       finalize(() => this.loadingService.hide())
     );
@@ -1135,9 +1139,9 @@ export class InventoryService {
         const isImmediate = deliveryDate ? false : true;
 
         // Debug: Log the pending status calculation
-        console.log('[recordSale] deliveryDate:', deliveryDate);
-        console.log('[recordSale] isImmediate:', isImmediate);
-        console.log('[recordSale] pending:', !isImmediate);
+        // console.log('[recordSale] deliveryDate:', deliveryDate);
+        // console.log('[recordSale] isImmediate:', isImmediate);
+        // console.log('[recordSale] pending:', !isImmediate);
 
         const firestoreData = this.sanitizeData({
           productId: product.id,
