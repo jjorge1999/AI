@@ -12,7 +12,10 @@
     "dev": "concurrently \"npm start\" \"npm run dev --prefix backend\"",
     "backend": "npm run dev --prefix backend",
     "e2e": "cypress run --config-file e2e/cypress.config.ts",
-    "e2e:open": "cypress open --config-file e2e/cypress.config.ts"
+    "e2e:open": "cypress open --config-file e2e/cypress.config.ts",
+    "deploy:gh": "nx deploy",
+    "deploy:cf": "npx wrangler pages deploy dist/jjm-inventory/browser --project-name=jjm-inventory",
+    "deploy:all": "npm run build:web && npm run deploy:cf && npm run deploy:gh"
   },
   "private": true,
   "dependencies": {
@@ -60,6 +63,7 @@
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
     "nx": "21.1.3",
-    "typescript": "~5.4.2"
+    "typescript": "~5.4.2",
+    "wrangler": "^4.59.2"
   }
 }
