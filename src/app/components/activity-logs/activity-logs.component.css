@@ -377,7 +377,7 @@
 
 /* Target Cell */
 .target-cell {
-  width: 140px;
+  width: 180px;
 }
 
 .entity-id {
@@ -389,14 +389,58 @@
   border-radius: var(--radius-md);
 }
 
-/* Details Cell */
-.details-cell {
-  max-width: 300px;
-}
-
-.details-text {
+.entity-name {
   font-size: 0.875rem;
   color: var(--color-text);
+  font-weight: 500;
+}
+
+/* Store Cell */
+.store-cell {
+  width: 150px;
+}
+
+.store-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.store-badge .material-icon {
+  font-size: 16px;
+  color: var(--color-primary);
+}
+
+.store-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Module Cell */
+.module-cell {
+  width: 120px;
+}
+
+.module-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.module-info .material-icon {
+  font-size: 18px;
+}
+
+/* Action Badge Enhancement */
+.action-badge .action-icon {
+  font-size: 14px;
+  margin-right: 4px;
 }
 
 /* View Cell */

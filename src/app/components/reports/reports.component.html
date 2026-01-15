@@ -143,42 +143,55 @@
 
     <!-- Expense Breakdown -->
     <div class="chart-card chart-secondary">
-      <h3 class="chart-title">Expense Summary</h3>
+      <h3 class="chart-title">Financial Summary</h3>
       <div class="summary-content">
         <div class="summary-stat">
+          <span class="summary-label">Total Income</span>
+          <span class="summary-value income-value">{{ formatCurrency(totalIncome) }}</span>
+        </div>
+        <div class="summary-stat">
           <span class="summary-label">Total Expenses</span>
-          <span class="summary-value">{{ formatCurrency(totalExpenses) }}</span>
+          <span class="summary-value expense-value">{{ formatCurrency(totalExpenses) }}</span>
+        </div>
+        <div class="summary-stat highlight">
+          <span class="summary-label">Net Profit</span>
+          <span class="summary-value" [class.profit-positive]="netProfit >= 0" [class.profit-negative]="netProfit < 0">
+            {{ formatCurrency(netProfit) }}
+          </span>
         </div>
         <div class="summary-stat">
           <span class="summary-label">Expense Count</span>
           <span class="summary-value">{{ filteredExpenses.length }}</span>
         </div>
-        <div class="summary-stat">
-          <span class="summary-label">Avg. Expense</span>
-          <span class="summary-value">{{ formatCurrency(filteredExpenses.length > 0 ? totalExpenses / filteredExpenses.length : 0) }}</span>
-        </div>
         <div class="profit-indicator">
-          <div class="profit-bar-bg">
-            <div class="profit-bar income-segment" [style.width.%]="totalIncome > 0 ? 100 : 0"></div>
-            <div class="profit-bar expense-segment" [style.width.%]="(totalExpenses / (totalIncome || 1)) * 100"></div>
+          <div class="ratio-bar-container">
+            <div class="ratio-bar income-bar" 
+                 [style.width.%]="(totalIncome / ((totalIncome + totalExpenses) || 1)) * 100">
+            </div>
+            <div class="ratio-bar expense-bar" 
+                 [style.width.%]="(totalExpenses / ((totalIncome + totalExpenses) || 1)) * 100">
+            </div>
           </div>
           <div class="profit-labels">
-            <span>Income</span>
-            <span>Expenses</span>
+            <span class="label-income">Income ({{ ((totalIncome / ((totalIncome + totalExpenses) || 1)) * 100) | number:'1.0-0' }}%)</span>
+            <span class="label-expense">Expenses ({{ ((totalExpenses / ((totalIncome + totalExpenses) || 1)) * 100) | number:'1.0-0' }}%)</span>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Recent Transactions -->
+  <!-- All Transactions with Pagination -->
   <div class="transactions-card">
     <div class="transactions-header">
-      <h3 class="chart-title">Recent Transactions</h3>
+      <div class="transactions-title-group">
+        <h3 class="chart-title">All Transactions</h3>
+        <span class="tx-count-badge">{{ allTransactions.length }} records</span>
+      </div>
       <div class="table-search">
         <div class="search-box miniature">
           <span class="material-icon">search</span>
-          <input type="text" placeholder="Search..." [(ngModel)]="searchQuery" class="search-input" />
+          <input type="text" placeholder="Search..." [(ngModel)]="searchQuery" (ngModelChange)="onSearchChange()" class="search-input" />
         </div>
       </div>
     </div>
@@ -195,7 +208,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let tx of recentTransactions" class="table-row">
+          <tr *ngFor="let tx of paginatedTransactions" class="table-row">
             <td class="date-cell">{{ formatDate(tx.date) }}</td>
             <td class="desc-cell">{{ tx.description }}</td>
             <td class="category-cell">{{ tx.category }}</td>
@@ -223,7 +236,7 @@
               </div>
             </td>
           </tr>
-          <tr *ngIf="recentTransactions.length === 0">
+          <tr *ngIf="allTransactions.length === 0">
             <td colspan="6" class="empty-row">
               <div class="empty-state">
                 <span class="material-icon">receipt_long</span>
@@ -233,6 +246,28 @@
           </tr>
         </tbody>
       </table>
+    </div>
+    <!-- Pagination Controls -->
+    <div class="pagination-controls" *ngIf="totalTxPages > 1">
+      <button class="pagination-btn" (click)="previousTxPage()" [disabled]="txCurrentPage === 1">
+        <span class="material-icon">chevron_left</span>
+      </button>
+      <div class="pagination-numbers">
+        <button 
+          *ngFor="let page of txPageNumbers" 
+          class="pagination-number" 
+          [class.active]="page === txCurrentPage"
+          (click)="goToTxPage(page)"
+        >
+          {{ page }}
+        </button>
+      </div>
+      <button class="pagination-btn" (click)="nextTxPage()" [disabled]="txCurrentPage === totalTxPages">
+        <span class="material-icon">chevron_right</span>
+      </button>
+      <span class="pagination-info">
+        {{ (txCurrentPage - 1) * txPerPage + 1 }}-{{ txCurrentPage * txPerPage > allTransactions.length ? allTransactions.length : txCurrentPage * txPerPage }} of {{ allTransactions.length }}
+      </span>
     </div>
   </div>
 </div>

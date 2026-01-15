@@ -252,6 +252,13 @@ export class StoreService {
     return this.activeStoreId();
   }
 
+  getActiveStoreName(): string | null {
+    const storeId = this.activeStoreId();
+    if (!storeId) return null;
+    const store = this._stores().find((s) => s.id === storeId);
+    return store?.name || null;
+  }
+
   hasAiResponseCredits(storeId: string): boolean {
     const store = this.storesSubject.value.find((s) => s.id === storeId);
     if (!store) return false;

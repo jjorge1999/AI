@@ -108,14 +108,24 @@ export class LoggingService {
       return;
     }
 
+    // Get user-friendly names for better readability
+    const userId = this.getCurrentUserId() || 'system';
+    const userName =
+      localStorage.getItem('jjm_user_name') ||
+      localStorage.getItem('jjm_user_email') ||
+      userId;
+    const storeName = this.storeService.getActiveStoreName() || 'Unknown Store';
+
     const logData: any = {
       action: action || 'unknown',
       entityType: entityType || 'unknown',
       entityId: entityId || '',
       entityName: entityName || '',
       details: details || '',
-      userId: this.getCurrentUserId() || 'system',
+      userId: userId,
+      userName: userName,
       storeId: activeStoreId,
+      storeName: storeName,
       timestamp: new Date(),
     };
 

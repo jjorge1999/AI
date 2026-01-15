@@ -1213,16 +1213,22 @@ export class InventoryService {
     }
 
     const saleRef = doc(this.db, 'sales', saleId);
+    const deliveryTimestamp = new Date();
     this.loadingService.show('Completing sale...');
-    from(updateDoc(saleRef, { pending: false }))
+    // Update both pending status AND timestamp to delivery time for accurate analytics
+    // This ensures income appears at the same time as the expense (COGS)
+    from(updateDoc(saleRef, { pending: false, timestamp: deliveryTimestamp }))
       .pipe(finalize(() => this.loadingService.hide()))
       .subscribe({
         next: () => {
-          // Update local state
+          // Update local state with new timestamp
           const updatedSales = currentSales.map((s) =>
-            s.id === saleId ? { ...s, pending: false } : s
+            s.id === saleId
+              ? { ...s, pending: false, timestamp: deliveryTimestamp }
+              : s
           );
           this.salesSubject.next(updatedSales);
+          this._sales.set(updatedSales);
 
           // Process inventory & expense logic
           this.processSaleDeliveryLogic(sale);
@@ -1613,7 +1619,7 @@ export class InventoryService {
         (a, b) =>
           new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       )
-      .slice(0, 5);
+      .slice(0, 20);
 
     // Top Customers
     const customerSalesMap: {

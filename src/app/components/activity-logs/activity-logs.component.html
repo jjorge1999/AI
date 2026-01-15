@@ -66,10 +66,11 @@
       <thead>
         <tr>
           <th class="col-timestamp">Timestamp</th>
-          <th class="col-user">Module</th>
+          <th class="col-user">User</th>
+          <th class="col-store">Store</th>
           <th class="col-action">Action</th>
-          <th class="col-target">Entity ID</th>
-          <th class="col-details">Details</th>
+          <th class="col-module">Module</th>
+          <th class="col-target">Entity</th>
           <th class="col-view">View</th>
         </tr>
       </thead>
@@ -81,11 +82,17 @@
           <td class="user-cell">
             <div class="user-info">
               <div class="user-avatar">
-                <span class="material-icon">{{ getEntityIcon(log.entityType) }}</span>
+                <span class="material-icon">person</span>
               </div>
               <div class="user-details">
-                <span class="user-name">{{ log.entityType | titlecase }}</span>
+                <span class="user-name">{{ log.userName || log.userId || 'System' }}</span>
               </div>
+            </div>
+          </td>
+          <td class="store-cell">
+            <div class="store-badge">
+              <span class="material-icon">storefront</span>
+              <span class="store-name">{{ getStoreName(log) }}</span>
             </div>
           </td>
           <td class="action-cell">
@@ -93,16 +100,18 @@
               class="action-badge"
               [attr.data-action]="getActionColor(log.action)"
             >
+              <span class="material-icon action-icon">{{ getActionIcon(log.action) }}</span>
               {{ log.action | titlecase }}
             </span>
           </td>
-          <td class="target-cell">
-            <span class="entity-id">{{ log.entityId | slice:0:12 }}...</span>
-          </td>
-          <td class="details-cell">
-            <div class="details-content">
-              <span class="details-text">{{ getLogDetails(log) || '—' }}</span>
+          <td class="module-cell">
+            <div class="module-info">
+              <span class="material-icon">{{ getEntityIcon(log.entityType) }}</span>
+              <span>{{ log.entityType | titlecase }}</span>
             </div>
+          </td>
+          <td class="target-cell">
+            <span class="entity-name">{{ log.entityName || getLogDetails(log) || '—' }}</span>
           </td>
           <td class="view-cell">
             <button class="view-btn" (click)="viewLogDetails(log)">
@@ -111,7 +120,7 @@
           </td>
         </tr>
         <tr *ngIf="paginatedLogs.length === 0">
-          <td colspan="6" class="empty-row">
+          <td colspan="7" class="empty-row">
             <div class="empty-state">
               <span class="material-icon">history</span>
               <p>No activity logs found</p>

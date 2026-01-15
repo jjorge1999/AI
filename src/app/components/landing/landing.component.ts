@@ -167,6 +167,10 @@ export class LandingComponent implements OnInit, OnDestroy {
 
   isActionProcessing = false;
 
+  // Recent Orders Pagination
+  ordersCurrentPage = 1;
+  ordersPerPage = 5;
+
   // Configurable widgets for the dashboard
   widgets: DashboardWidget[] = [
     {
@@ -691,7 +695,7 @@ export class LandingComponent implements OnInit, OnDestroy {
     // Sort merged results by timestamp and take first 5
     this.recentOrders = groupedOrders
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-      .slice(0, 5);
+      .slice(0, 20);
 
     // If no orders, show sample placeholder
     if (this.recentOrders.length === 0) {
@@ -834,6 +838,38 @@ export class LandingComponent implements OnInit, OnDestroy {
       pending: 'Pending',
     };
     return labels[status] || 'Pending';
+  }
+
+  // Recent Orders Pagination Methods
+  get paginatedOrders(): RecentOrder[] {
+    const startIndex = (this.ordersCurrentPage - 1) * this.ordersPerPage;
+    return this.recentOrders.slice(startIndex, startIndex + this.ordersPerPage);
+  }
+
+  get totalOrderPages(): number {
+    return Math.ceil(this.recentOrders.length / this.ordersPerPage);
+  }
+
+  get orderPageNumbers(): number[] {
+    return Array.from({ length: this.totalOrderPages }, (_, i) => i + 1);
+  }
+
+  goToOrderPage(page: number): void {
+    if (page >= 1 && page <= this.totalOrderPages) {
+      this.ordersCurrentPage = page;
+    }
+  }
+
+  previousOrderPage(): void {
+    if (this.ordersCurrentPage > 1) {
+      this.ordersCurrentPage--;
+    }
+  }
+
+  nextOrderPage(): void {
+    if (this.ordersCurrentPage < this.totalOrderPages) {
+      this.ordersCurrentPage++;
+    }
   }
 
   // New widget methods

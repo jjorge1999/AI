@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LoggingService } from '../../services/logging.service';
 import { DialogService } from '../../services/dialog.service';
-import { ActivityLog } from '../../models/inventory.models';
+import { StoreService } from '../../services/store.service';
+import { ActivityLog, Store } from '../../models/inventory.models';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -16,6 +17,7 @@ import { Subscription } from 'rxjs';
 export class ActivityLogsComponent implements OnInit, OnDestroy {
   logs: ActivityLog[] = [];
   filteredLogs: ActivityLog[] = [];
+  stores: Store[] = [];
   private subscriptions: Subscription = new Subscription();
 
   // Search and Filters
@@ -33,10 +35,18 @@ export class ActivityLogsComponent implements OnInit, OnDestroy {
 
   constructor(
     private loggingService: LoggingService,
-    private dialogService: DialogService
+    private dialogService: DialogService,
+    private storeService: StoreService
   ) {}
 
   ngOnInit(): void {
+    // Load stores for name lookup
+    this.subscriptions.add(
+      this.storeService.stores$.subscribe((stores) => {
+        this.stores = stores;
+      })
+    );
+
     this.subscriptions.add(
       this.loggingService.getLogs().subscribe((logs) => {
         this.logs = logs.map((log) => {
@@ -247,6 +257,24 @@ export class ActivityLogsComponent implements OnInit, OnDestroy {
     // Use entityType as fallback for user display
     const name = log.entityType || 'U';
     return name.charAt(0).toUpperCase();
+  }
+
+  /**
+   * Get store name from storeId for older logs that don't have storeName
+   */
+  getStoreName(log: ActivityLog): string {
+    // First check if storeName is already saved
+    if (log.storeName) {
+      return log.storeName;
+    }
+    // Fallback: look up from stores list using storeId
+    if (log.storeId && this.stores.length > 0) {
+      const store = this.stores.find((s) => s.id === log.storeId);
+      if (store) {
+        return store.name;
+      }
+    }
+    return 'Unknown';
   }
 
   viewLogDetails(log: ActivityLog): void {

@@ -356,7 +356,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let order of recentOrders" class="table-row">
+                  <tr *ngFor="let order of paginatedOrders" class="table-row">
                     <td class="order-id">{{ order.id }}</td>
                     <td>
                       <div class="product-cell">
@@ -401,6 +401,28 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
+            <!-- Pagination Controls -->
+            <div class="pagination-controls" *ngIf="totalOrderPages > 1">
+              <button class="pagination-btn" (click)="previousOrderPage()" [disabled]="ordersCurrentPage === 1">
+                <span class="material-icon">chevron_left</span>
+              </button>
+              <div class="pagination-numbers">
+                <button 
+                  *ngFor="let page of orderPageNumbers" 
+                  class="pagination-number" 
+                  [class.active]="page === ordersCurrentPage"
+                  (click)="goToOrderPage(page)"
+                >
+                  {{ page }}
+                </button>
+              </div>
+              <button class="pagination-btn" (click)="nextOrderPage()" [disabled]="ordersCurrentPage === totalOrderPages">
+                <span class="material-icon">chevron_right</span>
+              </button>
+              <span class="pagination-info">
+                {{ (ordersCurrentPage - 1) * ordersPerPage + 1 }}-{{ ordersCurrentPage * ordersPerPage > recentOrders.length ? recentOrders.length : ordersCurrentPage * ordersPerPage }} of {{ recentOrders.length }}
+              </span>
             </div>
           </div>
         </ng-container>

@@ -463,10 +463,55 @@
   color: var(--color-text);
 }
 
+.summary-value.income-value {
+  color: #10b981;
+}
+
+.summary-value.expense-value {
+  color: #f97316;
+}
+
+.summary-value.profit-positive {
+  color: #10b981;
+}
+
+.summary-value.profit-negative {
+  color: #ef4444;
+}
+
+.summary-stat.highlight {
+  background: rgba(19, 127, 236, 0.05);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  margin: var(--space-xs) calc(-1 * var(--space-md));
+}
+
 .profit-indicator {
   margin-top: var(--space-md);
 }
 
+.ratio-bar-container {
+  display: flex;
+  height: 16px;
+  background: var(--color-bg);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.ratio-bar {
+  height: 100%;
+  transition: width 0.5s ease;
+}
+
+.ratio-bar.income-bar {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.ratio-bar.expense-bar {
+  background: linear-gradient(90deg, #f97316, #fb923c);
+}
+
+/* Keep old styles for backwards compatibility */
 .profit-bar-bg {
   height: 12px;
   background: var(--color-bg);
@@ -499,8 +544,18 @@
   justify-content: space-between;
   margin-top: var(--space-xs);
   font-size: 0.75rem;
-  color: var(--color-text-muted);
 }
+
+.label-income {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.label-expense {
+  color: #f97316;
+  font-weight: 600;
+}
+
 
 /* ========================================
    Transactions Table
@@ -1032,3 +1087,156 @@
   color: var(--color-text-muted);
 }
 
+/* ========================================
+   Transaction Header with Count Badge
+   ======================================== */
+.transactions-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.tx-count-badge {
+  background: var(--color-primary);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 9999px;
+}
+
+/* ========================================
+   Pagination Controls
+   ======================================== */
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.pagination-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+  transform: scale(1.05);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-btn .material-icon {
+  font-size: 20px;
+}
+
+.pagination-numbers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-number {
+  min-width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.pagination-number:hover:not(.active) {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.pagination-number.active {
+  background: var(--color-primary);
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(19, 127, 236, 0.3);
+}
+
+.pagination-info {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-left: var(--space-sm);
+  white-space: nowrap;
+}
+
+/* Dark Mode Pagination */
+:host-context(body.dark-theme) .pagination-controls {
+  background: #1a2634;
+}
+
+:host-context(body.dark-theme) .pagination-btn {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+:host-context(body.dark-theme) .pagination-number:hover:not(.active) {
+  background: #334155;
+}
+
+/* Responsive Pagination */
+@media (max-width: 640px) {
+  .pagination-controls {
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .pagination-btn,
+  .pagination-number {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+  }
+
+  .pagination-info {
+    width: 100%;
+    text-align: center;
+    margin: var(--space-xs) 0 0;
+  }
+  
+  .transactions-header {
+    flex-direction: column;
+    gap: var(--space-sm);
+    align-items: flex-start;
+  }
+  
+  .transactions-title-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .table-search {
+    width: 100%;
+    max-width: none;
+  }
+}

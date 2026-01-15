@@ -139,7 +139,9 @@ export interface ActivityLog {
   details?: string;
   timestamp: Date;
   userId?: string;
+  userName?: string; // User-friendly display name
   storeId?: string;
+  storeName?: string; // User-friendly store name
 }
 
 export interface Message {

@@ -54,6 +54,10 @@ export class ReportsComponent implements OnInit, OnDestroy {
 
   searchQuery = '';
 
+  // Transactions pagination
+  txCurrentPage = 1;
+  txPerPage = 10;
+
   constructor(
     private inventoryService: InventoryService,
     private printService: PrintService,
@@ -131,20 +135,41 @@ export class ReportsComponent implements OnInit, OnDestroy {
     return this.filteredSales.reduce((sum, s) => sum + s.total, 0);
   }
 
+  /**
+   * Total Income = Completed Sales + Pending Sales (total revenue)
+   * Following formula: (Completed Income + Pending Income) − Total Expenses = Net Profit
+   */
   get totalIncome(): number {
-    // Redefined as "Actual Income" (Net Income) per user request
-    // This is Revenue - Cost of Goods
-    return this.filteredSales.reduce((sum, s) => {
-      const costPerUnit =
-        s.costPrice !== undefined
-          ? s.costPrice
-          : this.products.find((p) => p.id === s.productId)?.cost || 0;
-      return sum + (s.total - costPerUnit * s.quantitySold);
-    }, 0);
+    // Completed sales (filtered by date range)
+    const completedIncome = this.filteredSales.reduce(
+      (sum, s) => sum + s.total,
+      0
+    );
+
+    // Pending sales (always included)
+    const pendingIncome = this.sales
+      .filter((s) => s.pending)
+      .reduce((sum, s) => sum + s.total, 0);
+
+    return completedIncome + pendingIncome;
   }
 
   get totalExpenses(): number {
     return this.filteredExpenses.reduce((sum, e) => sum + (e.price || 0), 0);
+  }
+
+  /**
+   * Operational expenses ONLY - excludes automated COGS expenses
+   * Used for detailed breakdown if needed
+   */
+  get operationalExpenses(): number {
+    return this.filteredExpenses
+      .filter(
+        (e) =>
+          !e.productName.startsWith('[COGS]') &&
+          !e.productName.startsWith('[Recipe Use]')
+      )
+      .reduce((sum, e) => sum + (e.price || 0), 0);
   }
 
   get totalCOGS(): number {
@@ -158,9 +183,11 @@ export class ReportsComponent implements OnInit, OnDestroy {
     }, 0);
   }
 
+  /**
+   * Net Profit = Total Income − Total Expenses
+   * Following the formula: (Completed Income + Pending Income) − Total Expenses = Net Profit
+   */
   get netProfit(): number {
-    // Net Profit = (Revenue - COGS) - Operational Expenses
-    // Since totalIncome is now Net (Revenue - COGS), we just minus operational expenses
     return this.totalIncome - this.totalExpenses;
   }
 
@@ -248,6 +275,7 @@ export class ReportsComponent implements OnInit, OnDestroy {
     }
 
     for (const period of periods) {
+      // Income = Total sales revenue for the period (matching card formula)
       const periodIncome = this.sales
         .filter((s) => {
           const saleDate = this.parseTimestamp(s.timestamp);
@@ -255,13 +283,7 @@ export class ReportsComponent implements OnInit, OnDestroy {
             saleDate >= period.start && saleDate < period.end && !s.pending
           );
         })
-        .reduce((sum, s) => {
-          const costPerUnit =
-            s.costPrice !== undefined
-              ? s.costPrice
-              : this.products.find((p) => p.id === s.productId)?.cost || 0;
-          return sum + (s.total - costPerUnit * s.quantitySold);
-        }, 0);
+        .reduce((sum, s) => sum + s.total, 0);
 
       const periodExpense = this.expenses
         .filter((e) => {
@@ -281,13 +303,21 @@ export class ReportsComponent implements OnInit, OnDestroy {
   }
 
   getBarHeight(value: number): number {
-    const maxIncome = Math.max(...this.monthlyData.map((m) => m.income), 1);
-    return Math.max((value / maxIncome) * 100, 5);
+    // Use max of income OR expense for proper scaling
+    const maxValue = Math.max(
+      ...this.monthlyData.map((m) => Math.max(m.income, m.expense)),
+      1
+    );
+    return Math.max((value / maxValue) * 100, 5);
   }
 
   getExpenseBarHeight(value: number): number {
-    const maxIncome = Math.max(...this.monthlyData.map((m) => m.income), 1);
-    return Math.max((value / maxIncome) * 100, 5);
+    // Use same scale as income for fair comparison
+    const maxValue = Math.max(
+      ...this.monthlyData.map((m) => Math.max(m.income, m.expense)),
+      1
+    );
+    return Math.max((value / maxValue) * 100, 5);
   }
 
   // Expense breakdown for donut chart
@@ -311,13 +341,12 @@ export class ReportsComponent implements OnInit, OnDestroy {
     }));
   }
 
-  // Recent transactions - respects date filter
-  get recentTransactions(): Transaction[] {
+  // All transactions - respects date filter, includes ALL data
+  get allTransactions(): Transaction[] {
     const transactions: Transaction[] = [];
-    const start = this.getDateRangeStart();
 
-    // Add completed sales as income (filtered by date range)
-    this.filteredSales.slice(0, 15).forEach((s) => {
+    // Add ALL completed sales as income (filtered by date range)
+    this.filteredSales.forEach((s) => {
       transactions.push({
         date: this.parseTimestamp(s.timestamp),
         description: s.productName,
@@ -329,10 +358,9 @@ export class ReportsComponent implements OnInit, OnDestroy {
       });
     });
 
-    // Add pending sales (always show these regardless of filter)
+    // Add ALL pending sales
     this.sales
       .filter((s) => s.pending)
-      .slice(0, 5)
       .forEach((s) => {
         transactions.push({
           date: this.parseTimestamp(s.timestamp),
@@ -345,8 +373,8 @@ export class ReportsComponent implements OnInit, OnDestroy {
         });
       });
 
-    // Add expenses (filtered by date range)
-    this.filteredExpenses.slice(0, 15).forEach((e) => {
+    // Add ALL expenses (filtered by date range)
+    this.filteredExpenses.forEach((e) => {
       transactions.push({
         date: this.parseTimestamp(e.timestamp),
         description: e.productName,
@@ -374,8 +402,56 @@ export class ReportsComponent implements OnInit, OnDestroy {
       );
     }
 
-    // Return top 10
-    return sorted.slice(0, 10);
+    return sorted;
+  }
+
+  // Paginated transactions for display
+  get paginatedTransactions(): Transaction[] {
+    const startIndex = (this.txCurrentPage - 1) * this.txPerPage;
+    return this.allTransactions.slice(startIndex, startIndex + this.txPerPage);
+  }
+
+  get totalTxPages(): number {
+    return Math.ceil(this.allTransactions.length / this.txPerPage);
+  }
+
+  get txPageNumbers(): number[] {
+    const total = this.totalTxPages;
+    const current = this.txCurrentPage;
+    const pages: number[] = [];
+
+    // Show max 5 page numbers centered around current page
+    let start = Math.max(1, current - 2);
+    let end = Math.min(total, start + 4);
+    start = Math.max(1, end - 4);
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
+  goToTxPage(page: number): void {
+    if (page >= 1 && page <= this.totalTxPages) {
+      this.txCurrentPage = page;
+    }
+  }
+
+  previousTxPage(): void {
+    if (this.txCurrentPage > 1) {
+      this.txCurrentPage--;
+    }
+  }
+
+  nextTxPage(): void {
+    if (this.txCurrentPage < this.totalTxPages) {
+      this.txCurrentPage++;
+    }
+  }
+
+  // Reset to page 1 when search changes
+  onSearchChange(): void {
+    this.txCurrentPage = 1;
   }
 
   // Helpers
